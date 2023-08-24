@@ -1,0 +1,8 @@
+assetReferences:
+  inputs:
+    directories: []
+    filenames:
+    - /normalized/job/bundle/dir/noise-saver.nk
+  outputs:
+    directories:
+    - /normalized/job/bundle/dir/output

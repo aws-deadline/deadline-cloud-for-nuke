@@ -1,0 +1,271 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+import os
+from pathlib import PurePosixPath, PureWindowsPath
+from typing import (
+    List,
+    Type,
+)
+from unittest.mock import Mock, patch
+
+import nuke
+import pytest
+from openjobio.adaptor_runtime_client import (
+    HTTPClientInterface,
+    PathMappingRule,
+)
+
+import deadline.nuke_adaptor.NukeClient.nuke_client as nuke_client_mod
+from deadline.nuke_adaptor.NukeClient.nuke_client import NukeClient, main
+
+
+class TestNukeClient:
+    @patch.object(nuke_client_mod, "NukeHandler")
+    def test_nukeclient(self, mock_handler) -> None:
+        """Tests that the nuke client can initialize, set actions and close"""
+        # GIVEN
+        handler_action_dict = {f"action{i}": lambda: None for i in range(10)}
+        mock_handler.return_value.action_dict = handler_action_dict
+
+        # WHEN
+        client = NukeClient(socket_path="/tmp/9999")
+
+        # THEN
+        mock_handler.assert_called_once()
+        assert handler_action_dict.items() <= client.actions.items()
+
+    @patch("deadline.nuke_adaptor.NukeClient.nuke_client.os.path.exists")
+    @patch.dict(os.environ, {"NUKE_ADAPTOR_SOCKET_PATH": "9999"})
+    @patch("deadline.nuke_adaptor.NukeClient.NukeClient.poll")
+    @patch("deadline.nuke_adaptor.NukeClient.nuke_client._HTTPClientInterface")
+    def test_main(self, mock_httpclient: Mock, mock_poll: Mock, mock_exists: Mock) -> None:
+        """Tests that the main method starts the nuke client polling method"""
+        # GIVEN
+        mock_exists.return_value = True
+
+        # WHEN
+        main()
+
+        # THEN
+        mock_exists.assert_called_once_with("9999")
+        mock_poll.assert_called_once()
+
+    @patch.dict(os.environ, {}, clear=True)
+    @patch("deadline.nuke_adaptor.NukeClient.NukeClient.poll")
+    def test_main_no_server_socket(self, mock_poll: Mock) -> None:
+        """Tests that the main method raises an OSError if no server socket is found"""
+        # WHEN
+        with pytest.raises(OSError) as exc_info:
+            main()
+
+        # THEN
+        assert str(exc_info.value) == (
+            "NukeClient cannot connect to the Adaptor because the environment variable "
+            "NUKE_ADAPTOR_SOCKET_PATH does not exist"
+        )
+        mock_poll.assert_not_called()
+
+    @patch("deadline.nuke_adaptor.NukeClient.nuke_client.os.path.exists")
+    @patch.dict(os.environ, {"NUKE_ADAPTOR_SOCKET_PATH": "/a/path/that/does/not/exist"})
+    @patch("deadline.nuke_adaptor.NukeClient.NukeClient.poll")
+    def test_main_server_socket_not_exist(self, mock_poll: Mock, mock_exists: Mock) -> None:
+        """Tests that the main method raises an OSError if the server socket does not exist"""
+        # GIVEN
+        mock_exists.return_value = False
+
+        # WHEN
+        with pytest.raises(OSError) as exc_info:
+            main()
+
+        # THEN
+        mock_exists.assert_called_once_with("/a/path/that/does/not/exist")
+        assert str(exc_info.value) == (
+            "NukeClient cannot connect to the Adaptor because the socket at the path defined by "
+            "the environment variable NUKE_ADAPTOR_SOCKET_PATH does not exist. Got: "
+            f"{os.environ['NUKE_ADAPTOR_SOCKET_PATH']}"
+        )
+        mock_poll.assert_not_called()
+
+    @patch.object(nuke, "scriptExit")
+    @patch.object(nuke, "scriptClose")
+    def test_close(self, mock_script_close: Mock, mock_script_exit: Mock):
+        """
+        Test that nuke closes and exits on client.close()
+        """
+        # GIVEN
+        client = NukeClient(socket_path="/tmp/9999")
+
+        # WHEN
+        client.close()
+
+        # THEN
+        mock_script_close.assert_called_once_with()
+        mock_script_exit.assert_called_once_with()
+
+    @patch.object(nuke, "scriptExit")
+    @patch.object(nuke, "scriptClose")
+    def test_graceful_shutdown(self, mock_script_close: Mock, mock_script_exit: Mock):
+        """
+        Test that nuke closes and exits on client.graceful_shutdown
+        """
+        # GIVEN
+        client = NukeClient(socket_path="/tmp/9999")
+
+        # WHEN
+        client.graceful_shutdown(1, Mock())
+
+        # THEN
+        mock_script_close.assert_called_once_with()
+        mock_script_exit.assert_called_once_with()
+
+    @pytest.mark.parametrize("is_dir", [True, False])
+    @patch.object(nuke_client_mod, "os")
+    def test_ensure_output_dir(self, mock_os: Mock, is_dir: bool):
+        """
+        Test that the ensure_output_dir handle which is run before each render works properly
+        """
+        # GIVEN
+        NukeClient(socket_path="/tmp/9999")
+        mock_os.path.isdir.return_value = is_dir
+        ensure_output_dir = nuke.addBeforeRender.call_args[0][0]
+
+        # WHEN
+        ensure_output_dir()
+
+        # THEN
+        mock_os.path.isdir.assert_called_once_with(mock_os.path.dirname.return_value)
+        if is_dir:
+            mock_os.makedirs.assert_not_called()
+        else:
+            mock_os.makedirs.assert_called_once_with(mock_os.path.dirname.return_value)
+
+    @pytest.mark.parametrize(
+        "path, client_mapped, expected_mapped, new_path_class, rules",
+        [
+            (
+                "some/path",
+                "C:\\Some\\Windows\\Path",
+                "C:/Some/Windows/Path",
+                PureWindowsPath,
+                [
+                    PathMappingRule(
+                        source_os="Windows",
+                        source_path="some",
+                        destination_os="Windows",
+                        destination_path="C:/Some",
+                    ),
+                ],
+            ),
+            (
+                "some/path",
+                "/some/linux/path/with\\ spaces",
+                "/some/linux/path/with\\ spaces",
+                PurePosixPath,
+                [
+                    PathMappingRule(
+                        source_os="linux",
+                        source_path="some",
+                        destination_os="linux",
+                        destination_path="/some/linux",
+                    ),
+                ],
+            ),
+        ],
+    )
+    @patch.object(nuke, "addFilenameFilter")
+    @patch.object(nuke_client_mod, "Path")
+    @patch.object(HTTPClientInterface, "map_path")
+    @patch.object(HTTPClientInterface, "path_mapping_rules")
+    def test_map_path(
+        self,
+        mock_path_mapping_rules: Mock,
+        mock_map_path: Mock,
+        mocked_path_class: Mock,
+        mock_addfilenamefilter: Mock,
+        path: str,
+        client_mapped: str,
+        expected_mapped: str,
+        new_path_class: Type,
+        rules: List[PathMappingRule],
+    ):
+        # GIVEN
+        mocked_path_class.side_effect = new_path_class
+        client = NukeClient(socket_path="/tmp/9999")
+        mock_map_path.return_value = client_mapped
+        mock_path_mapping_rules.return_value = rules
+
+        # WHEN
+        mapped = client.map_path(path)
+
+        # THEN
+        mock_addfilenamefilter.assert_called_once_with(client.map_path)
+        assert mapped == expected_mapped
+
+    @pytest.mark.parametrize(
+        "path, client_mapped, expected_mapped, new_path_class, rules",
+        [
+            (
+                "/session-dir/thing",
+                "/session-dir/session-dir/thing",
+                "/session-dir/thing",
+                PurePosixPath,
+                [
+                    PathMappingRule(
+                        source_os="linux",
+                        source_path="/",
+                        destination_os="linux",
+                        destination_path="/session-dir",
+                    ),
+                ],
+            ),
+            (
+                "path/session-dir/thing",
+                "path/session-dir/session-dir/thing",
+                "path/session-dir/thing",
+                PurePosixPath,
+                [
+                    PathMappingRule(
+                        source_os="Windows",
+                        source_path="some",
+                        destination_os="Windows",
+                        destination_path="C:/Some",
+                    ),
+                    PathMappingRule(
+                        source_os="linux",
+                        source_path="path",
+                        destination_os="linux",
+                        destination_path="path/session-dir",
+                    ),
+                ],
+            ),
+        ],
+        ids=["mapping from root", "multi-rule"],
+    )
+    @patch.object(nuke, "addFilenameFilter")
+    @patch.object(nuke_client_mod, "Path")
+    @patch.object(HTTPClientInterface, "map_path")
+    @patch.object(HTTPClientInterface, "path_mapping_rules")
+    def test_recursive_map_path(
+        self,
+        mock_path_mapping_rules: Mock,
+        mock_map_path: Mock,
+        mocked_path_class: Mock,
+        mock_addfilenamefilter: Mock,
+        path: str,
+        client_mapped: str,
+        expected_mapped: str,
+        new_path_class: Type,
+        rules: List[PathMappingRule],
+    ):
+        # GIVEN
+        mocked_path_class.side_effect = new_path_class
+        client = NukeClient(socket_path="/tmp/9999")
+        mock_map_path.return_value = client_mapped
+        mock_path_mapping_rules.return_value = rules
+
+        # WHEN
+        mapped = client.map_path(path)
+
+        # THEN
+        mock_addfilenamefilter.assert_called_once_with(client.map_path)
+        assert mapped == expected_mapped

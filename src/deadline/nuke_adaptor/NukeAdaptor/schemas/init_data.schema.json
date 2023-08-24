@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "continue_on_error": {"type": "boolean"},
+        "proxy": {"type": "boolean"},
+        "write_nodes": {
+            "type": "array", 
+            "items": {
+                "type": "string"
+            }
+        },
+        "views": {
+            "type": "array", 
+            "items": {
+                "type": "string"
+            }
+        },
+        "script_file": { "type": "string" },
+        "version": { "type": "string" }
+    },
+    "required": [
+        "script_file",
+        "version"
+    ]
+}
