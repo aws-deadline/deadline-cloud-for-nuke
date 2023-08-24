@@ -1,0 +1,135 @@
+#! D:/Programs/Nuke13.2v4/nuke-13.2.4.dll -nx
+version 13.2 v4
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="0" y="0" w="1917" h="1018" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="1254" stretch="1"/>
+            <splitter orientation="2">
+                <split size="573"/>
+                <dock id="" activePageId="Viewer.1">
+                    <page id="Viewer.1"/>
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="403"/>
+                <dock id="" activePageId="DAG.1" focus="true">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name C:/Users/markw/deadline-clients/deadline-nuke/job_bundle_output_tests/multi-load-save/multi-load-save.nk
+ project_directory "\[python \{nuke.script_directory()\}]"
+ frame 6
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+Viewer {
+ inputs 0
+ frame_range 1-5
+ frame_range_lock true
+ monitorOutOutputTransform rec709
+ name Viewer1
+ xpos -40
+ ypos -10
+}
+Constant {
+ inputs 0
+ channels rgb
+ color {0.594774 0.315085 0.477861 0}
+ color_panelDropped true
+ name Constant1
+ xpos -321
+ ypos -177
+}
+set N55fd2000 [stack 0]
+Noise {
+ zoffset {{curve x2 1.74 x7 0.42 x16 1.16 x87 0.36}}
+ center {1024 778}
+ name Noise1
+ xpos -215
+ ypos -101
+}
+Write {
+ file output/output_####.png
+ file_type png
+ checkHashOnRead false
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Write1
+ xpos -135
+ ypos -61
+}
+push $N55fd2000
+Write {
+ file more_output_####.exr
+ file_type exr
+ first_part rgba
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Write2
+ xpos -265
+ ypos -51
+}
+Read {
+ inputs 0
+ file_type exr
+ file some_exrs_####.exr
+ first 50
+ last 100
+ origset true
+ name Read2
+ xpos 100
+ ypos -232
+}
+Read {
+ inputs 0
+ file_type jpeg
+ file input_seq_####.jpg
+ last 10
+ origset true
+ name Read1
+ xpos -40
+ ypos -227
+}
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 100
+ ypos -88
+}
+Write {
+ file third_output_####.png
+ file_type png
+ checkHashOnRead false
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Write3
+ selected true
+ xpos 146
+ ypos 5
+}

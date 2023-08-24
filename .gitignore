@@ -1,0 +1,15 @@
+/dist
+/wheels/
+*.egg-info/
+__pycache__/
+.coverage
+.tox
+.venv
+/htmlcov
+.vscode
+.attach_pid*
+/build
+*_version.py
+dependency_bundle
+**/test_job_bundle/
+**/test-job-bundle-results.txt
