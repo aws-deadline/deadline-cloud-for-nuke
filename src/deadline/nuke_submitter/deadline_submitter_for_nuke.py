@@ -110,7 +110,7 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     job_template["name"] = settings.name
 
     # Get a map of the parameter definitions for easier lookup
-    parameter_def_map = {param["name"]: param for param in job_template["parameters"]}
+    parameter_def_map = {param["name"]: param for param in job_template["parameterDefinitions"]}
 
     # Set the WriteNode parameter allowed values
     parameter_def_map["WriteNode"]["allowedValues"].extend(
@@ -135,33 +135,33 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
         wheels_path_package_names = {
             path.split("-", 1)[0] for path in os.listdir(wheels_path) if path.endswith(".whl")
         }
-        if wheels_path_package_names != {"openjobio", "deadline", "deadline_cloud_for_nuke"}:
+        if wheels_path_package_names != {"openjd", "deadline", "deadline_cloud_for_nuke"}:
             raise RuntimeError(
                 "The Developer Option 'Include Adaptor Wheels' is enabled, but the wheels directory contains the wrong wheels:\n"
-                + "Expected: openjobio, deadline, and deadline_cloud_for_nuke\n"
+                + "Expected: openjd, deadline, and deadline_cloud_for_nuke\n"
                 + f"Actual: {wheels_path_package_names}"
             )
 
         adaptor_wheels_param = [
             param
-            for param in override_environment["parameters"]
+            for param in override_environment["parameterDefinitions"]
             if param["name"] == "AdaptorWheels"
         ][0]
         adaptor_wheels_param["default"] = str(wheels_path)
         override_adaptor_name_param = [
             param
-            for param in override_environment["parameters"]
+            for param in override_environment["parameterDefinitions"]
             if param["name"] == "OverrideAdaptorName"
         ][0]
         override_adaptor_name_param["default"] = "NukeAdaptor"
 
         # There are no parameter conflicts between these two templates, so this works
-        job_template["parameters"].extend(override_environment["parameters"])
+        job_template["parameterDefinitions"].extend(override_environment["parameters"])
 
         # Add the environment to the end of the template's job environments
         if "environments" not in job_template:
-            job_template["environments"] = []
-        job_template["environments"].append(override_environment["environment"])
+            job_template["jobEnvironments"] = []
+        job_template["jobEnvironments"].append(override_environment["environment"])
 
     return job_template
 

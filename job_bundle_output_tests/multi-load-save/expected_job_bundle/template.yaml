@@ -1,6 +1,6 @@
-specificationVersion: '2022-09-01'
+specificationVersion: jobtemplate-2023-09
 name: multi-load-save.nk
-parameters:
+parameterDefinitions:
 - name: NukeScriptFile
   type: PATH
   objectType: FILE
@@ -74,7 +74,7 @@ parameters:
     label: Rez Packages
   description: A space-separated list of Rez packages to install
   default: nuke-13 deadline_cloud_for_nuke
-environments:
+jobEnvironments:
 - name: Rez
   description: Initializes and destroys the Rez environment for the job.
   script:
@@ -159,17 +159,17 @@ environments:
 
         for k, v in put.items():
             print(f"updating {k}={v}")
-            print(f"openjobio_env: {k}={v}")
+            print(f"openjd_env: {k}={v}")
         for k in delete:
-            print(f"openjobio_unset_env: {k}")
+            print(f"openjd_unset_env: {k}")
 steps:
 - name: Render
   parameterSpace:
-    parameters:
+    taskParameterDefinitions:
     - name: Frame
       type: INT
       range: '{{Param.Frames}}'
-  environments:
+  stepEnvironments:
   - name: Nuke
     description: Runs Nuke in the background with a script file loaded.
     script:
