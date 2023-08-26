@@ -30,7 +30,7 @@ class SceneSettingsWidget(QWidget):
         super().__init__(parent=parent)
 
         self.developer_options = (
-            os.environ.get("DEADLINE_NUKE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE"
+            os.environ.get("DEADLINE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE"
         )
 
         self._build_ui()

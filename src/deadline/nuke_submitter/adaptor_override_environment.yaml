@@ -4,19 +4,22 @@ parameters:
   type: PATH
   objectType: DIRECTORY
   dataFlow: IN
-  description: A directory that contains wheels for openjobio, deadline, and deadline-nuke.
+  description: A directory that contains wheels for openjobio, deadline, and the overridden adaptor.
+- name: OverrideAdaptorName
+  type: STRING
+  description: The name of the adaptor to override, for example NukeAdaptor or MayaAdaptor.
 environment:
-  name: OverrideNukeAdaptor
+  name: OverrideAdaptor
   description: >
-    Replaces the default NukeAdaptor in the environment's PATH with one from the
-    AdaptorWheels parameter.
+    Replaces the default Adaptor in the environment's PATH with one from the
+    packages in the AdaptorWheels attached directory.
   script:
     actions:
       onEnter:
-        command: '{{ Env.File.Enter }}'
+        command: '{{Env.File.Enter}}'
     embeddedFiles:
     - name: Enter
-      filename: nuke-adaptor-enter.sh
+      filename: override-adaptor-enter.sh
       type: TEXT
       runnable: true
       data: |
@@ -28,19 +31,8 @@ environment:
         ls {{Param.AdaptorWheels}}/
         echo ""
 
-        # Assert that the `python3` command is Nuke's python
-        which python3 | grep -q -i nuke
-
-        # Remove some packages that might have been installed
-        echo "Uninstalling adaptor packages that may be in the Nuke installation"
-        python3 -m pip uninstall deadline-nuke || true
-        python3 -m pip uninstall deadline_nuke || true
-        python3 -m pip uninstall deadline || true
-        python3 -m pip uninstall openjobio || true
-        echo ""
-
         # Create a venv and activate it in this environment
-        echo "Creating Python venv for the NukeAdaptor command"
+        echo "Creating Python venv for the {{Param.OverrideAdaptor}} command"
         /usr/local/bin/python3 -m venv '{{Session.WorkingDirectory}}/venv'
         {{Env.File.InitialVars}}
         . '{{Session.WorkingDirectory}}/venv/bin/activate'
@@ -52,8 +44,8 @@ environment:
         pip install {{Param.AdaptorWheels}}/deadline*.whl
         echo ""
 
-        if [ ! -f '{{Session.WorkingDirectory}}/venv/bin/NukeAdaptor' ]; then
-          echo "The Nuke Adaptor was not installed as expected."
+        if [ ! -f '{{Session.WorkingDirectory}}/venv/bin/{{Param.OverrideAdaptorName}}' ]; then
+          echo "The Override Adaptor {{Param.OverrideAdaptorName}} was not installed as expected."
           exit 1
         fi
     - name: InitialVars

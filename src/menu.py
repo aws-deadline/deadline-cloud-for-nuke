@@ -21,8 +21,8 @@ try:
     menu_bar = nuke.menu("Nuke")
     thinkbox_menu = menu_bar.addMenu("&Thinkbox")
     thinkbox_menu.addCommand("Submit Nuke To Deadline", show_nuke_render_submitter_noargs, "")
-    # Set the environment variable DEADLINE_NUKE_ENABLE_DEVELOPER_OPTIONS to "true" to get this menu.
-    if os.environ.get("DEADLINE_NUKE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE":
+    # Set the environment variable DEADLINE_ENABLE_DEVELOPER_OPTIONS to "true" to get this menu.
+    if os.environ.get("DEADLINE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE":
         thinkbox_menu.addCommand(
             "Run Nuke Submitter Job Bundle Output Tests...",
             run_nuke_render_submitter_job_bundle_output_test,

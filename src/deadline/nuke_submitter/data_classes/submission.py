@@ -29,8 +29,8 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
         default_factory=lambda: Path(get_nuke_script_file()).name if get_nuke_script_file() else ""
     )
     description: str = field(default="")
-    override_installation_requirements: bool = field(default=True)
-    installation_requirements: str = field(default="nuke-13 deadline_nuke")
+    override_rez_packages: bool = field(default=True)
+    rez_packages: str = field(default="nuke-13 deadline_nuke")
 
     override_frame_range: bool = field(default=False)
     frame_list: str = field(default_factory=lambda: str(nuke.root().frameRange()))
@@ -41,8 +41,8 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     # settings with defaults
     submitter_name: str = field(default="Nuke")
     initial_status: str = field(default="READY")
-    failed_tasks_limit: int = field(default=100)
-    task_retry_limit: int = field(default=5)
+    max_failed_tasks_count: int = field(default=100)
+    max_retries_per_task: int = field(default=5)
     priority: int = field(default=50)
 
     input_filenames: list[str] = field(default_factory=list)
@@ -56,16 +56,16 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
         return RenderSubmitterSettings(
             name=self.name,
             description=self.description,
-            override_installation_requirements=self.override_installation_requirements,
-            installation_requirements=self.installation_requirements,
+            override_rez_packages=self.override_rez_packages,
+            rez_packages=self.rez_packages,
             override_frame_range=self.override_frame_range,
             frame_list=self.frame_list,
             write_node_selection=_node_to_str(self.write_node_selection),
             view_selection=self.view_selection,
             is_proxy_mode=self.is_proxy_mode,
             initial_status=self.initial_status,
-            failed_tasks_limit=self.failed_tasks_limit,
-            task_retry_limit=self.task_retry_limit,
+            max_failed_tasks_count=self.max_failed_tasks_count,
+            max_retries_per_task=self.max_retries_per_task,
             priority=self.priority,
             input_filenames=self.input_filenames,
             input_directories=self.input_directories,
@@ -76,16 +76,16 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     def apply_saved_settings(self, settings: RenderSubmitterSettings) -> None:
         self.name = settings.name
         self.description = settings.description
-        self.override_installation_requirements = settings.override_installation_requirements
-        self.installation_requirements = settings.installation_requirements
+        self.override_rez_packages = settings.override_rez_packages
+        self.rez_packages = settings.rez_packages
         self.override_frame_range = settings.override_frame_range
         self.frame_list = settings.frame_list
         self.write_node_selection = _str_to_node(settings.write_node_selection)
         self.view_selection = settings.view_selection
         self.is_proxy_mode = settings.is_proxy_mode
         self.initial_status = settings.initial_status
-        self.failed_tasks_limit = settings.failed_tasks_limit
-        self.task_retry_limit = settings.task_retry_limit
+        self.max_failed_tasks_count = settings.max_failed_tasks_count
+        self.max_retries_per_task = settings.max_retries_per_task
         self.priority = settings.priority
         self.input_filenames = settings.input_filenames
         self.input_directories = settings.input_directories
@@ -101,8 +101,8 @@ class RenderSubmitterSettings:  # pylint: disable=too-many-instance-attributes
 
     name: str
     description: str
-    override_installation_requirements: bool
-    installation_requirements: str
+    override_rez_packages: bool
+    rez_packages: str
 
     override_frame_range: bool
     frame_list: str
@@ -111,8 +111,8 @@ class RenderSubmitterSettings:  # pylint: disable=too-many-instance-attributes
     is_proxy_mode: bool
 
     initial_status: str
-    failed_tasks_limit: int
-    task_retry_limit: int
+    max_failed_tasks_count: int
+    max_retries_per_task: int
     priority: int
 
     # settings with defaults
