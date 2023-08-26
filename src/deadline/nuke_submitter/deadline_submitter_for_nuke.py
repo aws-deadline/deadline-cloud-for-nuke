@@ -100,17 +100,6 @@ def _get_write_node(settings: RenderSubmitterUISettings) -> tuple[Node, str]:
     return write_node, node_name
 
 
-INIT_DATA_CONTENTS = """continue_on_error: {{Param.ContinueOnError}}
-proxy: {{Param.ProxyMode}}
-script_file: '{{Param.NukeScriptFile}}'
-version: '{{Param.NukeVersion}}'
-write_nodes:
-- '{{Param.WriteNode}}'
-views:
-- '{{Param.View}}'
-"""
-
-
 def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     # Load the default Nuke job template, and then fill in scene-specific
     # values it needs.
@@ -153,7 +142,18 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
                 + f"Actual: {wheels_path_package_names}"
             )
 
-        override_environment["parameters"][0]["default"] = str(wheels_path)
+        adaptor_wheels_param = [
+            param
+            for param in override_environment["parameters"]
+            if param["name"] == "AdaptorWheels"
+        ][0]
+        adaptor_wheels_param["default"] = str(wheels_path)
+        override_adaptor_name_param = [
+            param
+            for param in override_environment["parameters"]
+            if param["name"] == "OverrideAdaptorName"
+        ][0]
+        override_adaptor_name_param["default"] = "NukeAdaptor"
 
         # There are no parameter conflicts between these two templates, so this works
         job_template["parameters"].extend(override_environment["parameters"])
@@ -170,8 +170,8 @@ def _get_parameter_values(settings: RenderSubmitterUISettings) -> dict[str, Any]
     parameter_values = [
         {"name": "deadline:priority", "value": settings.priority},
         {"name": "deadline:targetTaskRunStatus", "value": settings.initial_status},
-        {"name": "deadline:maxFailedTasksCount", "value": settings.failed_tasks_limit},
-        {"name": "deadline:maxRetriesPerTask", "value": settings.task_retry_limit},
+        {"name": "deadline:maxFailedTasksCount", "value": settings.max_failed_tasks_count},
+        {"name": "deadline:maxRetriesPerTask", "value": settings.max_retries_per_task},
     ]
     write_node, write_node_name = _get_write_node(settings)
 
@@ -202,10 +202,8 @@ def _get_parameter_values(settings: RenderSubmitterUISettings) -> dict[str, Any]
     parameter_values.append({"name": "NukeVersion", "value": get_nuke_version()})
 
     # Set the RezPackages parameter default
-    if settings.override_installation_requirements:
-        parameter_values.append(
-            {"name": "RezPackages", "value": settings.installation_requirements}
-        )
+    if settings.override_rez_packages:
+        parameter_values.append({"name": "RezPackages", "value": settings.rez_packages})
 
     return {"parameterValues": parameter_values}
 

@@ -44,7 +44,7 @@ WARNING: This workflow installs additional Python packages into your Nuke's pyth
    in edit mode.
 6. Run `set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-nuke\src` to put the `menu.py`
    file in the path Nuke searches for menu extensions.
-7. Run `set DEADLINE_NUKE_ENABLE_DEVELOPER_OPTIONS=true` to enable the job bundle debugging support.
+7. Run `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true` to enable the job bundle debugging support.
    This enables a menu item you can use to run the tests from the `job_bundle_output_tests` directory.
 8. Run `.\Nuke<version>.exe` to run Nuke. The Nuke submitter should be available in the Thinkbox menu.
 
@@ -56,7 +56,7 @@ your build of the adaptor for the one in the service.
 
 1. Use the development location from the Submitter Development Workflow.
    You will need to also check out `openjobio` from git if you do
-   not already have it. Make sure you're running Nuke with `set DEADLINE_NUKE_ENABLE_DEVELOPER_OPTIONS=true`
+   not already have it. Make sure you're running Nuke with `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true`
    enabled.
 2. Build wheels for `openjobio`, `deadline` and `deadline-nuke`.
    ```
@@ -74,5 +74,5 @@ your build of the adaptor for the one in the service.
    deadline_nuke-<version>-py3-none-any.whl  deadline-<version>-py3-none-any.whl
    ```
 3. Open the Nuke integrated submitter, and in the Job-Specific Settings tab, enable the option 'Include Adaptor Wheels'. This
-   option is only visible when the environment variable `DEADLINE_NUKE_ENABLE_DEVELOPER_OPTIONS` is set to `true`.
+   option is only visible when the environment variable `DEADLINE_ENABLE_DEVELOPER_OPTIONS` is set to `true`.
    Then submit your test job.
