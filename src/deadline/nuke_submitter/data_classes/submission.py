@@ -30,7 +30,7 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     )
     description: str = field(default="")
     override_rez_packages: bool = field(default=True)
-    rez_packages: str = field(default="nuke-13 deadline_nuke")
+    rez_packages: str = field(default="nuke-13 deadline_cloud_for_nuke")
 
     override_frame_range: bool = field(default=False)
     frame_list: str = field(default_factory=lambda: str(nuke.root().frameRange()))
