@@ -15,7 +15,7 @@ try:
 
     from deadline.nuke_submitter import (
         show_nuke_render_submitter_noargs,
-        run_nuke_render_submitter_job_bundle_output_test,
+        run_render_submitter_job_bundle_output_test,
     )
 
     menu_bar = nuke.menu("Nuke")
@@ -25,7 +25,7 @@ try:
     if os.environ.get("DEADLINE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE":
         thinkbox_menu.addCommand(
             "Run Nuke Submitter Job Bundle Output Tests...",
-            run_nuke_render_submitter_job_bundle_output_test,
+            run_render_submitter_job_bundle_output_test,
             "",
         )
 
