@@ -1,5 +1,23 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+"""
+Runs a set of job bundle tests defined in a folder structure.
+
+<job_bundle_tests>/
+    test_1/
+        scene/
+            test_1.ext
+            <support data>
+        expected_job_bundle/
+            <reference output>
+    test_2
+        scene/
+            test_2.ext
+            <support data>
+        expected_job_bundle/
+            <reference output>
+    ...
+"""
 import os
 import tempfile
 from unittest import mock
@@ -7,53 +25,140 @@ import re
 import shutil
 import filecmp
 import difflib
+from typing import Any
+from pathlib import Path
+from datetime import datetime, timezone
 
 import nuke
-
 from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QApplication,
-    QMainWindow,
     QFileDialog,
     QMessageBox,
+    QMainWindow,
 )
+
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs import submit_job_to_deadline_dialog
 from deadline.client.exceptions import DeadlineOperationError
 from .deadline_submitter_for_nuke import show_nuke_render_submitter_noargs
 
 
-def run_nuke_render_submitter_job_bundle_output_test():
+# The following functions expose a DCC interface to the job bundle output test logic.
+
+
+def _get_dcc_main_window() -> Any:
     # Get the main Nuke window so we can parent the submitter to it
     app = QApplication.instance()
-    mainwin = [widget for widget in app.topLevelWidgets() if isinstance(widget, QMainWindow)][0]
+    return [widget for widget in app.topLevelWidgets() if isinstance(widget, QMainWindow)][0]
+
+
+def _get_dcc_scene_file_extension() -> str:
+    return ".nk"
+
+
+def _open_dcc_scene_file(filename: str):
+    """Opens the scene file in Nuke."""
+    nuke.scriptOpen(filename)
+
+
+def _close_dcc_scene_file():
+    """Closes the scene file in Nuke."""
+    nuke.scriptClose()
+
+
+def _copy_dcc_scene_file(source_filename: str, dest_filename: str):
+    # Copy all support files under the source filename's dirname
+    # Python 3.7 doesn't support dirs_exist_ok=True, so we
+    # go through all the files & directories at the top level.
+    source_dir = os.path.dirname(source_filename)
+    dest_dir = os.path.dirname(dest_filename)
+    for path in os.listdir(source_dir):
+        source = os.path.join(source_dir, path)
+        dest = os.path.join(dest_dir, path)
+        if os.path.isdir(source):
+            shutil.copytree(source, dest)
+        else:
+            shutil.copy(source, dest)
+
+    # Read the Nuke script
+    with open(source_filename, encoding="utf8") as f:
+        script_contents = f.read()
+
+    # Find the internal script path
+    original_script_dirname = None
+    for line in script_contents.splitlines():
+        match = re.match(" *name *(.*)", line)
+        if match:
+            original_script_dirname = os.path.dirname(match.group(1))
+            break
+    if not original_script_dirname:
+        raise DeadlineOperationError(
+            "Failed to analyze Nuke script file, it does not contain the name"
+            + " line containing the original full file path."
+        )
+
+    # Replace every instance of the original script path with tempdir
+    script_contents = script_contents.replace(
+        original_script_dirname, os.path.dirname(dest_filename).replace("\\", "/")
+    )
+
+    # Save the script to the tempdir
+    with open(dest_filename, "w", encoding="utf8") as f:
+        f.write(script_contents)
+
+
+def _show_deadline_cloud_submitter(mainwin: Any):
+    """Shows the Deadline Cloud Submitter for Nuke."""
+    return show_nuke_render_submitter_noargs()
+
+
+# The following functions implement the test logic.
+
+
+def _timestamp_string() -> str:
+    return datetime.now(timezone.utc).astimezone().isoformat()
+
+
+def run_render_submitter_job_bundle_output_test():
+    """
+    Runs a set of job bundle output tests from a directory.
+    """
+    # Get the DCC's main window so we can parent the submitter to it
+    mainwin = _get_dcc_main_window()
     count_succeeded = 0
     count_failed = 0
     with gui_error_handler("Error running job bundle output test", mainwin):
+        default_tests_dir = Path(__file__).parent.parent.parent.parent / "job_bundle_output_tests"
+
         tests_dir = QFileDialog.getExistingDirectory(
-            mainwin, "Select a Directory Containing Nuke Job Bundle Tests"
+            mainwin, "Select a Directory Containing the Job Bundle Tests", str(default_tests_dir)
         )
 
         if not tests_dir:
             return
 
+        tests_dir = os.path.normpath(tests_dir)
+
         test_job_bundle_results_file = os.path.join(tests_dir, "test-job-bundle-results.txt")
         with open(test_job_bundle_results_file, "w", encoding="utf8") as report_fh:
-            for job_bundle_test in os.listdir(tests_dir):
-                job_bundle_test = os.path.join(tests_dir, job_bundle_test)
+            for test_name in os.listdir(tests_dir):
+                job_bundle_test = os.path.join(tests_dir, test_name)
                 if not os.path.isdir(job_bundle_test):
                     continue
-                report_fh.write(f"\nRunning job bundle output test: {job_bundle_test}\n")
+                report_fh.write(f"\nTimestamp: {_timestamp_string()}\n")
+                report_fh.write(f"Running job bundle output test: {job_bundle_test}\n")
 
-                nuke_scripts = [
-                    path for path in os.listdir(job_bundle_test) if path.endswith(".nk")
-                ]
-                if len(nuke_scripts) != 1:
+                dcc_scene_file = os.path.join(
+                    job_bundle_test, "scene", f"{test_name}{_get_dcc_scene_file_extension()}"
+                )
+
+                if not (os.path.exists(dcc_scene_file) and os.path.isfile(dcc_scene_file)):
                     raise DeadlineOperationError(
-                        f"Directory {job_bundle_test} does not have a single .nk script: {nuke_scripts}."
+                        f"Directory {job_bundle_test} does not contain the expected {_get_dcc_scene_file_extension()} scene: {dcc_scene_file}."
                     )
 
                 succeeded = _run_job_bundle_output_test(
-                    job_bundle_test, os.path.join(job_bundle_test, nuke_scripts[0]), report_fh
+                    job_bundle_test, dcc_scene_file, report_fh, mainwin
                 )
                 if succeeded:
                     count_succeeded += 1
@@ -69,51 +174,32 @@ def run_nuke_render_submitter_job_bundle_output_test():
                     f"Failed {count_failed} tests, succeeded {count_succeeded}.\nSee the file {test_job_bundle_results_file} for a full report.",
                 )
             else:
-                report_fh.write(f"All tests passed, ran {count_succeeded} total.")
+                report_fh.write(f"All tests passed, ran {count_succeeded} total.\n")
                 QMessageBox.information(
                     mainwin,
                     "All Job Bundle Tests Passed",
                     f"Ran {count_succeeded} tests in total.",
                 )
+            report_fh.write(f"Timestamp: {_timestamp_string()}\n")
 
 
-def _run_job_bundle_output_test(test_dir: str, nuke_script: str, report_fh):
-    # with tempfile.TemporaryDirectory(prefix="job_bundle_output_test") as tempdir:
-    tempdir = tempfile.mkdtemp(prefix="job_bundle_output_test")
-    if True:
+def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, mainwin: Any):
+    with tempfile.TemporaryDirectory(prefix="job_bundle_output_test") as tempdir:
         temp_job_bundle_dir = os.path.join(tempdir, "job_bundle")
         os.makedirs(temp_job_bundle_dir, exist_ok=True)
 
-        # Read the Nuke script
-        with open(nuke_script, encoding="utf8") as f:
-            script_contents = f.read()
+        temp_dcc_scene_file = os.path.join(tempdir, os.path.basename(dcc_scene_file))
 
-        # Find the internal script path
-        original_script_path = None
-        for line in script_contents.splitlines():
-            match = re.match(" *name *(.*)", line)
-            if match:
-                original_script_path = match.group(1)
-                break
-        if not original_script_path:
-            raise DeadlineOperationError(f"Failed to analyze Nuke script: {nuke_script}")
+        # Copy the DCC scene file to the temp directory, transforming any
+        # internal paths as necessary.
+        _copy_dcc_scene_file(dcc_scene_file, temp_dcc_scene_file)
 
-        # Replace every instance of the original script path with tempdir
-        script_contents = script_contents.replace(
-            os.path.dirname(original_script_path), tempdir.replace("\\", "/")
-        )
-
-        # Save the script to the tempdir
-        temp_nuke_script = os.path.join(tempdir, os.path.basename(nuke_script))
-        with open(temp_nuke_script, "w", encoding="utf8") as f:
-            f.write(script_contents)
-
-        # Open the Nuke script in Nuke
-        nuke.scriptOpen(temp_nuke_script)
+        # Open the DCC scene file
+        _open_dcc_scene_file(temp_dcc_scene_file)
         QApplication.processEvents()
 
         # Open the Amazon Deadline Cloud submitter
-        submitter = show_nuke_render_submitter_noargs()
+        submitter = _show_deadline_cloud_submitter(mainwin)
         QApplication.processEvents()
 
         # Save the Job Bundle
@@ -128,8 +214,8 @@ def _run_job_bundle_output_test(test_dir: str, nuke_script: str, report_fh):
             submitter.on_save_bundle()
         QApplication.processEvents()
 
-        # Close the Nuke script in Nuke
-        nuke.scriptClose()
+        # Close the DCC scene file
+        _close_dcc_scene_file()
 
         # Process every file in the job bundle to replace the temp dir with a standardized path
         for filename in os.listdir(temp_job_bundle_dir):
@@ -137,7 +223,11 @@ def _run_job_bundle_output_test(test_dir: str, nuke_script: str, report_fh):
             with open(full_filename, encoding="utf8") as f:
                 contents = f.read()
             contents = contents.replace(tempdir + "\\", "/normalized/job/bundle/dir/")
+            contents = contents.replace(
+                tempdir.replace("\\", "/") + "/", "/normalized/job/bundle/dir/"
+            )
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
+            contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
             with open(full_filename, "w", encoding="utf8") as f:
                 f.write(contents)
 
