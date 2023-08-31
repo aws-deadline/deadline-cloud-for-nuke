@@ -71,7 +71,7 @@ your build of the adaptor for the one in the service.
    ...
    $ ls ./wheels
    openjobio-<version>-py3-none-any.whl
-   deadline_nuke-<version>-py3-none-any.whl  deadline-<version>-py3-none-any.whl
+   deadline_cloud_for_nuke-<version>-py3-none-any.whl  deadline-<version>-py3-none-any.whl
    ```
 3. Open the Nuke integrated submitter, and in the Job-Specific Settings tab, enable the option 'Include Adaptor Wheels'. This
    option is only visible when the environment variable `DEADLINE_ENABLE_DEVELOPER_OPTIONS` is set to `true`.

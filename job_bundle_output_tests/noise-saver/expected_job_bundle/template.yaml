@@ -71,7 +71,7 @@ parameters:
     control: LINE_EDIT
     label: Rez Packages
   description: A space-separated list of Rez packages to install
-  default: nuke-13 deadline_nuke
+  default: nuke-13 deadline_cloud_for_nuke
 environments:
 - name: Rez
   description: Initializes and destroys the Rez environment for the job.

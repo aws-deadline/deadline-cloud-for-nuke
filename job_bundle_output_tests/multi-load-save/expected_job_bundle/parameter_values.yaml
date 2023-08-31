@@ -16,4 +16,4 @@ parameterValues:
 - name: NukeVersion
   value: 13.2v4
 - name: RezPackages
-  value: nuke-13 deadline_nuke
+  value: nuke-13 deadline_cloud_for_nuke

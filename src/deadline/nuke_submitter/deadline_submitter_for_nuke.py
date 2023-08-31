@@ -135,10 +135,10 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
         wheels_path_package_names = {
             path.split("-", 1)[0] for path in os.listdir(wheels_path) if path.endswith(".whl")
         }
-        if wheels_path_package_names != {"openjobio", "deadline", "deadline_nuke"}:
+        if wheels_path_package_names != {"openjobio", "deadline", "deadline_cloud_for_nuke"}:
             raise RuntimeError(
                 "The Developer Option 'Include Adaptor Wheels' is enabled, but the wheels directory contains the wrong wheels:\n"
-                + "Expected: openjobio, deadline, and deadline_nuke\n"
+                + "Expected: openjobio, deadline, and deadline_cloud_for_nuke\n"
                 + f"Actual: {wheels_path_package_names}"
             )
 
