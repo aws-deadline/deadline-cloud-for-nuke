@@ -32,17 +32,19 @@ hatch run all:test
 Here are steps you can follow to run and edit the source code within your Nuke installation on Windows. The steps
 will work on Linux or MacOS if you modify the path references as appropriate.
 
-WARNING: This workflow installs additional Python packages into your Nuke's python distribution.
+WARNING: This workflow installs additional Python packages into your Nuke's python distribution. You may need to 
+run the Command Prompt in Administrative mode if your current user does not have permission to write on Nuke's
+site-package folder.
 
 1. Create a development location within which to do your git checkouts. For example `~/deadline-clients`.
    Clone packages from this directory with commands like
-   `git clone git@github.com:casillas2/deadline-nuke.git`. You'll also want the `deadline` repo.
+   `git clone git@github.com:casillas2/deadline-cloud-for-nuke.git`. You'll also want the `deadline-cloud` repo.
 2. Switch to your Nuke directory, like `cd "C:\Program Files\Nuke13.2v4"`.
-3. Run `.\python -m pip install -e C:\Users\<username>\deadline` to install the Amazon Deadline Cloud Client
+3. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud` to install the Amazon Deadline Cloud Client
    Library in edit mode.
-4. Run `.\python -m pip install -e C:\Users\<username>\deadline-nuke` to install the Nuke Submtiter
+4. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke` to install the Nuke Submtiter
    in edit mode.
-6. Run `set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-nuke\src` to put the `menu.py`
+6. Run `set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src` to put the `menu.py`
    file in the path Nuke searches for menu extensions.
 7. Run `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true` to enable the job bundle debugging support.
    This enables a menu item you can use to run the tests from the `job_bundle_output_tests` directory.
@@ -58,20 +60,21 @@ your build of the adaptor for the one in the service.
    You will need to also check out `openjobio` from git if you do
    not already have it. Make sure you're running Nuke with `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true`
    enabled.
-2. Build wheels for `openjobio`, `deadline` and `deadline-nuke`.
+2. Build wheels for `openjobio`, `deadline-cloud` and `deadline-cloud-for-nuke`.
    ```
    # If you don't have the build package installed already
    $ pip install build
    ...
    $  mkdir wheels; \
       rm wheels/*; \
-      for dir in ../openjobio ../deadline ../deadline-nuke; \
+      for dir in ../openjobio ../deadline-cloud ../deadline-cloud-for-nuke; \
         do python -m build --wheel --outdir ./wheels --skip-dependency-check $dir; \
       done
    ...
    $ ls ./wheels
    openjobio-<version>-py3-none-any.whl
-   deadline_cloud_for_nuke-<version>-py3-none-any.whl  deadline-<version>-py3-none-any.whl
+   deadline-cloud-<version>-py3-none-any.whl
+   deadline-cloud-for-nuke-<version>-py3-none-any.whl
    ```
 3. Open the Nuke integrated submitter, and in the Job-Specific Settings tab, enable the option 'Include Adaptor Wheels'. This
    option is only visible when the environment variable `DEADLINE_ENABLE_DEVELOPER_OPTIONS` is set to `true`.
