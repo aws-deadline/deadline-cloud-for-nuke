@@ -43,7 +43,10 @@ class NukeClient(_HTTPClientInterface):
 
         def ensure_output_dir():
             """Ensures the output directory exists before rendering"""
-            output_dir = os.path.dirname(nuke.filename(nuke.thisNode()))
+            output_filename = nuke.filename(nuke.thisNode())
+            if not os.path.isabs(output_filename):
+                output_filename = os.path.join(os.getcwd(), output_filename)
+            output_dir = os.path.dirname(output_filename)
             # Filenames can contain folders, if they do and the folders do not exist, create them
             if output_dir and not os.path.isdir(output_dir):
                 os.makedirs(output_dir)
