@@ -10,11 +10,11 @@ import threading
 import time
 from typing import Callable, cast
 
-from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
-from openjd.adaptor_runtime_client import Action
-from openjd.adaptor_runtime.process import LoggingSubprocess
-from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
-from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
+from openjobio.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
+from openjobio.adaptor_runtime_client import Action
+from openjobio.adaptor_runtime.process import LoggingSubprocess
+from openjobio.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
+from openjobio.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
 
 _logger = logging.getLogger(__name__)
 
@@ -145,9 +145,7 @@ class NukeAdaptor(Adaptor):
             callback_list = []
             completed_regexes = [re.compile("NukeClient: Finished Rendering Frame [0-9]+")]
             progress_regexes = [
-                re.compile(
-                    "NukeClient: Creating outputs ([0-9]+)-([0-9]+) of ([0-9]+) total outputs."
-                ),
+                re.compile("NukeClient: Creating outputs ([0-9]+)-([0-9]+) of ([0-9]+) total outputs."),
             ]
             error_regexes = [
                 re.compile(".*ERROR:.*"),
@@ -158,9 +156,7 @@ class NukeAdaptor(Adaptor):
             output_complete_regexes = [re.compile(r"Writing .+ took [0-9\.]+ seconds")]
             callback_list.append(RegexCallback(completed_regexes, self._handle_complete))
             callback_list.append(RegexCallback(progress_regexes, self._handle_progress))
-            callback_list.append(
-                RegexCallback(output_complete_regexes, self._handle_output_complete)
-            )
+            callback_list.append(RegexCallback(output_complete_regexes, self._handle_output_complete))
             callback_list.append(RegexCallback(error_regexes, self._handle_error))
             self._regex_callbacks = callback_list
         return self._regex_callbacks
@@ -308,9 +304,7 @@ class NukeAdaptor(Adaptor):
             time.sleep(0.1)  # busy wait for nuke to finish initialization
 
         if len(self._action_queue) > 0:
-            raise RuntimeError(
-                "Nuke encountered an error and was not able to complete initialization actions."
-            )
+            raise RuntimeError("Nuke encountered an error and was not able to complete initialization actions.")
 
     def on_run(self, run_data: dict) -> None:
         """
@@ -330,8 +324,7 @@ class NukeAdaptor(Adaptor):
             #  waiting for the next command. If the thread finished, then we cannot continue
             exit_code = self._nuke_client.returncode
             raise RuntimeError(
-                "Nuke exited early and did not render successfully, please check render logs. "
-                f"Exit code {exit_code}"
+                "Nuke exited early and did not render successfully, please check render logs. " f"Exit code {exit_code}"
             )
 
     def on_stop(self) -> None:
@@ -351,10 +344,7 @@ class NukeAdaptor(Adaptor):
         while self._nuke_is_running and not is_timed_out():
             time.sleep(0.1)
         if self._nuke_is_running and self._nuke_client:
-            _logger.error(
-                "Nuke did not complete cleanup actions and failed to gracefully shutdown. "
-                "Terminating."
-            )
+            _logger.error("Nuke did not complete cleanup actions and failed to gracefully shutdown. " "Terminating.")
             self._nuke_client.terminate()
 
         if self._server:
@@ -422,18 +412,14 @@ class NukeAdaptor(Adaptor):
 
         # Add the OpenJobIO namespace directory to PYTHONPATH, so that adaptor_runtime_client
         # will be available directly to the nuke client.
-        import openjd.adaptor_runtime_client
+        import openjobio.adaptor_runtime_client
         import deadline.nuke_adaptor
 
-        openjobio_namespace_dir = os.path.dirname(
-            os.path.dirname(openjd.adaptor_runtime_client.__file__)
-        )
+        openjobio_namespace_dir = os.path.dirname(os.path.dirname(openjobio.adaptor_runtime_client.__file__))
         deadline_namespace_dir = os.path.dirname(os.path.dirname(deadline.nuke_adaptor.__file__))
         python_path_addition = f"{openjobio_namespace_dir}{os.pathsep}{deadline_namespace_dir}"
         if "PYTHONPATH" in os.environ:
-            os.environ[
-                "PYTHONPATH"
-            ] = f"{os.environ['PYTHONPATH']}{os.pathsep}{python_path_addition}"
+            os.environ["PYTHONPATH"] = f"{os.environ['PYTHONPATH']}{os.pathsep}{python_path_addition}"
         else:
             os.environ["PYTHONPATH"] = python_path_addition
 

@@ -11,7 +11,7 @@ from typing import (
     Optional,
 )
 
-# The Nuke Adaptor adds the `openjd` namespace directory to PYTHONPATH,
+# The Nuke Adaptor adds the `openjobio` namespace directory to PYTHONPATH,
 # so that importing just the adaptor_runtime_client should work.
 try:
     from adaptor_runtime_client import (  # type: ignore[import]
@@ -20,7 +20,7 @@ try:
     )
     from nuke_adaptor.NukeClient.nuke_handler import NukeHandler  # type: ignore[import]
 except ImportError:
-    from openjd.adaptor_runtime_client import (
+    from openjobio.adaptor_runtime_client import (
         HTTPClientInterface as _HTTPClientInterface,
         PathMappingRule,
     )
@@ -77,17 +77,14 @@ class NukeClient(_HTTPClientInterface):
         if (
             rule
             and PurePath(path).is_absolute() == PurePath(rule.destination_path).is_absolute()
-            and PurePath(os.path.commonpath((path, rule.destination_path)))
-            == PurePath(rule.destination_path)
+            and PurePath(os.path.commonpath((path, rule.destination_path))) == PurePath(rule.destination_path)
         ):
             return Path(path).as_posix()
 
         result = super().map_path(path)
         return Path(result).as_posix()
 
-    def _which_rule_applies(
-        self, path: str, rules: List[PathMappingRule]
-    ) -> PathMappingRule | None:
+    def _which_rule_applies(self, path: str, rules: List[PathMappingRule]) -> PathMappingRule | None:
         """
         What rule applies to a given path?
         Takes a path and a list of rules.
@@ -97,8 +94,7 @@ class NukeClient(_HTTPClientInterface):
             if (
                 rule
                 and PurePath(path).is_absolute() == PurePath(rule.source_path).is_absolute()
-                and PurePath(os.path.commonpath((path, rule.source_path)))
-                == PurePath(rule.source_path)
+                and PurePath(os.path.commonpath((path, rule.source_path))) == PurePath(rule.source_path)
             ):
                 return rule
         return None
