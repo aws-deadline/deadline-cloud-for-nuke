@@ -203,7 +203,11 @@ def _get_parameter_values(settings: RenderSubmitterUISettings) -> dict[str, Any]
 
     # Set the RezPackages parameter default
     if settings.override_rez_packages:
-        parameter_values.append({"name": "RezPackages", "value": settings.rez_packages})
+        rez_packages = settings.rez_packages
+        # If the adaptor wheels are included, remove the deadline_cloud_for_nuke rez package
+        if settings.include_adaptor_wheels:
+            rez_packages = rez_packages.replace("deadline_cloud_for_nuke", "").strip()
+        parameter_values.append({"name": "RezPackages", "value": rez_packages})
 
     return {"parameterValues": parameter_values}
 
