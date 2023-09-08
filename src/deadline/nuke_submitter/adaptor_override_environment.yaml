@@ -32,7 +32,7 @@ environment:
         echo ""
 
         # Create a venv and activate it in this environment
-        echo "Creating Python venv for the {{Param.OverrideAdaptor}} command"
+        echo "Creating Python venv for the {{Param.OverrideAdaptorName}} command"
         /usr/local/bin/python3 -m venv '{{Session.WorkingDirectory}}/venv'
         {{Env.File.InitialVars}}
         . '{{Session.WorkingDirectory}}/venv/bin/activate'
@@ -40,7 +40,7 @@ environment:
         echo ""
 
         echo "Installing adaptor into the venv"
-        pip install {{Param.AdaptorWheels}}/openjobio*.whl
+        pip install {{Param.AdaptorWheels}}/openjd*.whl
         pip install {{Param.AdaptorWheels}}/deadline*.whl
         echo ""
 
