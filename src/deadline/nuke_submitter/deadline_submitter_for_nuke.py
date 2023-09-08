@@ -166,7 +166,9 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     return job_template
 
 
-def _get_parameter_values(settings: RenderSubmitterUISettings) -> dict[str, Any]:
+def _get_parameter_values(settings: RenderSubmitterUISettings,
+    default_rez_packages: str,
+) -> dict[str, Any]:
     parameter_values = [
         {"name": "deadline:priority", "value": settings.priority},
         {"name": "deadline:targetTaskRunStatus", "value": settings.initial_status},
@@ -202,8 +204,11 @@ def _get_parameter_values(settings: RenderSubmitterUISettings) -> dict[str, Any]
     parameter_values.append({"name": "NukeVersion", "value": get_nuke_version()})
 
     # Set the RezPackages parameter default
-    if settings.override_rez_packages:
-        rez_packages = settings.rez_packages
+    if settings.override_rez_packages or settings.include_adaptor_wheels:
+        if settings.override_rez_packages:
+            rez_packages = settings.rez_packages
+        else:
+            rez_packages = default_rez_packages
         # If the adaptor wheels are included, remove the deadline_cloud_for_nuke rez package
         if settings.include_adaptor_wheels:
             rez_packages = rez_packages.replace("deadline_cloud_for_nuke", "").strip()
@@ -223,7 +228,10 @@ def show_nuke_render_submitter(
     ) -> None:
         job_bundle_path = Path(job_bundle_dir)
         job_template = _get_job_template(settings)
-        parameter_values = _get_parameter_values(settings)
+
+        # TODO: Get the RezPackages parameter definition, and use the default set there
+        default_rez_packages = "nuke-13 deadline_cloud_for_nuke"
+        parameter_values = _get_parameter_values(settings, default_rez_packages)
 
         with open(job_bundle_path / "template.yaml", "w", encoding="utf8") as f:
             deadline_yaml_dump(job_template, f, indent=1)
