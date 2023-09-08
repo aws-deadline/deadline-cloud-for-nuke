@@ -9,6 +9,7 @@ from os.path import commonpath, dirname, join, normpath, samefile
 from sys import platform
 
 import nuke
+import PyOpenColorIO as OCIO
 
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
@@ -31,6 +32,22 @@ def get_project_path() -> str:
         project_path = os.getcwd()
     return project_path
 
+def is_custom_ocio_config_enabled() -> bool:
+    """True if the script is using a custom OCIO config"""
+    return nuke.root().knob("colorManagement").value() == "OCIO" and nuke.root().knob("OCIO_config").value() == "custom"
+
+def get_custom_ocio_config_path() -> str:
+    """This is the path to the custom OCIO config used by the script"""
+    return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
+
+def get_custom_ocio_config_luts_dir(ocio_config_file) -> str:
+    """Returns the directory containing the LUTs for the provided OCIO config"""
+    ocio_config = OCIO.Config.CreateFromFile(ocio_config_file)
+
+    # At least for all of the AMPAS OCIO configs this is always a relative path to the "luts" directory
+    search_path = ocio_config.getSearchPath()
+
+    return join(dirname(ocio_config_file), search_path)
 
 def get_scene_asset_references() -> AssetReferences:
     """Traverses all nodes to determine both input and output asset references"""
@@ -76,6 +93,14 @@ def get_scene_asset_references() -> AssetReferences:
         else:
             for filename in get_node_filenames(node):
                 asset_references.output_directories.add(dirname(filename))
+
+    # if using a custom OCIO config, add the config file and associated LUT directory
+    if is_custom_ocio_config_enabled():
+        ocio_config_path = get_custom_ocio_config_path()
+        ocio_config_luts_dir = get_custom_ocio_config_luts_dir(ocio_config_path)
+
+        asset_references.input_filenames.add(ocio_config_path)
+        asset_references.input_directories.add(ocio_config_luts_dir)
 
     return asset_references
 
