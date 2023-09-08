@@ -228,6 +228,7 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             )
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
             contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
+            contents = contents.replace(os.getcwd(), "/normalized/cwd")
             with open(full_filename, "w", encoding="utf8") as f:
                 f.write(contents)
 

@@ -1,0 +1,8 @@
+assetReferences:
+  inputs:
+    directories: []
+    filenames:
+    - /normalized/job/bundle/dir/cwd-path.nk
+  outputs:
+    directories:
+    - /normalized/cwd

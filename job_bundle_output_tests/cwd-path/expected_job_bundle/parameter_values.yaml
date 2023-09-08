@@ -1,0 +1,19 @@
+parameterValues:
+- name: deadline:priority
+  value: 50
+- name: deadline:targetTaskRunStatus
+  value: READY
+- name: deadline:maxFailedTasksCount
+  value: 100
+- name: deadline:maxRetriesPerTask
+  value: 5
+- name: Frames
+  value: 1-100
+- name: NukeScriptFile
+  value: /normalized/job/bundle/dir/cwd-path.nk
+- name: ProxyMode
+  value: 'false'
+- name: NukeVersion
+  value: 13.2v4
+- name: RezPackages
+  value: nuke-13 deadline_cloud_for_nuke
