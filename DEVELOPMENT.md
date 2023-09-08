@@ -60,16 +60,12 @@ your build of the adaptor for the one in the service.
    You will need to also check out `openjobio` from git if you do
    not already have it. Make sure you're running Nuke with `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true`
    enabled.
-2. Build wheels for `openjobio`, `deadline-cloud` and `deadline-cloud-for-nuke`.
+2. Build wheels for `openjobio`, `deadline-cloud` and `deadline-cloud-for-nuke`, place them in a "wheels"
+   folder in `deadline-cloud-for-nuke`. A script is provided to do this, just execute from `deadline-cloud-for-nuke`:
    ```
-   # If you don't have the build package installed already
-   $ pip install build
-   ...
-   $  mkdir wheels; \
-      rm wheels/*; \
-      for dir in ../openjobio ../deadline-cloud ../deadline-cloud-for-nuke; \
-        do python -m build --wheel --outdir ./wheels --skip-dependency-check $dir; \
-      done
+   $ ./scripts/build_wheels.sh
+   ```
+   Wheels should been generated in the "wheels" folder:
    ...
    $ ls ./wheels
    openjobio-<version>-py3-none-any.whl
