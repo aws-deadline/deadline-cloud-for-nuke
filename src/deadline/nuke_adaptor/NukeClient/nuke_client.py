@@ -11,7 +11,7 @@ from typing import (
     Optional,
 )
 
-# The Nuke Adaptor adds the `openjobio` namespace directory to PYTHONPATH,
+# The Nuke Adaptor adds the `openjd` namespace directory to PYTHONPATH,
 # so that importing just the adaptor_runtime_client should work.
 try:
     from adaptor_runtime_client import (  # type: ignore[import]
@@ -20,7 +20,7 @@ try:
     )
     from nuke_adaptor.NukeClient.nuke_handler import NukeHandler  # type: ignore[import]
 except ImportError:
-    from openjobio.adaptor_runtime_client import (
+    from openjd.adaptor_runtime_client import (
         HTTPClientInterface as _HTTPClientInterface,
         PathMappingRule,
     )
