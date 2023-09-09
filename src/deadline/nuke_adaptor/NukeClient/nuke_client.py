@@ -77,14 +77,17 @@ class NukeClient(_HTTPClientInterface):
         if (
             rule
             and PurePath(path).is_absolute() == PurePath(rule.destination_path).is_absolute()
-            and PurePath(os.path.commonpath((path, rule.destination_path))) == PurePath(rule.destination_path)
+            and PurePath(os.path.commonpath((path, rule.destination_path)))
+            == PurePath(rule.destination_path)
         ):
             return Path(path).as_posix()
 
         result = super().map_path(path)
         return Path(result).as_posix()
 
-    def _which_rule_applies(self, path: str, rules: List[PathMappingRule]) -> PathMappingRule | None:
+    def _which_rule_applies(
+        self, path: str, rules: List[PathMappingRule]
+    ) -> PathMappingRule | None:
         """
         What rule applies to a given path?
         Takes a path and a list of rules.
@@ -94,7 +97,8 @@ class NukeClient(_HTTPClientInterface):
             if (
                 rule
                 and PurePath(path).is_absolute() == PurePath(rule.source_path).is_absolute()
-                and PurePath(os.path.commonpath((path, rule.source_path))) == PurePath(rule.source_path)
+                and PurePath(os.path.commonpath((path, rule.source_path)))
+                == PurePath(rule.source_path)
             ):
                 return rule
         return None

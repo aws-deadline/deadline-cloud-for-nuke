@@ -166,7 +166,8 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     return job_template
 
 
-def _get_parameter_values(settings: RenderSubmitterUISettings,
+def _get_parameter_values(
+    settings: RenderSubmitterUISettings,
     default_rez_packages: str,
 ) -> dict[str, Any]:
     parameter_values = [
