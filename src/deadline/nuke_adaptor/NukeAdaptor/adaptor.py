@@ -10,11 +10,11 @@ import threading
 import time
 from typing import Callable, cast
 
-from openjobio.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
-from openjobio.adaptor_runtime_client import Action
-from openjobio.adaptor_runtime.process import LoggingSubprocess
-from openjobio.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
-from openjobio.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
+from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
+from openjd.adaptor_runtime_client import Action
+from openjd.adaptor_runtime.process import LoggingSubprocess
+from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
+from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
 
 _logger = logging.getLogger(__name__)
 
@@ -420,16 +420,16 @@ class NukeAdaptor(Adaptor):
         nuke_exe = "nuke"
         regexhandler = RegexHandler(self.regex_callbacks)
 
-        # Add the OpenJobIO namespace directory to PYTHONPATH, so that adaptor_runtime_client
+        # Add the Open Job Description namespace directory to PYTHONPATH, so that adaptor_runtime_client
         # will be available directly to the nuke client.
-        import openjobio.adaptor_runtime_client
+        import openjd.adaptor_runtime_client
         import deadline.nuke_adaptor
 
-        openjobio_namespace_dir = os.path.dirname(
-            os.path.dirname(openjobio.adaptor_runtime_client.__file__)
+        openjd_namespace_dir = os.path.dirname(
+            os.path.dirname(openjd.adaptor_runtime_client.__file__)
         )
         deadline_namespace_dir = os.path.dirname(os.path.dirname(deadline.nuke_adaptor.__file__))
-        python_path_addition = f"{openjobio_namespace_dir}{os.pathsep}{deadline_namespace_dir}"
+        python_path_addition = f"{openjd_namespace_dir}{os.pathsep}{deadline_namespace_dir}"
         if "PYTHONPATH" in os.environ:
             os.environ[
                 "PYTHONPATH"

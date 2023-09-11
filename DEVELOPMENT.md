@@ -55,22 +55,22 @@ farm that uses a service-managed fleet. You'll need to perform the following ste
 your build of the adaptor for the one in the service.
 
 1. Use the development location from the Submitter Development Workflow.
-   You will need to also check out `openjobio` from git if you do
+   You will need to also check out `openjd` from git if you do
    not already have it. Make sure you're running Nuke with `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true`
    enabled.
-2. Build wheels for `openjobio`, `deadline` and `deadline-nuke`.
+2. Build wheels for `openjd`, `deadline` and `deadline-nuke`.
    ```
    # If you don't have the build package installed already
    $ pip install build
    ...
    $  mkdir wheels; \
       rm wheels/*; \
-      for dir in ../openjobio ../deadline ../deadline-nuke; \
+      for dir in ../openjd ../deadline ../deadline-nuke; \
         do python -m build --wheel --outdir ./wheels --skip-dependency-check $dir; \
       done
    ...
    $ ls ./wheels
-   openjobio-<version>-py3-none-any.whl
+   openjd-<version>-py3-none-any.whl
    deadline_cloud_for_nuke-<version>-py3-none-any.whl  deadline-<version>-py3-none-any.whl
    ```
 3. Open the Nuke integrated submitter, and in the Job-Specific Settings tab, enable the option 'Include Adaptor Wheels'. This

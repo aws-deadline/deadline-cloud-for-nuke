@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import nuke
 import pytest
-from openjobio.adaptor_runtime_client import (
+from openjd.adaptor_runtime_client import (
     HTTPClientInterface,
     PathMappingRule,
 )
