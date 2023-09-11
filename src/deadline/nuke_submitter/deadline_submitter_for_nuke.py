@@ -26,6 +26,8 @@ from .ui.components.scene_settings_tab import SceneSettingsWidget
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
 
+g_submitter_dialog = None
+
 
 def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
     with gui_error_handler("Error opening Amazon Deadline Cloud Submitter", None):
@@ -235,18 +237,19 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
     # Match the major version of Nuke in the Rez package list
     nuke_version_major = nuke.env["NukeVersionMajor"]
 
-    submitter_dialog = SubmitJobToDeadlineDialog(
-        job_setup_widget_type=SceneSettingsWidget,
-        initial_job_settings=render_settings,
-        initial_shared_parameter_values={
-            "RezPackages": f"nuke-{nuke_version_major} deadline_cloud_for_nuke"
-        },
-        auto_detected_attachments=auto_detected_attachments,
-        attachments=attachments,
-        on_create_job_bundle_callback=on_create_job_bundle_callback,
-        parent=parent,
-        f=f,
-    )
+    if not g_submitter_dialog:
+        g_submitter_dialog = SubmitJobToDeadlineDialog(
+            job_setup_widget_type=SceneSettingsWidget,
+            initial_job_settings=render_settings,
+            initial_shared_parameter_values={
+                "RezPackages": f"nuke-{nuke_version_major} deadline_cloud_for_nuke"
+            },
+            auto_detected_attachments=auto_detected_attachments,
+            attachments=attachments,
+            on_create_job_bundle_callback=on_create_job_bundle_callback,
+            parent=parent,
+            f=f,
+        )
 
-    submitter_dialog.show()
-    return submitter_dialog
+    g_submitter_dialog.show()
+    return g_submitter_dialog
