@@ -276,6 +276,19 @@ class TestNukeHandler:
         # THEN
         assert nukehandler.write_nodes == write_nodes
 
+    def test_set_write_nodes_all_write_nodes(
+        self, write_nodes: List[MockNode], nukehandler: NukeHandler
+    ):
+        # GIVEN
+        all_write_nodes = ["All Write Nodes"]
+        data = {"write_nodes": all_write_nodes}
+
+        # WHEN
+        nukehandler.set_write_nodes(data)
+
+        # THEN
+        assert nukehandler.write_nodes == write_nodes
+
     missing_nodes_params = [
         (
             SortedList(["these", "do", "not", "exist"]),

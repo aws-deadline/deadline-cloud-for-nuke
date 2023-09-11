@@ -71,7 +71,7 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
         # Read DEVELOPMENT.md for instructions to create the wheels directory.
         wheels_path = Path(__file__).parent.parent.parent.parent / "wheels"
-        if not wheels_path.exists() and wheels_path.is_dir():
+        if not wheels_path.is_dir():
             raise RuntimeError(
                 "The Developer Option 'Include Adaptor Wheels' is enabled, but the wheels directory does not exist:\n"
                 + str(wheels_path)

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, Mock, patch
 import nuke
 import pytest
 
+from deadline.client.exceptions import DeadlineOperationError
 from deadline.nuke_submitter.assets import (
     find_all_write_nodes,
     get_node_file_knob_paths,
@@ -73,6 +74,25 @@ def test_get_scene_asset_references(
     # THEN
     assert expected_script_file in results.input_filenames
     assert all(asset in results.input_filenames for asset in expected_assets)
+
+
+@patch("os.path.isfile", return_value=False)
+@patch("deadline.nuke_submitter.assets.get_nuke_script_file", return_value="/this/scriptfile.nk")
+def test_get_scene_asset_references_script_not_saved(
+    mock_get_nuke_script_file: Mock, mock_path_isfile: Mock
+):
+    # GIVEN
+    nuke.allNodes.return_value = []
+
+    # WHEN
+    with pytest.raises(DeadlineOperationError) as exc_info:
+        get_scene_asset_references()
+
+    # THEN
+    error_msg = (
+        "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
+    )
+    assert str(exc_info.value) == error_msg
 
 
 def test_find_all_write_nodes():

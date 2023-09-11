@@ -455,6 +455,29 @@ class TestNukeAdaptor_on_cleanup:
         mock_server_thread.join.assert_called_once_with(timeout=0.01)
 
     @patch("time.sleep")
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
+    def test_on_cleanup_server_thread_shutdown(
+        self, mock_logger: Mock, mock_sleep: Mock, init_data: dict
+    ) -> None:
+        """Tests that on_cleanup reports when the server does not shutdown"""
+        # GIVEN
+        adaptor = NukeAdaptor(init_data)
+
+        with patch(
+            "deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._nuke_is_running",
+            new_callable=lambda: False,
+        ), patch.object(adaptor, "_SERVER_END_TIMEOUT_SECONDS", 0.01), patch.object(
+            adaptor, "_server_thread"
+        ) as mock_server_thread:
+            mock_server_thread.is_alive.side_effect = [True, False]
+            # WHEN
+            adaptor.on_cleanup()
+
+        # THEN
+        mock_logger.error.assert_not_called()
+        mock_server_thread.join.assert_called_once_with(timeout=0.01)
+
+    @patch("time.sleep")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -573,6 +596,40 @@ class TestNukeAdaptor_on_cleanup:
         ("Eddy[ERROR] - Something terrible happened", 3),
     ]
 
+    @pytest.mark.parametrize("regex_index, stdout, expected_progress", handle_progess_params)
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor.update_status")
+    @patch.object(NukeAdaptor, "_is_rendering", new_callable=PropertyMock(return_value=False))
+    def test_handle_progress_not_rendering(
+        self,
+        mock_is_rendering: Mock,
+        mock_update_status: Mock,
+        regex_index: tuple[int, int],
+        stdout: tuple[str, str],
+        expected_progress: tuple[float, float],
+        init_data: dict,
+    ) -> None:
+        # GIVEN
+        adaptor = NukeAdaptor(init_data)
+
+        regex_callbacks = adaptor.regex_callbacks
+        progress_index, output_complete_index = regex_index
+        output_complete_regex = regex_callbacks[output_complete_index].regex_list[0]
+
+        # WHEN
+        if output_complete_match := output_complete_regex.search(stdout[1]):
+            adaptor._handle_output_complete(output_complete_match)
+
+        # THEN
+        assert output_complete_match is not None
+        mock_update_status.assert_not_called()
+
+    handle_error_params = [
+        ("ERROR: Something terrible happened", 0),
+        ("Error: Something terrible happened", 1),
+        ("Error : Something terrible happened", 2),
+        ("Eddy[ERROR] - Something terrible happened", 3),
+    ]
+
     @pytest.mark.parametrize("continue_on_error", [True, False])
     @pytest.mark.parametrize("stdout, regex_index", handle_error_params)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor.update_status")
@@ -671,3 +728,34 @@ class TestNukeAdaptor_on_cancel:
         # THEN
         assert "CANCEL REQUESTED" in caplog.text
         assert "Nothing to cancel because Nuke is not running" in caplog.text
+
+
+class TestNukeAdaptor_get_major_minor_version:
+    """Tests for static method _get_major_minor_version"""
+
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
+    def test_whole_version(self, mock_logger, init_data):
+        adaptor = NukeAdaptor(init_data)
+
+        # THEN
+        assert "13.2" == adaptor._get_major_minor_version("13.2v4")
+        mock_logger.info.assert_called_once_with("Using 13.2 to find Nuke executable")
+
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
+    def test_major_minor(self, mock_logger, init_data):
+        adaptor = NukeAdaptor(init_data)
+
+        # THEN
+        assert "13.2" == adaptor._get_major_minor_version("13.2")
+        mock_logger.info.assert_called_once_with("Using 13.2 to find Nuke executable")
+
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
+    def test_no_major_minor_version(self, mock_logger, init_data):
+        adaptor = NukeAdaptor(init_data)
+
+        # THEN
+        assert "13" == adaptor._get_major_minor_version("13")
+        mock_logger.warning.assert_called_once_with(
+            "Could not find major.minor information from '13',"
+            " using '13' to find the Nuke executable"
+        )
