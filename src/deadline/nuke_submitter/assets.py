@@ -46,7 +46,7 @@ def get_custom_ocio_config_path() -> str:
     return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
 
 
-def get_custom_ocio_config_luts_dir(ocio_config_file) -> str:
+def get_custom_ocio_config_luts_dir(ocio_config_file: str) -> str:
     """Returns the directory containing the LUTs for the provided OCIO config"""
     ocio_config = OCIO.Config.CreateFromFile(ocio_config_file)
 
