@@ -32,13 +32,19 @@ def get_project_path() -> str:
         project_path = os.getcwd()
     return project_path
 
+
 def is_custom_ocio_config_enabled() -> bool:
     """True if the script is using a custom OCIO config"""
-    return nuke.root().knob("colorManagement").value() == "OCIO" and nuke.root().knob("OCIO_config").value() == "custom"
+    return (
+        nuke.root().knob("colorManagement").value() == "OCIO"
+        and nuke.root().knob("OCIO_config").value() == "custom"
+    )
+
 
 def get_custom_ocio_config_path() -> str:
     """This is the path to the custom OCIO config used by the script"""
     return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
+
 
 def get_custom_ocio_config_luts_dir(ocio_config_file) -> str:
     """Returns the directory containing the LUTs for the provided OCIO config"""
@@ -48,6 +54,7 @@ def get_custom_ocio_config_luts_dir(ocio_config_file) -> str:
     search_path = ocio_config.getSearchPath()
 
     return join(dirname(ocio_config_file), search_path)
+
 
 def get_scene_asset_references() -> AssetReferences:
     """Traverses all nodes to determine both input and output asset references"""
