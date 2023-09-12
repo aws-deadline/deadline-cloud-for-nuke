@@ -34,7 +34,7 @@ class SceneSettingsWidget(QWidget):
         )
 
         self._build_ui()
-        self._configure_settings(initial_settings)
+        self.refresh_ui(initial_settings)
 
     def _build_ui(self):
         lyt = QGridLayout(self)
@@ -73,7 +73,7 @@ class SceneSettingsWidget(QWidget):
 
         lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 10, 0)
 
-    def _configure_settings(self, settings: RenderSubmitterUISettings):
+    def refresh_ui(self, settings: RenderSubmitterUISettings):
         self.frame_override_chck.setChecked(settings.override_frame_range)
         self.frame_override_txt.setEnabled(settings.override_frame_range)
         self.frame_override_txt.setText(settings.frame_list)
