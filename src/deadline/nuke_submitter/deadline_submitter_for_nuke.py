@@ -250,6 +250,12 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             parent=parent,
             f=f,
         )
+    else:
+        g_submitter_dialog.refresh(
+            job_settings=render_settings,
+            auto_detected_attachments=auto_detected_attachments,
+            attachments=attachments,
+        )
 
     g_submitter_dialog.show()
     return g_submitter_dialog
