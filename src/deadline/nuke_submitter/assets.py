@@ -7,6 +7,7 @@ import re
 from collections.abc import Generator
 from os.path import commonpath, dirname, join, normpath, samefile
 from sys import platform
+from typing import List
 
 import nuke
 import PyOpenColorIO as OCIO
@@ -46,14 +47,15 @@ def get_custom_ocio_config_path() -> str:
     return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
 
 
-def get_custom_ocio_config_luts_dir(ocio_config_file: str) -> str:
-    """Returns the directory containing the LUTs for the provided OCIO config"""
+def get_custom_ocio_config_search_paths(ocio_config_file: str) -> List[str]:
+    """Returns the directories containing the LUTs for the provided OCIO config"""
     ocio_config = OCIO.Config.CreateFromFile(ocio_config_file)
 
-    # At least for all of the AMPAS OCIO configs this is always a relative path to the "luts" directory
-    search_path = ocio_config.getSearchPath()
+    # A config can have multiple search paths and they can be relative or absolute.
+    # At least for all of the AMPAS OCIO configs this is always a single relative path to the "luts" directory
+    search_paths = ocio_config.getSearchPaths()
 
-    return join(dirname(ocio_config_file), search_path)
+    return [join(dirname(ocio_config_file), search_path) for search_path in search_paths]
 
 
 def get_scene_asset_references() -> AssetReferences:
@@ -101,13 +103,15 @@ def get_scene_asset_references() -> AssetReferences:
             for filename in get_node_filenames(node):
                 asset_references.output_directories.add(dirname(filename))
 
-    # if using a custom OCIO config, add the config file and associated LUT directory
+    # if using a custom OCIO config, add the config file and associated search directories
     if is_custom_ocio_config_enabled():
         ocio_config_path = get_custom_ocio_config_path()
-        ocio_config_luts_dir = get_custom_ocio_config_luts_dir(ocio_config_path)
+        ocio_config_search_paths = get_custom_ocio_config_search_paths(ocio_config_path)
 
         asset_references.input_filenames.add(ocio_config_path)
-        asset_references.input_directories.add(ocio_config_luts_dir)
+
+        for search_path in ocio_config_search_paths:
+            asset_references.input_directories.add(search_path)
 
     return asset_references
 

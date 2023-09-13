@@ -43,7 +43,7 @@ def _activated_reading_write_node_knobs(knob_name: str):
     "deadline.nuke_submitter.assets.get_custom_ocio_config_path",
     return_value="/this/ocio_configs/config.ocio",
 )
-@patch("PyOpenColorIO.Config.CreateFromFile", return_value=MockOCIOConfig(search_path="luts"))
+@patch("PyOpenColorIO.Config.CreateFromFile", return_value=MockOCIOConfig(search_paths=["luts"]))
 def test_get_scene_asset_references(
     mock_ocio_config_create_from_file: Mock,
     mock_get_custom_ocio_config_path: Mock,
@@ -92,7 +92,7 @@ def test_get_scene_asset_references(
     expected_ocio_config_path = mock_get_custom_ocio_config_path.return_value
     expected_ocio_config_luts_dir = os.path.join(
         os.path.dirname(expected_ocio_config_path),
-        mock_ocio_config_create_from_file.return_value.getSearchPath(),
+        mock_ocio_config_create_from_file.return_value.getSearchPaths()[0],
     )
     nuke.allNodes.return_value = []
     mock_is_custom_ocio_config_enabled.return_value = True
