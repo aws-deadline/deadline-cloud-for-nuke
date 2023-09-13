@@ -7,3 +7,4 @@ twine ~= 4.0
 mypy ~= 1.5
 black ~= 23.7
 ruff ~= 0.0.287
+types-PyYAML ~= 6.0.12

@@ -125,7 +125,7 @@ def _get_expected_nuke_version(expected_job_bundle_dir: str) -> str:
                     if parameter_value["name"] == "NukeVersion":
                         return parameter_value["value"]
 
-    return None
+    return ""
 
 
 # The following functions implement the test logic.
