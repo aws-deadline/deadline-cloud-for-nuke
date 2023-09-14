@@ -33,7 +33,6 @@ import nuke
 from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QApplication,
     QFileDialog,
-    QMessageBox,
     QMainWindow,
 )
 
