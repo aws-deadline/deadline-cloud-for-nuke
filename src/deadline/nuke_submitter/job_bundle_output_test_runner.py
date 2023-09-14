@@ -254,7 +254,7 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
             contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
             contents = contents.replace(os.getcwd(), "/normalized/cwd")
-            if expected_nuke_version != test_nuke_version:
+            if expected_nuke_version and expected_nuke_version != test_nuke_version:
                 contents = contents.replace(test_nuke_version, expected_nuke_version)
             with open(full_filename, "w", encoding="utf8") as f:
                 f.write(contents)
