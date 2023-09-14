@@ -156,7 +156,7 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
         override_adaptor_name_param["default"] = "NukeAdaptor"
 
         # There are no parameter conflicts between these two templates, so this works
-        job_template["parameterDefinitions"].extend(override_environment["parameters"])
+        job_template["parameterDefinitions"].extend(override_environment["parameterDefinitions"])
 
         # Add the environment to the end of the template's job environments
         if "environments" not in job_template:
