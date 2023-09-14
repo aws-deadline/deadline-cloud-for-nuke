@@ -26,7 +26,10 @@ def get_nuke_script_file() -> str:
 
 def get_project_path() -> str:
     """This is the path Nuke uses for relative paths"""
-    return nuke.root().knob("project_directory").getEvaluatedValue()
+    project_path = nuke.root().knob("project_directory").getEvaluatedValue()
+    if not project_path:
+        project_path = os.getcwd()
+    return project_path
 
 
 def get_scene_asset_references() -> FlatAssetReferences:

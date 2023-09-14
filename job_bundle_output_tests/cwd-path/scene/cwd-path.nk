@@ -1,0 +1,42 @@
+#! D:/Programs/Nuke13.2v4/nuke-13.2.4.dll -nx
+#write_info Write1 file:"output_%04d.exr" format:"2048 1556 1" chans:":rgba.red:rgba.green:rgba.blue:" framerange:"1 100" fps:"0" colorspace:"default (linear)" datatype:"16 bit half" 
+Root {
+ inputs 0
+ name C:/users/markw/deadline-clients/deadline-nuke/job_bundle_output_tests/cwd-path/cwd-path.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+ColorBars {
+ inputs 0
+ barintensity {{curve x1 0 x10 1}}
+ name ColorBars1
+ xpos -444
+ ypos -375
+}
+set N737cd800 [stack 0]
+Viewer {
+ frame_range 1-100
+ monitorOutOutputTransform rec709
+ name Viewer1
+ xpos -444
+ ypos -218
+}
+push $N737cd800
+Write {
+ file output_####.exr
+ file_type exr
+ first_part rgba
+ version 1
+ name Write1
+ xpos -296
+ ypos -259
+}

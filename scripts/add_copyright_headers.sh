@@ -1,6 +1,8 @@
 #!/bin/bash
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+set -euo pipefail
+
 if [ $# -eq 0 ]; then
     echo "Usage: add-copyright-headers <file.java> ..." >&2
     exit 1

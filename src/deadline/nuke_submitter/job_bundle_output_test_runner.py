@@ -33,7 +33,6 @@ import nuke
 from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QApplication,
     QFileDialog,
-    QMessageBox,
     QMainWindow,
 )
 
@@ -168,17 +167,15 @@ def run_render_submitter_job_bundle_output_test():
             report_fh.write("\n")
             if count_failed:
                 report_fh.write(f"Failed {count_failed} tests, succeeded {count_succeeded}.\n")
-                QMessageBox.warning(
-                    mainwin,
-                    "Some Job Bundle Tests Failed",
-                    f"Failed {count_failed} tests, succeeded {count_succeeded}.\nSee the file {test_job_bundle_results_file} for a full report.",
+                nuke.alert(
+                    "Some Job Bundle Tests Failed\n\n"
+                    f"Failed {count_failed} tests, succeeded {count_succeeded}.\n"
+                    f"See the file {test_job_bundle_results_file} for a full report.",
                 )
             else:
                 report_fh.write(f"All tests passed, ran {count_succeeded} total.\n")
-                QMessageBox.information(
-                    mainwin,
-                    "All Job Bundle Tests Passed",
-                    f"Ran {count_succeeded} tests in total.",
+                nuke.message(
+                    f"All Job Bundle Tests Passed\n\nRan {count_succeeded} tests in total.",
                 )
             report_fh.write(f"Timestamp: {_timestamp_string()}\n")
 
@@ -187,6 +184,9 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
     with tempfile.TemporaryDirectory(prefix="job_bundle_output_test") as tempdir:
         temp_job_bundle_dir = os.path.join(tempdir, "job_bundle")
         os.makedirs(temp_job_bundle_dir, exist_ok=True)
+
+        temp_cwd_bundle_dir = os.path.join(tempdir, "job_cwd")
+        os.makedirs(temp_cwd_bundle_dir, exist_ok=True)
 
         temp_dcc_scene_file = os.path.join(tempdir, os.path.basename(dcc_scene_file))
 
@@ -228,6 +228,7 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             )
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
             contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
+            contents = contents.replace(os.getcwd(), "/normalized/cwd")
             with open(full_filename, "w", encoding="utf8") as f:
                 f.write(contents)
 
