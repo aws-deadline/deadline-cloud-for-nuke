@@ -90,10 +90,10 @@ def test_get_scene_asset_references(
 
     # GIVEN
     expected_ocio_config_path = mock_get_custom_ocio_config_path.return_value
-    expected_ocio_config_luts_dir = os.path.join(
-        os.path.dirname(expected_ocio_config_path),
-        mock_ocio_config_create_from_file.return_value.getSearchPaths()[0],
-    )
+    expected_ocio_config_search_paths = [
+        os.path.join(os.path.dirname(expected_ocio_config_path), search_path)
+        for search_path in mock_ocio_config_create_from_file.return_value.getSearchPaths()
+    ]
     nuke.allNodes.return_value = []
     mock_is_custom_ocio_config_enabled.return_value = True
 
@@ -103,7 +103,10 @@ def test_get_scene_asset_references(
     # THEN
     assert expected_script_file in results.input_filenames
     assert expected_ocio_config_path in results.input_filenames
-    assert expected_ocio_config_luts_dir in results.input_directories
+    assert all(
+        search_path in expected_ocio_config_search_paths
+        for search_path in results.input_directories
+    )
 
 
 @patch("os.path.isfile", return_value=False)
