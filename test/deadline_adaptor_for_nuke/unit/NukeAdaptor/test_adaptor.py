@@ -538,7 +538,7 @@ class TestNukeAdaptor_on_cleanup:
         assert match is not None
         mock_update_status.assert_called_once_with(progress=100, status_message="RENDER COMPLETE")
 
-    handle_progess_params = [
+    handle_progress_params = [
         (
             (1, 2),
             (
@@ -557,7 +557,7 @@ class TestNukeAdaptor_on_cleanup:
         ),
     ]
 
-    @pytest.mark.parametrize("regex_index, stdout, expected_progress", handle_progess_params)
+    @pytest.mark.parametrize("regex_index, stdout, expected_progress", handle_progress_params)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor.update_status")
     @patch.object(NukeAdaptor, "_is_rendering", new_callable=PropertyMock(return_value=True))
     def test_handle_progress(
@@ -596,7 +596,7 @@ class TestNukeAdaptor_on_cleanup:
         ("Eddy[ERROR] - Something terrible happened", 3),
     ]
 
-    @pytest.mark.parametrize("regex_index, stdout, expected_progress", handle_progess_params)
+    @pytest.mark.parametrize("regex_index, stdout, expected_progress", handle_progress_params)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor.update_status")
     @patch.object(NukeAdaptor, "_is_rendering", new_callable=PropertyMock(return_value=False))
     def test_handle_progress_not_rendering(
