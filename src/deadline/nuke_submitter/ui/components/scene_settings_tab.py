@@ -18,7 +18,7 @@ from PySide2.QtWidgets import (  # type: ignore
 )
 
 from ...assets import find_all_write_nodes
-from ...data_classes.submission import RenderSubmitterSettings
+from ...data_classes import RenderSubmitterUISettings
 
 
 class SceneSettingsWidget(QWidget):
@@ -26,7 +26,7 @@ class SceneSettingsWidget(QWidget):
     Widget containing all top level scene settings.
     """
 
-    def __init__(self, initial_settings: RenderSubmitterSettings, parent=None):
+    def __init__(self, initial_settings: RenderSubmitterUISettings, parent=None):
         super().__init__(parent=parent)
 
         self.developer_options = (
@@ -73,7 +73,7 @@ class SceneSettingsWidget(QWidget):
 
         lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 10, 0)
 
-    def _configure_settings(self, settings: RenderSubmitterSettings):
+    def _configure_settings(self, settings: RenderSubmitterUISettings):
         self.frame_override_chck.setChecked(settings.override_frame_range)
         self.frame_override_txt.setEnabled(settings.override_frame_range)
         self.frame_override_txt.setText(settings.frame_list)
@@ -91,7 +91,7 @@ class SceneSettingsWidget(QWidget):
         if self.developer_options:
             self.include_adaptor_wheels.setChecked(settings.include_adaptor_wheels)
 
-    def update_settings(self, settings: RenderSubmitterSettings):
+    def update_settings(self, settings: RenderSubmitterUISettings):
         """
         Update a scene settings object with the latest values.
         """

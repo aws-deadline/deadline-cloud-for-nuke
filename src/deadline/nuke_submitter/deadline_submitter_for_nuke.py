@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import os
-import dataclasses
-import json
-import traceback
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 import yaml  # type: ignore[import]
 
 import nuke
@@ -24,61 +21,10 @@ from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
 )
 
 from .assets import get_nuke_script_file, get_scene_asset_references, find_all_write_nodes
-from .data_classes.submission import RenderSubmitterSettings, RenderSubmitterUISettings
+from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
-from deadline.client.job_bundle.submission import FlatAssetReferences
-
-
-def _get_sticky_settings_file() -> Optional[Path]:
-    script_file_str = get_nuke_script_file()
-    if not script_file_str:
-        return None
-    script_file = Path(script_file_str)
-    if script_file.is_file():
-        return script_file.with_suffix(".deadline_settings.json")
-    return None
-
-
-def _load_sticky_settings() -> Optional[RenderSubmitterSettings]:
-    settings_file = _get_sticky_settings_file()
-    if settings_file is None:
-        return None
-    if not settings_file.is_file():
-        return None
-    try:
-        with open(settings_file, "r", encoding="utf8") as f:
-            contents: str = f.read()
-            return RenderSubmitterSettings(**json.loads(contents))
-    except OSError as exc:
-        raise RuntimeError("Failed to read from settings file") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Failed to parse JSON from settings file") from exc
-    except TypeError as exc:
-        raise RuntimeError("Failed to deserialize settings data") from exc
-
-
-def _save_sticky_settings(ui_settings: RenderSubmitterUISettings) -> None:
-    settings_file = _get_sticky_settings_file()
-    if settings_file is None:
-        return
-    settings = ui_settings.to_render_submitter_settings()
-    try:
-        with open(settings_file, "w", encoding="utf8") as f:
-            f.write(json.dumps(dataclasses.asdict(settings), indent=2))
-    except OSError as exc:
-        raise RuntimeError("Failed to write to settings file") from exc
-
-
-def get_nuke_version() -> str:
-    """
-    Grabs the current Nuke version string.
-
-    Example:
-        13.2v1
-
-    :return: Nuke version string
-    """
-    return nuke.env["NukeVersionString"]
+from deadline.client.job_bundle.submission import AssetReferences
+from deadline.client.exceptions import DeadlineOperationError
 
 
 def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
@@ -87,17 +33,15 @@ def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
         app = QApplication.instance()
         mainwin = [widget for widget in app.topLevelWidgets() if isinstance(widget, QMainWindow)][0]
     with gui_error_handler("Error opening Amazon Deadline Cloud Submitter", mainwin):
-        return show_nuke_render_submitter(mainwin, RenderSubmitterUISettings())
+        return show_nuke_render_submitter(mainwin)
 
 
 def _get_write_node(settings: RenderSubmitterUISettings) -> tuple[Node, str]:
-    node_name = ""
-    write_node = settings.write_node_selection
-    if write_node is None:
+    if settings.write_node_selection:
+        write_node = nuke.toNode(settings.write_node_selection)
+    else:
         write_node = nuke.root()
-    if write_node != nuke.root():
-        node_name = settings.write_node_selection.fullName()
-    return write_node, node_name
+    return write_node, settings.write_node_selection
 
 
 def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
@@ -159,7 +103,7 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
         job_template["parameterDefinitions"].extend(override_environment["parameterDefinitions"])
 
         # Add the environment to the end of the template's job environments
-        if "environments" not in job_template:
+        if "jobEnvironments" not in job_template:
             job_template["jobEnvironments"] = []
         job_template["jobEnvironments"].append(override_environment["environment"])
 
@@ -168,14 +112,10 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
 def _get_parameter_values(
     settings: RenderSubmitterUISettings,
-    default_rez_packages: str,
-) -> dict[str, Any]:
-    parameter_values = [
-        {"name": "deadline:priority", "value": settings.priority},
-        {"name": "deadline:targetTaskRunStatus", "value": settings.initial_status},
-        {"name": "deadline:maxFailedTasksCount", "value": settings.max_failed_tasks_count},
-        {"name": "deadline:maxRetriesPerTask", "value": settings.max_retries_per_task},
-    ]
+    queue_parameters: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    parameter_values: list[dict[str, Any]] = []
+
     write_node, write_node_name = _get_write_node(settings)
 
     # Set the Frames parameter value
@@ -201,86 +141,103 @@ def _get_parameter_values(
         {"name": "ProxyMode", "value": "true" if settings.is_proxy_mode else "false"}
     )
 
-    # Set the NukeVersion parameter default
-    parameter_values.append({"name": "NukeVersion", "value": get_nuke_version()})
+    # Check for any overlap between the job parameters we've defined and the
+    # queue parameters. This is an error, as we weren't synchronizing the values
+    # between the two different tabs where they came from.
+    parameter_names = {param["name"] for param in parameter_values}
+    queue_parameter_names = {param["name"] for param in queue_parameters}
+    parameter_overlap = parameter_names.intersection(queue_parameter_names)
+    if parameter_overlap:
+        raise DeadlineOperationError(
+            "The following queue parameters conflict with the Nuke job parameters:\n"
+            + f"{', '.join(parameter_overlap)}"
+        )
 
-    # Set the RezPackages parameter default
-    if settings.override_rez_packages or settings.include_adaptor_wheels:
-        if settings.override_rez_packages:
-            rez_packages = settings.rez_packages
-        else:
-            rez_packages = default_rez_packages
-        # If the adaptor wheels are included, remove the deadline_cloud_for_nuke rez package
-        if settings.include_adaptor_wheels:
-            rez_packages = rez_packages.replace("deadline_cloud_for_nuke", "").strip()
-        parameter_values.append({"name": "RezPackages", "value": rez_packages})
+    # If we're overriding the adaptor with wheels, remove deadline_cloud_for_maya from the RezPackages
+    if settings.include_adaptor_wheels:
+        rez_param = {}
+        # Find the RezPackages parameter definition
+        for param in queue_parameters:
+            if param["name"] == "RezPackages":
+                rez_param = param
+                break
+        # Remove the deadline_cloud_for_maya rez package
+        if rez_param:
+            rez_param["value"] = " ".join(
+                pkg
+                for pkg in rez_param["value"].split()
+                if not pkg.startswith("deadline_cloud_for_maya")
+            )
 
-    return {"parameterValues": parameter_values}
+    parameter_values.extend(
+        {"name": param["name"], "value": param["value"]} for param in queue_parameters
+    )
+
+    return parameter_values
 
 
-def show_nuke_render_submitter(
-    parent, render_settings: RenderSubmitterUISettings, f=Qt.WindowFlags()
-) -> "SubmitJobToDeadlineDialog":
-    def job_bundle_callback(
+def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
+    render_settings = RenderSubmitterUISettings()
+
+    # Set the setting defaults that come from the scene
+    render_settings.name = Path(get_nuke_script_file()).name
+    render_settings.frame_list = str(nuke.root().frameRange())
+    render_settings.is_proxy_mode = nuke.root().proxy()
+
+    # Load the sticky settings
+    render_settings.load_sticky_settings(get_nuke_script_file())
+
+    def on_create_job_bundle_callback(
         widget: SubmitJobToDeadlineDialog,
-        settings: RenderSubmitterUISettings,
         job_bundle_dir: str,
-        asset_references: FlatAssetReferences,
+        settings: RenderSubmitterUISettings,
+        queue_parameters: list[dict[str, Any]],
+        asset_references: AssetReferences,
     ) -> None:
         job_bundle_path = Path(job_bundle_dir)
         job_template = _get_job_template(settings)
 
-        # TODO: Get the RezPackages parameter definition, and use the default set there
-        default_rez_packages = "nuke-13 deadline_cloud_for_nuke"
-        parameter_values = _get_parameter_values(settings, default_rez_packages)
+        parameter_values = _get_parameter_values(settings, queue_parameters)
 
         with open(job_bundle_path / "template.yaml", "w", encoding="utf8") as f:
             deadline_yaml_dump(job_template, f, indent=1)
 
         with open(job_bundle_path / "parameter_values.yaml", "w", encoding="utf8") as f:
-            deadline_yaml_dump(parameter_values, f, indent=1)
+            deadline_yaml_dump({"parameterValues": parameter_values}, f, indent=1)
 
         with open(job_bundle_path / "asset_references.yaml", "w", encoding="utf8") as f:
             deadline_yaml_dump(asset_references.to_dict(), f, indent=1)
 
         # Save Sticky Settings
-        attachments: FlatAssetReferences = widget.job_attachments.attachments
+        attachments: AssetReferences = widget.job_attachments.attachments
         settings.input_filenames = sorted(attachments.input_filenames)
         settings.input_directories = sorted(attachments.input_directories)
         settings.output_directories = sorted(attachments.output_directories)
 
-        try:
-            _save_sticky_settings(settings)
-        except RuntimeError:
-            nuke.tprint("Failed to save sticky settings:")
-            nuke.tprint(traceback.format_exc())
-
-    # Try to load sticky settings
-    settings = None
-    try:
-        settings = _load_sticky_settings()
-    except RuntimeError:
-        nuke.tprint("Failed to load sticky settings:")
-        nuke.tprint(traceback.format_exc())
-    if settings is not None:
-        render_settings.apply_saved_settings(settings)
+        settings.save_sticky_settings(get_nuke_script_file())
 
     auto_detected_attachments = get_scene_asset_references()
-    if settings:
-        attachments = FlatAssetReferences(
-            input_filenames=set(settings.input_filenames),
-            input_directories=set(settings.input_directories),
-            output_directories=set(settings.output_directories),
+    if render_settings:
+        attachments = AssetReferences(
+            input_filenames=set(render_settings.input_filenames),
+            input_directories=set(render_settings.input_directories),
+            output_directories=set(render_settings.output_directories),
         )
     else:
-        attachments = FlatAssetReferences()
+        attachments = AssetReferences()
+
+    # Match the major version of Nuke in the Rez package list
+    nuke_version_major = nuke.env["NukeVersionMajor"]
 
     submitter_dialog = SubmitJobToDeadlineDialog(
-        SceneSettingsWidget,
-        render_settings,
-        auto_detected_attachments,
-        attachments,
-        job_bundle_callback,
+        job_setup_widget_type=SceneSettingsWidget,
+        initial_job_settings=render_settings,
+        initial_shared_parameter_values={
+            "RezPackages": f"nuke-{nuke_version_major} deadline_cloud_for_nuke"
+        },
+        auto_detected_attachments=auto_detected_attachments,
+        attachments=attachments,
+        on_create_job_bundle_callback=on_create_job_bundle_callback,
         parent=parent,
         f=f,
     )

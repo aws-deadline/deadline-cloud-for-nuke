@@ -68,3 +68,4 @@ assetReferences:
     directories:
     - /normalized/job/bundle/dir
     - /normalized/job/bundle/dir/output
+  referencedPaths: []

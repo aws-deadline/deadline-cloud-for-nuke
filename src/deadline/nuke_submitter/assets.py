@@ -10,7 +10,7 @@ from sys import platform
 
 import nuke
 
-from deadline.client.job_bundle.submission import FlatAssetReferences
+from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
 
 FRAME_REGEX = re.compile(r"(#+)|%(\d*)d", re.IGNORECASE)
@@ -32,10 +32,10 @@ def get_project_path() -> str:
     return project_path
 
 
-def get_scene_asset_references() -> FlatAssetReferences:
+def get_scene_asset_references() -> AssetReferences:
     """Traverses all nodes to determine both input and output asset references"""
     nuke.tprint("Walking scene graph to auto-detect input/output asset references...")
-    asset_references = FlatAssetReferences()
+    asset_references = AssetReferences()
     script_file = get_nuke_script_file()
     if not os.path.isfile(script_file):
         raise DeadlineOperationError(

@@ -5,22 +5,20 @@
         "continue_on_error": {"type": "boolean"},
         "proxy": {"type": "boolean"},
         "write_nodes": {
-            "type": "array", 
+            "type": "array",
             "items": {
                 "type": "string"
             }
         },
         "views": {
-            "type": "array", 
+            "type": "array",
             "items": {
                 "type": "string"
             }
         },
-        "script_file": { "type": "string" },
-        "version": { "type": "string" }
+        "script_file": { "type": "string" }
     },
     "required": [
-        "script_file",
-        "version"
+        "script_file"
     ]
 }
