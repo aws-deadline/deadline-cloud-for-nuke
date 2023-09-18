@@ -179,6 +179,8 @@ def _get_parameter_values(
 
 
 def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
+    global g_submitter_dialog
+
     render_settings = RenderSubmitterUISettings()
 
     # Set the setting defaults that come from the scene
