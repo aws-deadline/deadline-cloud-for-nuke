@@ -31,7 +31,6 @@ def init_data() -> dict:
         "write_nodes": ["Write1", "Write2", "Write3"],
         "views": ["left", "right"],
         "script_file": "/path/to/some/nukescript.nk",
-        "version": "13.2v2",
     }
 
 
@@ -235,7 +234,6 @@ class TestNukeAdaptor_on_start:
         # GIVEN
         init_data = {
             "script_file": "/path/to/some/nukescript.nk",
-            "version": "13.2v2",
             "continue_on_error": True,
         }
         mock_actions_queue.__len__.return_value = 0

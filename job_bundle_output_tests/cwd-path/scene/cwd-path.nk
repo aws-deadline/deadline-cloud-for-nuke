@@ -1,8 +1,8 @@
 #! D:/Programs/Nuke13.2v4/nuke-13.2.4.dll -nx
-#write_info Write1 file:"output_%04d.exr" format:"2048 1556 1" chans:":rgba.red:rgba.green:rgba.blue:" framerange:"1 100" fps:"0" colorspace:"default (linear)" datatype:"16 bit half" 
+#write_info Write1 file:"output_%04d.exr" format:"2048 1556 1" chans:":rgba.red:rgba.green:rgba.blue:" framerange:"1 100" fps:"0" colorspace:"default (linear)" datatype:"16 bit half"
 Root {
  inputs 0
- name C:/users/markw/deadline-clients/deadline-nuke/job_bundle_output_tests/cwd-path/cwd-path.nk
+ name D:/deadline-clients/deadline-nuke/job_bundle_output_tests/cwd-path/cwd-path.nk
  format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
  proxy_type scale
  proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"

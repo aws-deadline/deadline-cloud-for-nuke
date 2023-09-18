@@ -6,3 +6,4 @@ assetReferences:
   outputs:
     directories:
     - /normalized/cwd
+  referencedPaths: []
