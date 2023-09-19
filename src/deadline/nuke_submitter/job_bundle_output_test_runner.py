@@ -25,7 +25,6 @@ import re
 import shutil
 import filecmp
 import difflib
-import yaml
 from typing import Any
 from pathlib import Path
 from datetime import datetime, timezone
@@ -40,7 +39,7 @@ from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs import submit_job_to_deadline_dialog
 from deadline.client.exceptions import DeadlineOperationError
-from .deadline_submitter_for_nuke import show_nuke_render_submitter_noargs, get_nuke_version
+from .deadline_submitter_for_nuke import show_nuke_render_submitter_noargs
 
 
 # The following functions expose a DCC interface to the job bundle output test logic.
@@ -110,22 +109,6 @@ def _copy_dcc_scene_file(source_filename: str, dest_filename: str):
 def _show_deadline_cloud_submitter(mainwin: Any):
     """Shows the Deadline Cloud Submitter for Nuke."""
     return show_nuke_render_submitter_noargs()
-
-
-def _get_expected_nuke_version(expected_job_bundle_dir: str) -> str:
-    """Returns the nuke version specified in provided job bundle"""
-    if os.path.exists(expected_job_bundle_dir):
-        expected_parameter_values_file = os.path.join(
-            expected_job_bundle_dir, "parameter_values.yaml"
-        )
-        if os.path.isfile(expected_parameter_values_file):
-            with open(expected_parameter_values_file, encoding="utf8") as f:
-                expected_parameter_values = yaml.safe_load(f)["parameterValues"]
-                for parameter_value in expected_parameter_values:
-                    if parameter_value["name"] == "NukeVersion":
-                        return parameter_value["value"]
-
-    return ""
 
 
 # The following functions implement the test logic.
@@ -234,11 +217,6 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
         # Close the DCC scene file
         _close_dcc_scene_file()
 
-        expected_job_bundle_dir = os.path.join(test_dir, "expected_job_bundle")
-
-        test_nuke_version = get_nuke_version()
-        expected_nuke_version = _get_expected_nuke_version(expected_job_bundle_dir)
-
         # Process every file in the job bundle to replace the temp dir with a standardized path.
         # Also replace the nuke version in the test job bundle with the nuke version in the
         # expected job bundle (if there is one). This allows job bundle tests to be run from
@@ -254,13 +232,12 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
             contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
             contents = contents.replace(os.getcwd(), "/normalized/cwd")
-            if expected_nuke_version and expected_nuke_version != test_nuke_version:
-                contents = contents.replace(test_nuke_version, expected_nuke_version)
             with open(full_filename, "w", encoding="utf8") as f:
                 f.write(contents)
 
         # If there's an expected job bundle to compare with, do the comparison,
         # otherwise copy the one we created to be that expected job bundle.
+        expected_job_bundle_dir = os.path.join(test_dir, "expected_job_bundle")
         if os.path.exists(expected_job_bundle_dir):
             test_job_bundle_dir = os.path.join(test_dir, "test_job_bundle")
             if os.path.exists(test_job_bundle_dir):

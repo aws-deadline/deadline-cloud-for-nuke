@@ -8,4 +8,5 @@ assetReferences:
     - /normalized/job/bundle/dir/ocio.nk
   outputs:
     directories:
-    - output
+    - /normalized/cwd/output
+  referencedPaths: []
