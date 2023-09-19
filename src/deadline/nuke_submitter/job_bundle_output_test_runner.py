@@ -217,10 +217,7 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
         # Close the DCC scene file
         _close_dcc_scene_file()
 
-        # Process every file in the job bundle to replace the temp dir with a standardized path.
-        # Also replace the nuke version in the test job bundle with the nuke version in the
-        # expected job bundle (if there is one). This allows job bundle tests to be run from
-        # different nuke versions than they were created with.
+        # Process every file in the job bundle to replace the temp dir with a standardized path
         for filename in os.listdir(temp_job_bundle_dir):
             full_filename = os.path.join(temp_job_bundle_dir, filename)
             with open(full_filename, encoding="utf8") as f:

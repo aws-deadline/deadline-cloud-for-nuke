@@ -7,7 +7,6 @@ import re
 from collections.abc import Generator
 from os.path import commonpath, dirname, join, normpath, samefile
 from sys import platform
-from typing import List
 
 import nuke
 import PyOpenColorIO as OCIO
@@ -47,7 +46,7 @@ def get_custom_ocio_config_path() -> str:
     return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
 
 
-def get_custom_ocio_config_search_paths(ocio_config_file: str) -> List[str]:
+def get_custom_ocio_config_search_paths(ocio_config_file: str) -> list[str]:
     """Returns the directories containing the LUTs for the provided OCIO config"""
     ocio_config = OCIO.Config.CreateFromFile(ocio_config_file)
 
