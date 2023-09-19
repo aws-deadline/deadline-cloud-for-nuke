@@ -65,7 +65,7 @@ explicit_package_bases = true
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["nuke.*","PySide2.*"]
+module = ["nuke.*","PySide2.*","PyOpenColorIO.*"]
 ignore_missing_imports = true
 
 [tool.ruff]

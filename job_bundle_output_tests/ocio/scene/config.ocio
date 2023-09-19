@@ -1,0 +1,25 @@
+ocio_profile_version: 2.1
+
+environment:
+  {}
+search_path:
+  - luts
+  - /tmp/luts
+strictparsing: true
+luma: [0.2126, 0.7152, 0.0722]
+name: deadline-cloud-for-nuke-test-config
+
+roles:
+  {}
+
+file_rules:
+  - !<Rule> {name: Default, colorspace: default}
+
+displays:
+  {}
+
+active_displays: []
+active_views: []
+
+colorspaces:
+  []

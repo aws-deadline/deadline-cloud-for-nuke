@@ -1,0 +1,75 @@
+#! /opt/nuke/Nuke14.0v5/libnuke-14.0.5.so -nx
+#write_info Write1 file:"output/output_%04d.png" format:"2048 1556 1" chans:":rgba.red:rgba.green:rgba.blue:" framerange:"1 100" fps:"0" colorspace:"matte_paint" datatype:"8 bit" transfer:"unknown" views:"main" colorManagement:"OCIO"
+version 14.0 v5
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="0" y="27" w="1512" h="848" maximized="1" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="849" stretch="1"/>
+            <splitter orientation="2">
+                <split size="473"/>
+                <dock id="" activePageId="Viewer.1">
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="332"/>
+                <dock id="" activePageId="DAG.1" focus="true">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+                <page id="Scenegraph.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name /home/rocky/src/deadline-cloud-for-nuke/job_bundle_output_tests/ocio/scene/ocio.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement OCIO
+ OCIO_config custom
+ customOCIOConfigPath /home/rocky/src/deadline-cloud-for-nuke/job_bundle_output_tests/ocio/scene/config.ocio
+ defaultViewerLUT "OCIO LUTs"
+ workingSpaceLUT scene_linear
+ monitorLut 0
+ monitorOutLUT "sRGB (default)"
+ int8Lut matte_paint
+ int16Lut texture_paint
+ logLut compositing_log
+ floatLut scene_linear
+}
+ColorBars {
+ inputs 0
+ name ColorBars1
+ xpos -53
+ ypos -134
+}
+set Nca0bef0 [stack 0]
+Write {
+ file output/output_####.png
+ colorspace matte_paint
+ file_type png
+ checkHashOnRead false
+ name Write1
+ xpos 11
+ ypos -17
+}
+push $Nca0bef0
+Viewer {
+ frame_range 1-100
+ name Viewer1
+ xpos -139
+ ypos 52
+}

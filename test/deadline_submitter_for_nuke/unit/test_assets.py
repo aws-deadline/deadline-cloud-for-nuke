@@ -16,6 +16,8 @@ from deadline.nuke_submitter.assets import (
     get_scene_asset_references,
 )
 
+from .mock_stubs import MockOCIOConfig
+
 
 def _activated_reading_write_node_knobs(knob_name: str):
     """Side effect function to allow knob() to return different values
@@ -36,8 +38,19 @@ def _activated_reading_write_node_knobs(knob_name: str):
     "deadline.nuke_submitter.assets.get_node_filenames",
     return_value=["/one/asset.png", "/two/asset.png"],
 )
+@patch("deadline.nuke_submitter.assets.is_custom_ocio_config_enabled", return_value=False)
+@patch(
+    "deadline.nuke_submitter.assets.get_custom_ocio_config_path",
+    return_value="/this/ocio_configs/config.ocio",
+)
+@patch("PyOpenColorIO.Config.CreateFromFile", return_value=MockOCIOConfig(search_paths=["luts"]))
 def test_get_scene_asset_references(
-    mock_get_node_filenames: Mock, mock_get_nuke_script_file: Mock, mock_path_isfile: Mock
+    mock_ocio_config_create_from_file: Mock,
+    mock_get_custom_ocio_config_path: Mock,
+    mock_is_custom_ocio_config_enabled: Mock,
+    mock_get_node_filenames: Mock,
+    mock_get_nuke_script_file: Mock,
+    mock_path_isfile: Mock,
 ):
     # GIVEN
     expected_assets = mock_get_node_filenames.return_value
@@ -74,6 +87,26 @@ def test_get_scene_asset_references(
     # THEN
     assert expected_script_file in results.input_filenames
     assert all(asset in results.input_filenames for asset in expected_assets)
+
+    # GIVEN
+    expected_ocio_config_path = mock_get_custom_ocio_config_path.return_value
+    expected_ocio_config_search_paths = [
+        os.path.join(os.path.dirname(expected_ocio_config_path), search_path)
+        for search_path in mock_ocio_config_create_from_file.return_value.getSearchPaths()
+    ]
+    nuke.allNodes.return_value = []
+    mock_is_custom_ocio_config_enabled.return_value = True
+
+    # WHEN
+    results = get_scene_asset_references()
+
+    # THEN
+    assert expected_script_file in results.input_filenames
+    assert expected_ocio_config_path in results.input_filenames
+    assert all(
+        search_path in expected_ocio_config_search_paths
+        for search_path in results.input_directories
+    )
 
 
 @patch("os.path.isfile", return_value=False)

@@ -1,0 +1,12 @@
+assetReferences:
+  inputs:
+    directories:
+    - /normalized/job/bundle/dir/luts
+    - /tmp/luts
+    filenames:
+    - /normalized/job/bundle/dir/config.ocio
+    - /normalized/job/bundle/dir/ocio.nk
+  outputs:
+    directories:
+    - /normalized/cwd/output
+  referencedPaths: []
