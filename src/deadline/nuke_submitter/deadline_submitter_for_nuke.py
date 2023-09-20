@@ -184,8 +184,14 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
     render_settings.frame_list = str(nuke.root().frameRange())
     render_settings.is_proxy_mode = nuke.root().proxy()
 
+    script_path = get_nuke_script_file()
+    if not script_path:
+        raise DeadlineOperationError(
+            "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
+        )
+
     # Load the sticky settings
-    render_settings.load_sticky_settings(get_nuke_script_file())
+    render_settings.load_sticky_settings(script_path)
 
     def on_create_job_bundle_callback(
         widget: SubmitJobToDeadlineDialog,
