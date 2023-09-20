@@ -22,7 +22,10 @@ JOB_ID_REGEX = re.compile(r"^job-[0-9a-z]{32}$")
 
 def get_nuke_script_file() -> str:
     """Gets the nuke script file (.nk)"""
-    return normpath(nuke.root().knob("name").value())
+    script_path = nuke.root().knob("name").value()
+    if script_path:
+        return normpath(script_path)
+    return ""
 
 
 def get_project_path() -> str:
