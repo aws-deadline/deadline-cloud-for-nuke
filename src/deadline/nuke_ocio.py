@@ -1,0 +1,37 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+from __future__ import annotations
+
+import os
+import nuke
+import PyOpenColorIO as OCIO
+
+
+def is_custom_ocio_config_enabled() -> bool:
+    """True if the script is using a custom OCIO config"""
+    return (
+        nuke.root().knob("colorManagement").value() == "OCIO"
+        and nuke.root().knob("OCIO_config").value() == "custom"
+    )
+
+
+def get_custom_ocio_config_path() -> str:
+    """This is the path to the custom OCIO config used by the script"""
+    return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
+
+
+def get_custom_ocio_config() -> OCIO.Config:
+    return OCIO.Config.CreateFromFile(get_custom_ocio_config_path())
+
+
+def get_ocio_config_absolute_search_paths(ocio_config: str | OCIO.Config) -> list[str]:
+    """Returns the directories containing the LUTs for the provided OCIO config"""
+    if type(ocio_config) is str:
+        ocio_config = OCIO.Config.CreateFromFile(ocio_config)
+
+    # A config can have multiple search paths and they can be relative or absolute.
+    # At least for all of the AMPAS OCIO configs this is always a single relative path to the "luts" directory
+    search_paths = ocio_config.getSearchPaths()
+    ocio_config_dir = ocio_config.getWorkingDir()
+
+    return [os.path.join(ocio_config_dir, search_path) for search_path in search_paths]

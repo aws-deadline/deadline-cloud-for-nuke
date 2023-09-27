@@ -9,10 +9,10 @@ from os.path import commonpath, dirname, join, normpath, samefile
 from sys import platform
 
 import nuke
-import PyOpenColorIO as OCIO
 
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
+from deadline import nuke_ocio
 
 FRAME_REGEX = re.compile(r"(#+)|%(\d*)d", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
@@ -34,30 +34,6 @@ def get_project_path() -> str:
     if not project_path:
         project_path = os.getcwd()
     return project_path
-
-
-def is_custom_ocio_config_enabled() -> bool:
-    """True if the script is using a custom OCIO config"""
-    return (
-        nuke.root().knob("colorManagement").value() == "OCIO"
-        and nuke.root().knob("OCIO_config").value() == "custom"
-    )
-
-
-def get_custom_ocio_config_path() -> str:
-    """This is the path to the custom OCIO config used by the script"""
-    return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
-
-
-def get_custom_ocio_config_search_paths(ocio_config_file: str) -> list[str]:
-    """Returns the directories containing the LUTs for the provided OCIO config"""
-    ocio_config = OCIO.Config.CreateFromFile(ocio_config_file)
-
-    # A config can have multiple search paths and they can be relative or absolute.
-    # At least for all of the AMPAS OCIO configs this is always a single relative path to the "luts" directory
-    search_paths = ocio_config.getSearchPaths()
-
-    return [join(dirname(ocio_config_file), search_path) for search_path in search_paths]
 
 
 def get_scene_asset_references() -> AssetReferences:
@@ -106,9 +82,9 @@ def get_scene_asset_references() -> AssetReferences:
                 asset_references.output_directories.add(dirname(filename))
 
     # if using a custom OCIO config, add the config file and associated search directories
-    if is_custom_ocio_config_enabled():
-        ocio_config_path = get_custom_ocio_config_path()
-        ocio_config_search_paths = get_custom_ocio_config_search_paths(ocio_config_path)
+    if nuke_ocio.is_custom_ocio_config_enabled():
+        ocio_config_path = nuke_ocio.get_custom_ocio_config_path()
+        ocio_config_search_paths = nuke_ocio.get_ocio_config_absolute_search_paths(ocio_config_path)
 
         asset_references.input_filenames.add(ocio_config_path)
 
