@@ -8,7 +8,7 @@ if [ ! -d wheels ]; then
 fi
 rm -f wheels/*
 
-for dir in ../openjobio ../deadline-cloud ../deadline-cloud-for-nuke; do
+for dir in ../openjd-adaptor-runtime-for-python ../deadline-cloud ../deadline-cloud-for-nuke; do
     echo "Building $dir..."    
     cd $dir
     hatch build
