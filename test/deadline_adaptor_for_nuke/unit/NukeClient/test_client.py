@@ -149,7 +149,7 @@ class TestNukeClient:
                 PureWindowsPath,
                 [
                     PathMappingRule(
-                        source_os="Windows",
+                        source_path_format="windows",
                         source_path="some",
                         destination_os="Windows",
                         destination_path="C:/Some",
@@ -163,7 +163,7 @@ class TestNukeClient:
                 PurePosixPath,
                 [
                     PathMappingRule(
-                        source_os="linux",
+                        source_path_format="posix",
                         source_path="some",
                         destination_os="linux",
                         destination_path="/some/linux",
@@ -211,7 +211,7 @@ class TestNukeClient:
                 PurePosixPath,
                 [
                     PathMappingRule(
-                        source_os="linux",
+                        source_path_format="posix",
                         source_path="/",
                         destination_os="linux",
                         destination_path="/session-dir",
@@ -225,13 +225,13 @@ class TestNukeClient:
                 PurePosixPath,
                 [
                     PathMappingRule(
-                        source_os="Windows",
+                        source_path_format="windows",
                         source_path="some",
                         destination_os="Windows",
                         destination_path="C:/Some",
                     ),
                     PathMappingRule(
-                        source_os="linux",
+                        source_path_format="posix",
                         source_path="path",
                         destination_os="linux",
                         destination_path="path/session-dir",
