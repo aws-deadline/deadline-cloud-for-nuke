@@ -133,10 +133,19 @@ def _get_parameter_values(
     write_node, write_node_name = _get_write_node(settings)
 
     # Set the Frames parameter value
+    # Check whether the write node is writing out a MOV file
+    mov_render = write_node["file_type"].value() == "mov"
+
     if settings.override_frame_range:
         frame_list = settings.frame_list
     else:
         frame_list = str(write_node.frameRange())
+
+    if mov_render:
+        # Place on one task
+        # TODO: Check regex
+        frame_list = str(write_node.frameRange())
+
     parameter_values.append({"name": "Frames", "value": frame_list})
 
     # Set the Nuke script file value

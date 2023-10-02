@@ -54,6 +54,9 @@ class NukeHandler:
             RuntimeError: If start render is called without a frame number.
         """
         frame = data.get("frame")
+        # TODO: validation
+        print("******* STARTING RENDER %s" % frame)
+        start_frame, end_frame = frame.split("-")
         if frame is None:
             raise RuntimeError("NukeClient: start_render called without a frame number.")
 
@@ -65,6 +68,8 @@ class NukeHandler:
                 flush=True,
             )
 
+        # split the frame parameter via the "-" caharacter, if applicable
+        
         # enforce render order
         self.write_nodes.sort(key=lambda node: node.knobs()["render_order"].value())
 
@@ -81,7 +86,7 @@ class NukeHandler:
                 flush=True,
             )
             try:
-                nuke.execute(node, frame, frame, 1, **self.render_kwargs)
+                nuke.execute(node, start_frame, end_frame, 1, **self.render_kwargs)
             except Exception as e:
                 print(
                     "NukeClient: Encountered the following Exception while running node "
