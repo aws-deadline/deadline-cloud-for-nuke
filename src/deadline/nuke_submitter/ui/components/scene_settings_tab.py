@@ -44,7 +44,8 @@ class SceneSettingsWidget(QWidget):
         for write_node in sorted(
             find_all_write_nodes(), key=lambda write_node: write_node.fullName()
         ):
-            self.write_node_box.addItem(write_node.fullName(), write_node)
+            # Set data value as fullName since this is the value we want to store in the settings
+            self.write_node_box.addItem(write_node.fullName(), write_node.fullName())
 
         lyt.addWidget(QLabel("Write Nodes"), 0, 0)
         lyt.addWidget(self.write_node_box, 0, 1)
