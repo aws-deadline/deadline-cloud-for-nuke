@@ -81,10 +81,14 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
         wheels_path_package_names = {
             path.split("-", 1)[0] for path in os.listdir(wheels_path) if path.endswith(".whl")
         }
-        if wheels_path_package_names != {"openjd", "deadline", "deadline_cloud_for_nuke"}:
+        if wheels_path_package_names != {
+            "openjd_adaptor_runtime",
+            "deadline",
+            "deadline_cloud_for_nuke",
+        }:
             raise RuntimeError(
                 "The Developer Option 'Include Adaptor Wheels' is enabled, but the wheels directory contains the wrong wheels:\n"
-                + "Expected: openjd, deadline, and deadline_cloud_for_nuke\n"
+                + "Expected: openjd_adaptor_runtime, deadline, and deadline_cloud_for_nuke\n"
                 + f"Actual: {wheels_path_package_names}"
             )
 
@@ -155,7 +159,7 @@ def _get_parameter_values(
             + f"{', '.join(parameter_overlap)}"
         )
 
-    # If we're overriding the adaptor with wheels, remove deadline_cloud_for_maya from the RezPackages
+    # If we're overriding the adaptor with wheels, remove deadline_cloud_for_nuke from the RezPackages
     if settings.include_adaptor_wheels:
         rez_param = {}
         # Find the RezPackages parameter definition
@@ -163,12 +167,12 @@ def _get_parameter_values(
             if param["name"] == "RezPackages":
                 rez_param = param
                 break
-        # Remove the deadline_cloud_for_maya rez package
+        # Remove the deadline_cloud_for_nuke rez package
         if rez_param:
             rez_param["value"] = " ".join(
                 pkg
                 for pkg in rez_param["value"].split()
-                if not pkg.startswith("deadline_cloud_for_maya")
+                if not pkg.startswith("deadline_cloud_for_nuke")
             )
 
     parameter_values.extend(
@@ -236,16 +240,11 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
     else:
         attachments = AssetReferences()
 
-    # Match the major version of Nuke in the Rez package list
-    nuke_version_major = nuke.env["NukeVersionMajor"]
-
     if not g_submitter_dialog:
         g_submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
-            initial_shared_parameter_values={
-                "RezPackages": f"nuke-{nuke_version_major} deadline_cloud_for_nuke"
-            },
+            initial_shared_parameter_values={},
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,
