@@ -3,8 +3,8 @@
 import sys
 from unittest.mock import MagicMock
 
-# we must mock nuke before importing client code
-nuke_modules = ["nuke"]
+# we must mock nuke and PyOpenColorIO before importing client code
+nuke_modules = ["nuke", "PyOpenColorIO"]
 
 for module in nuke_modules:
     sys.modules[module] = MagicMock()

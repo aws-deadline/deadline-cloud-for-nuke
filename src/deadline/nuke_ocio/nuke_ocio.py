@@ -21,6 +21,7 @@ def get_custom_ocio_config_path() -> str:
 
 
 def get_custom_ocio_config() -> OCIO.Config:
+    """Creates an OCIO config from the custom OCIO config path"""
     return OCIO.Config.CreateFromFile(get_custom_ocio_config_path())
 
 

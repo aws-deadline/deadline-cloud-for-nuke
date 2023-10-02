@@ -41,6 +41,7 @@ path = "hatch_custom_hook.py"
 [tool.hatch.build.hooks.custom.copy_version_py]
 destinations = [
   "src/deadline/nuke_adaptor",
+  "src/deadline/nuke_ocio",
   "src/deadline/nuke_submitter",
 ]
 
@@ -87,6 +88,7 @@ xfail_strict = true
 addopts = [
     "--durations=5",
     "--cov=src/deadline/nuke_adaptor",
+    "--cov=src/deadline/nuke_ocio",
     "--cov=src/deadline/nuke_submitter",
     "--color=yes",
     "--cov-report=html:build/coverage",
@@ -105,7 +107,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source_pkgs = [ "deadline/nuke_adaptor", "deadline/nuke_submitter" ]
+source_pkgs = [ "deadline/nuke_adaptor", "deadline/nuke_ocio", "deadline/nuke_submitter" ]
 branch = true
 parallel = true
 omit = [
