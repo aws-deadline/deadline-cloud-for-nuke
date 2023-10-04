@@ -16,8 +16,6 @@ from deadline.nuke_submitter.assets import (
     get_scene_asset_references,
 )
 
-from .mock_stubs import MockOCIOConfig
-
 
 def _activated_reading_write_node_knobs(knob_name: str):
     """Side effect function to allow knob() to return different values
