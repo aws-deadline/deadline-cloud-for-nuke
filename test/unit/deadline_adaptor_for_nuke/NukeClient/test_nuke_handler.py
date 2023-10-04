@@ -10,7 +10,7 @@ import pytest
 import deadline.nuke_adaptor.NukeClient.nuke_handler as handler_mod
 from deadline.nuke_adaptor.NukeClient.nuke_handler import NukeHandler
 
-from .mock_stubs import MockKnob, MockNode
+from test.unit.mock_stubs import MockKnob, MockNode
 
 
 @pytest.fixture()

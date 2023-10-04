@@ -8,7 +8,7 @@ import pytest
 
 from deadline import nuke_ocio
 
-from .mock_stubs import MockKnob, MockNode, MockOCIOConfig
+from test.unit.mock_stubs import MockKnob, MockNode, MockOCIOConfig
 
 
 @pytest.fixture()

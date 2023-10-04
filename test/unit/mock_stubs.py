@@ -1,7 +1,6 @@
-# # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-from __future__ import annotations
-from typing import Any
+from typing import Any, Dict
 
 
 class MockKnob:
@@ -19,7 +18,7 @@ class MockKnob:
     def getEvaluatedValue(self) -> Any:
         return self._value
 
-    def setValue(self, value: Any):
+    def setValue(self, value):
         self._value = value
         return True
 
@@ -27,7 +26,7 @@ class MockKnob:
 class MockNode:
     """Mock class which emulates the Nuke Node"""
 
-    _knobs: dict[str, MockKnob]
+    _knobs: Dict[str, MockKnob]
     _name: str = ""
     _class: str = ""
     __name__ = "Node"
@@ -40,7 +39,7 @@ class MockNode:
     def name(self) -> str:
         return self._name
 
-    def knobs(self) -> dict[str, MockKnob]:
+    def knobs(self) -> Dict[str, MockKnob]:
         return self._knobs
 
     def knob(self, name) -> Any:
