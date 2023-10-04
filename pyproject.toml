@@ -96,10 +96,10 @@ addopts = [
     "--cov-report=term-missing",
     "--numprocesses=auto",
 ]
-testpaths = [ "test" ]
+testpaths = [ "test/unit" ]
 looponfailroots = [
     "src",
-    "test",
+    "test/unit",
 ]
 # looponfailroots is deprecated, this removes the deprecation from the test output
 filterwarnings = [
