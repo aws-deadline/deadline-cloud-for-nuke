@@ -112,29 +112,30 @@ class NukeClient(_HTTPClientInterface):
 
     def _map_ocio_config(self):
         """If the OCIO config contains absolute search paths, apply path mapping rules and create a new config"""
-        ocio_config = nuke_ocio.get_custom_ocio_config()
-        if any(PurePath(path).is_absolute() for path in ocio_config.getSearchPaths()):
+        ocio_config_path = nuke_ocio.get_custom_ocio_config_path()
+        ocio_config = nuke_ocio.create_ocio_config_from_file(ocio_config_path)
+        if nuke_ocio.ocio_config_has_absolute_search_paths(ocio_config):
             # make all search paths absolute since the new config will be saved in the nuke temp dir
             updated_search_paths = [
                 self.map_path(search_path)
                 for search_path in nuke_ocio.get_ocio_config_absolute_search_paths(ocio_config)
             ]
 
-            ocio_config.clearSearchPaths()
-            for search_path in updated_search_paths:
-                ocio_config.addSearchPath(search_path)
+            nuke_ocio.update_ocio_config_search_paths(
+                ocio_config=ocio_config, search_paths=updated_search_paths
+            )
 
             # create a new version of the config with updated search paths
             updated_ocio_config_path = os.path.join(
                 os.environ["NUKE_TEMP_DIR"],
-                os.path.basename(nuke_ocio.get_custom_ocio_config_path()),
+                os.path.basename(ocio_config_path),
             )
-            
+
             nuke.tprint("Writing updated OCIO config to {}".format(updated_ocio_config_path))
 
             ocio_config.serialize(updated_ocio_config_path)
 
-            nuke.root().knob("customOCIOConfigPath").setValue(updated_ocio_config_path)
+            nuke_ocio.set_custom_ocio_config_path(ocio_config_path=updated_ocio_config_path)
 
 
 def main():

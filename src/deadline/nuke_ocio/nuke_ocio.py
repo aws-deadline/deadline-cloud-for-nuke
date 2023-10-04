@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from pathlib import PurePath
+
 import nuke
 import PyOpenColorIO as OCIO
 
@@ -20,9 +22,13 @@ def get_custom_ocio_config_path() -> str:
     return nuke.root().knob("customOCIOConfigPath").getEvaluatedValue()
 
 
-def get_custom_ocio_config() -> OCIO.Config:
+def create_ocio_config_from_file(ocio_config_path: str) -> OCIO.Config:
     """Creates an OCIO config from the custom OCIO config path"""
-    return OCIO.Config.CreateFromFile(get_custom_ocio_config_path())
+    return OCIO.Config.CreateFromFile(ocio_config_path)
+
+
+def ocio_config_has_absolute_search_paths(ocio_config: OCIO.Config) -> bool:
+    return any(PurePath(path).is_absolute() for path in ocio_config.getSearchPaths())
 
 
 def get_ocio_config_absolute_search_paths(ocio_config: str | OCIO.Config) -> list[str]:
@@ -36,3 +42,15 @@ def get_ocio_config_absolute_search_paths(ocio_config: str | OCIO.Config) -> lis
     ocio_config_dir = ocio_config.getWorkingDir()
 
     return [os.path.join(ocio_config_dir, search_path) for search_path in search_paths]
+
+
+def update_ocio_config_search_paths(ocio_config: OCIO.Config, search_paths: list[str]) -> None:
+    """Replace the search path(s) in the provided OCIO config"""
+    ocio_config.clearSearchPaths()
+    for search_path in search_paths:
+        ocio_config.addSearchPath(search_path)
+
+
+def set_custom_ocio_config_path(ocio_config_path: str) -> None:
+    """Set the knob on the root settings to update the OCIO config"""
+    nuke.root().knob("customOCIOConfigPath").setValue(ocio_config_path)

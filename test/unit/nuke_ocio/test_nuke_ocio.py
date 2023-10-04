@@ -96,17 +96,38 @@ def test_get_custom_ocio_config_path(custom_ocio_config_path_knob: MockKnob) -> 
 
 
 @patch("PyOpenColorIO.Config.CreateFromFile")
-def test_get_custom_ocio_config(
+def test_create_ocio_config_from_file(
     create_from_file: MagicMock, custom_ocio_config_path_knob: MockKnob
 ) -> None:
     # GIVEN
     custom_ocio_config_path = custom_ocio_config_path_knob.getEvaluatedValue()
 
     # WHEN
-    nuke_ocio.get_custom_ocio_config()
+    nuke_ocio.create_ocio_config_from_file(custom_ocio_config_path)
 
     # ACTUAL
     create_from_file.assert_called_once_with(custom_ocio_config_path)
+
+
+def test_ocio_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
+    # GIVEN
+    expected = True
+
+    # WHEN
+    actual = nuke_ocio.ocio_config_has_absolute_search_paths(ocio_config)
+
+    # THEN
+    assert expected == actual
+
+    # GIVEN
+    expected = False
+
+    # WHEN
+    ocio_config._search_paths = ["luts"]
+    actual = nuke_ocio.ocio_config_has_absolute_search_paths(ocio_config)
+
+    # THEN
+    assert expected == actual
 
 
 def test_get_ocio_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
@@ -117,7 +138,29 @@ def test_get_ocio_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> N
     ]
 
     # WHEN
-    actual = nuke_ocio.get_ocio_config_absolute_search_paths(ocio_config)
+    actual = nuke_ocio.get_ocio_config_absolute_search_paths(ocio_config=ocio_config)
 
     # THEN
     assert expected == actual
+
+
+def test_update_ocio_config_search_paths(ocio_config: MockOCIOConfig) -> None:
+    # GIVEN
+    search_paths = ["relative/path/to/luts", "/absolute/path/to/luts"]
+
+    # WHEN
+    nuke_ocio.update_ocio_config_search_paths(ocio_config=ocio_config, search_paths=search_paths)
+
+    # THEN
+    assert search_paths == ocio_config._search_paths
+
+
+def test_set_custom_ocio_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
+    # GIVEN
+    ocio_config_path = "/nuke_temp_dir/temp_ocio_config.ocio"
+
+    # WHEN
+    nuke_ocio.set_custom_ocio_config_path(ocio_config_path=ocio_config_path)
+
+    # THEN
+    assert ocio_config_path == custom_ocio_config_path_knob.getEvaluatedValue()

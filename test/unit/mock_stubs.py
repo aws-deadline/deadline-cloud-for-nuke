@@ -63,3 +63,9 @@ class MockOCIOConfig:
 
     def getSearchPaths(self) -> list[str]:
         return self._search_paths
+
+    def clearSearchPaths(self) -> None:
+        self._search_paths = []
+
+    def addSearchPath(self, search_path: str) -> None:
+        self._search_paths.append(search_path)
