@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import os
 import nuke
@@ -53,7 +53,7 @@ def setup_nuke(root_node: MockNode) -> None:
 
 
 def test_is_custom_ocio_config_enabled() -> None:
-    # GIVEN
+    # GIVEN (custom OCIO enabled)
     expected = True
 
     # WHEN
@@ -62,7 +62,7 @@ def test_is_custom_ocio_config_enabled() -> None:
     # THEN
     assert expected == actual
 
-    # GIVEN
+    # GIVEN (OCIO disabled)
     nuke.root().knob("colorManagement").setValue("Nuke")
     expected = False
 
@@ -72,7 +72,7 @@ def test_is_custom_ocio_config_enabled() -> None:
     # THEN
     assert expected == actual
 
-    # GIVEN
+    # GIVEN (built-in OCIO enabled)
     nuke.root().knob("colorManagement").setValue("OCIO")
     nuke.root().knob("OCIO_config").setValue("nuke-default")
     expected = False

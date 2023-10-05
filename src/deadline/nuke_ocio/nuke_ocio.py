@@ -28,12 +28,13 @@ def create_ocio_config_from_file(ocio_config_path: str) -> OCIO.Config:
 
 
 def ocio_config_has_absolute_search_paths(ocio_config: OCIO.Config) -> bool:
+    """True if any paths in the OCIO config's search path are absolute"""
     return any(PurePath(path).is_absolute() for path in ocio_config.getSearchPaths())
 
 
 def get_ocio_config_absolute_search_paths(ocio_config: str | OCIO.Config) -> list[str]:
     """Returns the directories containing the LUTs for the provided OCIO config"""
-    if type(ocio_config) is str:
+    if isinstance(ocio_config, str):
         ocio_config = OCIO.Config.CreateFromFile(ocio_config)
 
     # A config can have multiple search paths and they can be relative or absolute.
