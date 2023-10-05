@@ -51,7 +51,7 @@ WARNING: This workflow installs additional Python packages into your Nuke's pyth
 
 ## Application Interface Adaptor Development Workflow
 
-You can work on the adaptor alongside your submitter development workflow using a Deadline Cloud farm that uses a service-managed fleet. You'll need to perform the following steps to subsititute your build of the adaptor for the one in the service.
+You can work on the adaptor alongside your submitter development workflow using a Deadline Cloud farm that uses a service-managed fleet. You'll need to perform the following steps to substitute your build of the adaptor for the one in the service.
 
 1. Use the development location from the Submitter Development Workflow. You will need to also check out `openjd-adaptor-runtime-for-python` from git if you do not already have it. Make sure you're running Nuke with `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true` enabled.
 2. Build wheels for `openjd_adaptor_runtime`, `deadline` and `deadline_cloud_for_nuke`, place them in a "wheels" folder in `deadline-cloud-for-nuke`. A script is provided to do this, just execute from `deadline-cloud-for-nuke`:
