@@ -57,6 +57,7 @@ class MockOCIOConfig:
     def __init__(self, working_dir: str, search_paths: list[str]):
         self._working_dir = working_dir
         self._search_paths = search_paths
+        self._serialize_path = ""
 
     def getWorkingDir(self) -> str:
         return self._working_dir
@@ -69,3 +70,6 @@ class MockOCIOConfig:
 
     def addSearchPath(self, search_path: str) -> None:
         self._search_paths.append(search_path)
+
+    def serialize(self, file_path: str) -> None:
+        self._serialize_path = file_path

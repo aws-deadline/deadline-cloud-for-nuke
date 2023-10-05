@@ -135,7 +135,7 @@ class NukeClient(_HTTPClientInterface):
 
             ocio_config.serialize(updated_ocio_config_path)
 
-            nuke_ocio.set_custom_ocio_config_path(ocio_config_path=updated_ocio_config_path)
+            nuke_ocio.set_custom_ocio_config_path(updated_ocio_config_path)
 
 
 def main():
