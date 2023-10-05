@@ -76,7 +76,7 @@ You can work on the adaptor alongside your submitter development workflow using 
 You can run the adaptor on your local workstation. This approach does not contain all of the steps that would happen when running an actual job on the farm (rez environment, job attachments), but it can provide quick iteration for certain development cases.
 
 1. Install `deadline-cloud-for-nuke` in edit mode as described in submitter development workflow above.
-2. Create `init-data.yaml` and `run-data.yaml` files, replacing variables as necessary.
+2. Create `init-data.yaml` and `run-data.yaml` files, replacing variables as necessary. Optionally create a `path-mapping.yaml` file to test with path mapping enabled.
 
    ```yaml
    # init-data.yaml
@@ -96,8 +96,16 @@ You can run the adaptor on your local workstation. This approach does not contai
    frame: 1
    ```
 
-3. Optionally create path mapping file
-4. Run the adaptor from the environment where you have `deadline-cloud-for-nuke` installed:
+   ```yaml
+   # path-mapping.yaml
+
+   path_mapping_rules:
+   - source_path_format: "POSIX"
+     source_path: "/path/to/local/workstation/dir"
+     destination_path: "/path/to/equivalent/job/dir"
+   ```
+
+3. Run the adaptor from the environment where you have `deadline-cloud-for-nuke` installed:
 
    ```bash
    # Path mapping disabled
@@ -107,4 +115,6 @@ You can run the adaptor on your local workstation. This approach does not contai
    NukeAdaptor run --init-data file://init-data.yaml --run-data file://run-data.yaml --path-mapping-rules file://path-mapping.yaml
    ```
 
-5. The resulting image(s) will be written based on the output(s) specified on the write node(s), taking any path mapping into account.
+   NOTE: The NukeAdaptor expects that the Nuke executable is named `nuke` and is set on the PATH. If this is not the case, you can set the `NUKE_ADAPTOR_NUKE_EXECUTABLE` environment variable to the path to the Nuke executable.
+
+4. The result will be written based on the output specified on the write node, taking any path mapping into account.
