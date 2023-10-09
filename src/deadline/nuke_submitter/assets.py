@@ -12,7 +12,7 @@ import nuke
 
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
-from deadline import nuke_ocio
+from deadline.nuke import ocio_util
 
 FRAME_REGEX = re.compile(r"(#+)|%(\d*)d", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
@@ -82,9 +82,9 @@ def get_scene_asset_references() -> AssetReferences:
                 asset_references.output_directories.add(dirname(filename))
 
     # if using a custom OCIO config, add the config file and associated search directories
-    if nuke_ocio.is_custom_ocio_config_enabled():
-        ocio_config_path = nuke_ocio.get_custom_ocio_config_path()
-        ocio_config_search_paths = nuke_ocio.get_ocio_config_absolute_search_paths(ocio_config_path)
+    if ocio_util.is_custom_ocio_config_enabled():
+        ocio_config_path = ocio_util.get_custom_ocio_config_path()
+        ocio_config_search_paths = ocio_util.get_ocio_config_absolute_search_paths(ocio_config_path)
 
         asset_references.input_filenames.add(ocio_config_path)
 

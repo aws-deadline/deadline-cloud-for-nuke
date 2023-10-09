@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import tempfile
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import (
     List,
@@ -273,16 +274,16 @@ class TestNukeClient:
 
     @patch.dict(os.environ, {"NUKE_TEMP_DIR": "/var/tmp/nuke_temp_dir"})
     @patch(
-        "deadline.nuke_ocio.get_custom_ocio_config_path",
+        "deadline.nuke.ocio_util.get_custom_ocio_config_path",
         return_value="/session-dir/ocio/custom_config.ocio",
     )
     @patch(
-        "deadline.nuke_ocio.create_ocio_config_from_file",
+        "deadline.nuke.ocio_util.create_ocio_config_from_file",
         return_value=MockOCIOConfig(
             working_dir="/session-dir/ocio", search_paths=["luts", "/absolute/path/to/luts"]
         ),
     )
-    @patch("deadline.nuke_ocio.set_custom_ocio_config_path")
+    @patch("deadline.nuke.ocio_util.set_custom_ocio_config_path")
     def test_map_ocio_config(
         self,
         mock_set_custom_ocio_config_path: Mock,
@@ -305,7 +306,7 @@ class TestNukeClient:
                 os.path.basename(mock_get_custom_ocio_config_path.return_value),
             )
 
-            client = NukeClient(socket_path="/tmp/9999")
+            client = NukeClient(socket_path=tempfile.TemporaryFile())
 
             # WHEN
             client._map_ocio_config()
