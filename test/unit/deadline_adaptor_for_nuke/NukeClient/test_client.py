@@ -306,7 +306,8 @@ class TestNukeClient:
                 os.path.basename(mock_get_custom_ocio_config_path.return_value),
             )
 
-            client = NukeClient(socket_path=tempfile.TemporaryFile())
+            temp_socket_file = tempfile.TemporaryFile()
+            client = NukeClient(socket_path=temp_socket_file.name)
 
             # WHEN
             client._map_ocio_config()
