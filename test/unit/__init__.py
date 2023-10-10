@@ -17,6 +17,3 @@ mock_modules = [
 
 for module in mock_modules:
     sys.modules[module] = MagicMock()
-
-for module in mock_modules:
-    sys.modules[module] = MagicMock()

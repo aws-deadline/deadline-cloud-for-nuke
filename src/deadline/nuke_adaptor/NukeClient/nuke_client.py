@@ -28,6 +28,7 @@ except ImportError:
 
 try:
     import nuke
+    from deadline.nuke import ocio_util
 except ImportError:  # pragma: no cover
     raise OSError("Could not find the Nuke module. Are you running this inside of Nuke?")
 
@@ -51,6 +52,12 @@ class NukeClient(_HTTPClientInterface):
             if output_dir and not os.path.isdir(output_dir):
                 os.makedirs(output_dir)
 
+        def verify_ocio_config():
+            """If using a custom OCIO config, update the internal search paths if necessary"""
+            if ocio_util.is_custom_ocio_config_enabled():
+                self._map_ocio_config()
+
+        nuke.addBeforeRender(verify_ocio_config)
         nuke.addBeforeRender(ensure_output_dir)
         nuke.addFilenameFilter(self.map_path)
 
@@ -102,6 +109,33 @@ class NukeClient(_HTTPClientInterface):
             ):
                 return rule
         return None
+
+    def _map_ocio_config(self):
+        """If the OCIO config contains absolute search paths, apply path mapping rules and create a new config"""
+        ocio_config_path = ocio_util.get_custom_ocio_config_path()
+        ocio_config = ocio_util.create_ocio_config_from_file(ocio_config_path)
+        if ocio_util.ocio_config_has_absolute_search_paths(ocio_config):
+            # make all search paths absolute since the new config will be saved in the nuke temp dir
+            updated_search_paths = [
+                self.map_path(search_path)
+                for search_path in ocio_util.get_ocio_config_absolute_search_paths(ocio_config)
+            ]
+
+            ocio_util.update_ocio_config_search_paths(
+                ocio_config=ocio_config, search_paths=updated_search_paths
+            )
+
+            # create a new version of the config with updated search paths
+            updated_ocio_config_path = os.path.join(
+                os.environ["NUKE_TEMP_DIR"],
+                os.path.basename(ocio_config_path),
+            )
+
+            nuke.tprint("Writing updated OCIO config to {}".format(updated_ocio_config_path))
+
+            ocio_config.serialize(updated_ocio_config_path)
+
+            ocio_util.set_custom_ocio_config_path(updated_ocio_config_path)
 
 
 def main():

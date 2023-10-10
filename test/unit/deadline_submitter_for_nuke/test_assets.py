@@ -16,8 +16,6 @@ from deadline.nuke_submitter.assets import (
     get_scene_asset_references,
 )
 
-from .mock_stubs import MockOCIOConfig
-
 
 def _activated_reading_write_node_knobs(knob_name: str):
     """Side effect function to allow knob() to return different values
@@ -38,14 +36,17 @@ def _activated_reading_write_node_knobs(knob_name: str):
     "deadline.nuke_submitter.assets.get_node_filenames",
     return_value=["/one/asset.png", "/two/asset.png"],
 )
-@patch("deadline.nuke_submitter.assets.is_custom_ocio_config_enabled", return_value=False)
+@patch("deadline.nuke.ocio_util.is_custom_ocio_config_enabled", return_value=False)
 @patch(
-    "deadline.nuke_submitter.assets.get_custom_ocio_config_path",
+    "deadline.nuke.ocio_util.get_custom_ocio_config_path",
     return_value="/this/ocio_configs/config.ocio",
 )
-@patch("PyOpenColorIO.Config.CreateFromFile", return_value=MockOCIOConfig(search_paths=["luts"]))
+@patch(
+    "deadline.nuke.ocio_util.get_ocio_config_absolute_search_paths",
+    return_value=["/this/ocio_configs/luts"],
+)
 def test_get_scene_asset_references(
-    mock_ocio_config_create_from_file: Mock,
+    mock_get_ocio_config_absolute_search_paths: Mock,
     mock_get_custom_ocio_config_path: Mock,
     mock_is_custom_ocio_config_enabled: Mock,
     mock_get_node_filenames: Mock,
@@ -90,10 +91,8 @@ def test_get_scene_asset_references(
 
     # GIVEN
     expected_ocio_config_path = mock_get_custom_ocio_config_path.return_value
-    expected_ocio_config_search_paths = [
-        os.path.join(os.path.dirname(expected_ocio_config_path), search_path)
-        for search_path in mock_ocio_config_create_from_file.return_value.getSearchPaths()
-    ]
+    expected_ocio_config_search_paths = mock_get_ocio_config_absolute_search_paths.return_value
+
     nuke.allNodes.return_value = []
     mock_is_custom_ocio_config_enabled.return_value = True
 

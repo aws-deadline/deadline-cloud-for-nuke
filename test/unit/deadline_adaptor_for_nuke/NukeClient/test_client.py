@@ -1,12 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import tempfile
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import (
     List,
     Type,
 )
 from unittest.mock import Mock, patch
+from test.unit.mock_stubs import MockOCIOConfig
 
 import nuke
 import pytest
@@ -269,3 +271,58 @@ class TestNukeClient:
         # THEN
         mock_addfilenamefilter.assert_called_once_with(client.map_path)
         assert mapped == expected_mapped
+
+    @patch.dict(os.environ, {"NUKE_TEMP_DIR": "/var/tmp/nuke_temp_dir"})
+    @patch(
+        "deadline.nuke.ocio_util.get_custom_ocio_config_path",
+        return_value="/session-dir/ocio/custom_config.ocio",
+    )
+    @patch(
+        "deadline.nuke.ocio_util.create_ocio_config_from_file",
+        return_value=MockOCIOConfig(
+            working_dir="/session-dir/ocio", search_paths=["luts", "/absolute/path/to/luts"]
+        ),
+    )
+    @patch("deadline.nuke.ocio_util.set_custom_ocio_config_path")
+    def test_map_ocio_config(
+        self,
+        mock_set_custom_ocio_config_path: Mock,
+        mock_create_ocio_config_from_file: Mock,
+        mock_get_custom_ocio_config_path: Mock,
+    ):
+        # GIVEN
+        def map_path(path: str):
+            paths = {"/absolute/path/to/luts": "/session-dir/absolute/path/to/luts"}
+            return paths.get(path, path)
+
+        with patch.object(NukeClient, "map_path", wraps=map_path):
+            expected_updated_search_paths = [
+                "/session-dir/ocio/luts",
+                "/session-dir/absolute/path/to/luts",
+            ]
+
+            expected_updated_config_path = os.path.join(
+                os.environ["NUKE_TEMP_DIR"],
+                os.path.basename(mock_get_custom_ocio_config_path.return_value),
+            )
+
+            temp_socket_file = tempfile.TemporaryFile()
+            client = NukeClient(socket_path=temp_socket_file.name)
+
+            # WHEN
+            client._map_ocio_config()
+
+            actual_updated_search_paths = (
+                mock_create_ocio_config_from_file.return_value.getSearchPaths()
+            )
+
+            actual_updated_config_path = (
+                mock_create_ocio_config_from_file.return_value._serialize_path
+            )
+
+            # THEN
+            assert expected_updated_search_paths == actual_updated_search_paths
+
+            assert expected_updated_config_path == actual_updated_config_path
+
+            mock_set_custom_ocio_config_path.assert_called_once_with(expected_updated_config_path)

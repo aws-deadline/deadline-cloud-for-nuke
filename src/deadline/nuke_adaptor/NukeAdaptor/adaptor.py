@@ -410,14 +410,11 @@ class NukeAdaptor(Adaptor):
 
         Nuke must be on the system PATH, for example due to a Rez environment being active.
 
-        Args:
-            nuke_version (str): The version of Nuke that we are launching.
-
         Raises:
             FileNotFoundError: If the nuke_client.py file could not be found.
             KeyError: If a configuration for the given platform and version does not exist.
         """
-        nuke_exe = "nuke"
+        nuke_exe = os.environ.get("NUKE_ADAPTOR_NUKE_EXECUTABLE", "nuke")
         regexhandler = RegexHandler(self.regex_callbacks)
 
         # Add the Open Job Description namespace directory to PYTHONPATH, so that adaptor_runtime_client

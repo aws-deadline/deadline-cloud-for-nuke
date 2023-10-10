@@ -15,6 +15,9 @@ class MockKnob:
     def value(self) -> Any:
         return self._value
 
+    def getEvaluatedValue(self) -> Any:
+        return self._value
+
     def setValue(self, value):
         self._value = value
         return True
@@ -44,3 +47,29 @@ class MockNode:
 
     def Class(self) -> str:
         return self._class
+
+
+class MockOCIOConfig:
+    """Mock class which emulates an OCIO Config"""
+
+    __name__ = "Config"
+
+    def __init__(self, working_dir: str, search_paths: list[str]):
+        self._working_dir = working_dir
+        self._search_paths = search_paths
+        self._serialize_path = ""
+
+    def getWorkingDir(self) -> str:
+        return self._working_dir
+
+    def getSearchPaths(self) -> list[str]:
+        return self._search_paths
+
+    def clearSearchPaths(self) -> None:
+        self._search_paths = []
+
+    def addSearchPath(self, search_path: str) -> None:
+        self._search_paths.append(search_path)
+
+    def serialize(self, file_path: str) -> None:
+        self._serialize_path = file_path
