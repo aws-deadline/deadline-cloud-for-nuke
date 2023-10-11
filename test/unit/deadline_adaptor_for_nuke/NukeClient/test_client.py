@@ -274,16 +274,16 @@ class TestNukeClient:
 
     @patch.dict(os.environ, {"NUKE_TEMP_DIR": "/var/tmp/nuke_temp_dir"})
     @patch(
-        "deadline.nuke.ocio_util.get_custom_ocio_config_path",
+        "deadline.nuke_util.ocio_util.get_custom_ocio_config_path",
         return_value="/session-dir/ocio/custom_config.ocio",
     )
     @patch(
-        "deadline.nuke.ocio_util.create_ocio_config_from_file",
+        "deadline.nuke_util.ocio_util.create_ocio_config_from_file",
         return_value=MockOCIOConfig(
             working_dir="/session-dir/ocio", search_paths=["luts", "/absolute/path/to/luts"]
         ),
     )
-    @patch("deadline.nuke.ocio_util.set_custom_ocio_config_path")
+    @patch("deadline.nuke_util.ocio_util.set_custom_ocio_config_path")
     def test_map_ocio_config(
         self,
         mock_set_custom_ocio_config_path: Mock,

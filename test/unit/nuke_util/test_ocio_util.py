@@ -6,7 +6,7 @@ import os
 import nuke
 import pytest
 
-from deadline.nuke import ocio_util
+from deadline.nuke_util import ocio_util
 
 from test.unit.mock_stubs import MockKnob, MockNode, MockOCIOConfig
 

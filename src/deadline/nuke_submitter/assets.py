@@ -12,7 +12,7 @@ import nuke
 
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
-from deadline.nuke import ocio_util
+from deadline.nuke_util import ocio_util
 
 FRAME_REGEX = re.compile(r"(#+)|%(\d*)d", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
