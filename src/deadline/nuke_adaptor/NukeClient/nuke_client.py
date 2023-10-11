@@ -31,7 +31,10 @@ try:
 except ImportError:  # pragma: no cover
     raise OSError("Could not find the Nuke module. Are you running this inside of Nuke?")
 
-from deadline.nuke_util import ocio_util
+try:
+    from nuke_util import ocio_util  # type: ignore[import]
+except ImportError:
+    from deadline.nuke_util import ocio_util
 
 
 class NukeClient(_HTTPClientInterface):
