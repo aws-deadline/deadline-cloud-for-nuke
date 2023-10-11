@@ -1,0 +1,9 @@
+assetReferences:
+  inputs:
+    directories: []
+    filenames:
+    - /normalized/job/bundle/dir/colorbars.png
+    - /normalized/job/bundle/dir/group-read.nk
+  outputs:
+    directories: []
+  referencedPaths: []
