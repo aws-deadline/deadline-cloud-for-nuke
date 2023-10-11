@@ -421,12 +421,16 @@ class NukeAdaptor(Adaptor):
         # will be available directly to the nuke client.
         import openjd.adaptor_runtime_client
         import deadline.nuke_adaptor
+        import deadline.nuke_util
 
         openjd_namespace_dir = os.path.dirname(
             os.path.dirname(openjd.adaptor_runtime_client.__file__)
         )
-        deadline_namespace_dir = os.path.dirname(os.path.dirname(deadline.nuke_adaptor.__file__))
-        python_path_addition = f"{openjd_namespace_dir}{os.pathsep}{deadline_namespace_dir}"
+        deadline_adaptor_namespace_dir = os.path.dirname(
+            os.path.dirname(deadline.nuke_adaptor.__file__)
+        )
+        deadline_util_namespace_dir = os.path.dirname(os.path.dirname(deadline.nuke_util.__file__))
+        python_path_addition = f"{openjd_namespace_dir}{os.pathsep}{deadline_adaptor_namespace_dir}{os.pathsep}{deadline_util_namespace_dir}"
         if "PYTHONPATH" in os.environ:
             os.environ[
                 "PYTHONPATH"
