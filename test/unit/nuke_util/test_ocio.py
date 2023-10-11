@@ -52,12 +52,12 @@ def setup_nuke(root_node: MockNode) -> None:
     nuke.root.return_value = root_node
 
 
-def test_is_custom_ocio_config_enabled() -> None:
+def test_is_custom_config_enabled() -> None:
     # GIVEN (custom OCIO enabled)
     expected = True
 
     # WHEN
-    actual = nuke_ocio.is_custom_ocio_config_enabled()
+    actual = nuke_ocio.is_custom_config_enabled()
 
     # THEN
     assert expected == actual
@@ -67,7 +67,7 @@ def test_is_custom_ocio_config_enabled() -> None:
     expected = False
 
     # WHEN
-    actual = nuke_ocio.is_custom_ocio_config_enabled()
+    actual = nuke_ocio.is_custom_config_enabled()
 
     # THEN
     assert expected == actual
@@ -78,43 +78,43 @@ def test_is_custom_ocio_config_enabled() -> None:
     expected = False
 
     # WHEN
-    actual = nuke_ocio.is_custom_ocio_config_enabled()
+    actual = nuke_ocio.is_custom_config_enabled()
 
     # THEN
     assert expected == actual
 
 
-def test_get_custom_ocio_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
+def test_get_custom_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     expected = custom_ocio_config_path_knob.getEvaluatedValue()
 
     # WHEN
-    actual = nuke_ocio.get_custom_ocio_config_path()
+    actual = nuke_ocio.get_custom_config_path()
 
     # THEN
     assert expected == actual
 
 
 @patch("PyOpenColorIO.Config.CreateFromFile")
-def test_create_ocio_config_from_file(
+def test_create_config_from_file(
     create_from_file: MagicMock, custom_ocio_config_path_knob: MockKnob
 ) -> None:
     # GIVEN
     custom_ocio_config_path = custom_ocio_config_path_knob.getEvaluatedValue()
 
     # WHEN
-    nuke_ocio.create_ocio_config_from_file(custom_ocio_config_path)
+    nuke_ocio.create_config_from_file(custom_ocio_config_path)
 
     # ACTUAL
     create_from_file.assert_called_once_with(custom_ocio_config_path)
 
 
-def test_ocio_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
+def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = True
 
     # WHEN
-    actual = nuke_ocio.ocio_config_has_absolute_search_paths(ocio_config)
+    actual = nuke_ocio.config_has_absolute_search_paths(ocio_config)
 
     # THEN
     assert expected == actual
@@ -124,13 +124,13 @@ def test_ocio_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> N
 
     # WHEN
     ocio_config._search_paths = ["luts"]
-    actual = nuke_ocio.ocio_config_has_absolute_search_paths(ocio_config)
+    actual = nuke_ocio.config_has_absolute_search_paths(ocio_config)
 
     # THEN
     assert expected == actual
 
 
-def test_get_ocio_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
+def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = [
         os.path.join(ocio_config.getWorkingDir(), search_path)
@@ -138,29 +138,29 @@ def test_get_ocio_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> N
     ]
 
     # WHEN
-    actual = nuke_ocio.get_ocio_config_absolute_search_paths(ocio_config=ocio_config)
+    actual = nuke_ocio.get_config_absolute_search_paths(ocio_config=ocio_config)
 
     # THEN
     assert expected == actual
 
 
-def test_update_ocio_config_search_paths(ocio_config: MockOCIOConfig) -> None:
+def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     search_paths = ["relative/path/to/luts", "/absolute/path/to/luts"]
 
     # WHEN
-    nuke_ocio.update_ocio_config_search_paths(ocio_config=ocio_config, search_paths=search_paths)
+    nuke_ocio.update_config_search_paths(ocio_config=ocio_config, search_paths=search_paths)
 
     # THEN
     assert search_paths == ocio_config._search_paths
 
 
-def test_set_custom_ocio_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
+def test_set_custom_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     ocio_config_path = "/nuke_temp_dir/temp_ocio_config.ocio"
 
     # WHEN
-    nuke_ocio.set_custom_ocio_config_path(ocio_config_path=ocio_config_path)
+    nuke_ocio.set_custom_config_path(ocio_config_path=ocio_config_path)
 
     # THEN
     assert ocio_config_path == custom_ocio_config_path_knob.getEvaluatedValue()
