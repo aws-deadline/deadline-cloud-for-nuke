@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import sys
-from unittest.mock import MagicMock  # , Mock
+from unittest.mock import MagicMock
 
 # we must mock nuke and UI code
 mock_modules = [
