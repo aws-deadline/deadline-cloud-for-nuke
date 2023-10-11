@@ -38,7 +38,7 @@ def get_project_path() -> str:
 
 def get_scene_asset_references() -> AssetReferences:
     """Traverses all nodes to determine both input and output asset references"""
-    nuke.tprint("Walking scene graph to auto-detect input/output asset references...")
+    nuke.tprint("Walking node graph to auto-detect input/output asset references...")
     asset_references = AssetReferences()
     script_file = get_nuke_script_file()
     if not os.path.isfile(script_file):
@@ -46,7 +46,7 @@ def get_scene_asset_references() -> AssetReferences:
             "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
         )
     asset_references.input_filenames.add(script_file)
-    for node in nuke.allNodes():
+    for node in nuke.allNodes(recurseGroups=True):
         # do not need assets for disabled nodes
         if node.knob("disable") and node.knob("disable").value():
             continue
