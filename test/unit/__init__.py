@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 # we must mock nuke and UI code
 mock_modules = [
+    "deadline.client.ui.deadline_credentials_status",
     "nuke",
     "nuke.Node",
     "ui.deadline_submitter",
