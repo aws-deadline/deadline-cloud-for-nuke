@@ -57,7 +57,7 @@ Group {
  Read {
   inputs 0
   file_type png
-  file /home/rocky/src/deadline-cloud-for-nuke/job_bundle_output_tests/group-read/scene/colorbars.png
+  file colorbars.png
   format "640 480 0 0 640 480 1 PC_Video"
   origset true
   name Read1

@@ -2,7 +2,7 @@ assetReferences:
   inputs:
     directories: []
     filenames:
-    - /normalized/job/bundle/dir/colorbars.png
+    - /normalized/cwd/colorbars.png
     - /normalized/job/bundle/dir/group-read.nk
   outputs:
     directories: []
