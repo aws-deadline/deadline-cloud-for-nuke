@@ -25,6 +25,7 @@ import re
 import shutil
 import filecmp
 import difflib
+import yaml  # type: ignore[import]
 from typing import Any
 from pathlib import Path
 from datetime import datetime, timezone
@@ -228,7 +229,14 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             )
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
             contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
-            contents = contents.replace(os.getcwd(), "/normalized/cwd")
+
+            if os.getcwd() != "/":
+                contents = contents.replace(os.getcwd(), "/normalized/cwd")
+            else:
+                # Mac specific cases
+                contents = contents.replace(" /\n", " /normalized/cwd\n")
+                contents = contents.replace(" /output\n", " /normalized/cwd/output\n")
+
             with open(full_filename, "w", encoding="utf8") as f:
                 f.write(contents)
 
@@ -244,24 +252,42 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             dcmp = filecmp.dircmp(expected_job_bundle_dir, test_job_bundle_dir)
             report_fh.write("\n")
             report_fh.write(f"{os.path.basename(test_dir)}\n")
-            if dcmp.left_only or dcmp.right_only or dcmp.diff_files:
-                report_fh.write("Test failed, found differences\n")
-                if dcmp.left_only:
-                    report_fh.write(f"Missing files: {dcmp.left_only}\n")
-                if dcmp.right_only:
-                    report_fh.write(f"Extra files: {dcmp.right_only}\n")
+
+            filtered_diff = []
+            if dcmp.diff_files:
                 for file in dcmp.diff_files:
                     with open(
                         os.path.join(expected_job_bundle_dir, file), encoding="utf8"
                     ) as fleft, open(
                         os.path.join(test_job_bundle_dir, file), encoding="utf8"
                     ) as fright:
-                        diff = "".join(
-                            difflib.unified_diff(
-                                list(fleft), list(fright), "expected/" + file, "test/" + file
+                        # Convert the yaml to an ordered dict to verify the differences are not caused by ordering.
+                        # For example, MacOS creates "/tmp/luts" directory in different order compare to Windows/Linux
+                        # NOTE: if there are other diffs in the same file, then the ordering mismatch will still
+                        # be printed in output, but can be ignored.
+                        expected_data = _sort(yaml.safe_load(fleft.read()))
+                        actual_data = _sort(yaml.safe_load(fright.read()))
+
+                        if expected_data != actual_data:
+                            expected = open(
+                                os.path.join(expected_job_bundle_dir, file), encoding="utf8"
                             )
-                        )
-                        report_fh.write(diff)
+                            actual = open(os.path.join(test_job_bundle_dir, file), encoding="utf8")
+                            diff = "".join(
+                                difflib.unified_diff(
+                                    list(expected), list(actual), "expected/" + file, "test/" + file
+                                )
+                            )
+                            filtered_diff.append(diff)
+
+            if dcmp.left_only or dcmp.right_only or filtered_diff:
+                report_fh.write("Test failed, found differences\n")
+                if dcmp.left_only:
+                    report_fh.write(f"Missing files: {dcmp.left_only}\n")
+                if dcmp.right_only:
+                    report_fh.write(f"Extra files: {dcmp.right_only}\n")
+                for diff in filtered_diff:
+                    report_fh.write(diff)
 
                 # Failed the test
                 return False
@@ -275,3 +301,12 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             report_fh.write("Test cannot compare. Saved new reference to expected_job_bundle.\n")
             # We generated the original expected job bundle, so did not succeed a test.
             return False
+
+
+def _sort(obj):
+    if isinstance(obj, dict):
+        return sorted((k, _sort(v)) for k, v in obj.items())
+    if isinstance(obj, list):
+        return sorted(_sort(x) for x in obj)
+    else:
+        return obj
