@@ -185,18 +185,23 @@ def _get_parameter_values(
 def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
     global g_submitter_dialog
 
-    render_settings = RenderSubmitterUISettings()
-
-    # Set the setting defaults that come from the scene
-    render_settings.name = Path(get_nuke_script_file()).name
-    render_settings.frame_list = str(nuke.root().frameRange())
-    render_settings.is_proxy_mode = nuke.root().proxy()
-
     script_path = get_nuke_script_file()
     if not script_path:
         raise DeadlineOperationError(
             "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
         )
+
+    if nuke.root().modified():
+        raise DeadlineOperationError(
+            "The Nuke Script has unsaved changes. Please save it before opening the submitter dialog."
+        )
+
+    render_settings = RenderSubmitterUISettings()
+
+    # Set the setting defaults that come from the scene
+    render_settings.name = Path(script_path).name
+    render_settings.frame_list = str(nuke.root().frameRange())
+    render_settings.is_proxy_mode = nuke.root().proxy()
 
     # Load the sticky settings
     render_settings.load_sticky_settings(script_path)
