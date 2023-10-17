@@ -31,6 +31,7 @@ def init_data() -> dict:
         "write_nodes": ["Write1", "Write2", "Write3"],
         "views": ["left", "right"],
         "script_file": "/path/to/some/nukescript.nk",
+        "telemetry_opt_out": True,
     }
 
 
@@ -220,12 +221,14 @@ class TestNukeAdaptor_on_start:
             assert _call.args[0].name == name, f"Action: {name} missing from init actions"
 
     @patch.object(NukeAdaptor, "_action_queue")
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
     def test_populate_action_queue_less_init_data(
         self,
         mock_server: Mock,
         mock_logging_subprocess: Mock,
+        mock_telemetry_client: Mock,
         mock_actions_queue: Mock,
     ) -> None:
         """
@@ -308,6 +311,7 @@ class TestNukeAdaptor_on_run:
         "deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._nuke_is_running",
         new_callable=PropertyMock,
     )
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -316,6 +320,7 @@ class TestNukeAdaptor_on_run:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         mock_nuke_is_running: Mock,
         mock_is_rendering: Mock,
         mock_sleep: Mock,
@@ -337,6 +342,7 @@ class TestNukeAdaptor_on_run:
 
         # THEN
         mock_sleep.assert_called_once_with(0.1)
+        assert mock_telemetry_client.call_count == 3  # twice on start, once on error
         assert str(exc_info.value) == (
             "Nuke exited early and did not render successfully, please check render logs. "
             "Exit code 1"

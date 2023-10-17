@@ -5,6 +5,8 @@ parameterValues:
   value: /normalized/job/bundle/dir/group-read.nk
 - name: ProxyMode
   value: 'false'
+- name: TelemetryOptOut
+  value: 'false'
 - name: deadline:targetTaskRunStatus
   value: READY
 - name: deadline:maxFailedTasksCount
