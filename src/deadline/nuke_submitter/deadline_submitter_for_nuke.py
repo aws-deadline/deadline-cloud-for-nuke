@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 import yaml  # type: ignore[import]
 
 import nuke
@@ -212,9 +212,16 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         settings: RenderSubmitterUISettings,
         queue_parameters: list[dict[str, Any]],
         asset_references: AssetReferences,
+        host_requirements: Optional[dict[str, Any]] = None,
     ) -> None:
         job_bundle_path = Path(job_bundle_dir)
         job_template = _get_job_template(settings)
+
+        # If "HostRequirements" is provided, inject it into each of the "Step"
+        if host_requirements:
+            # for each step in the template, append the same host requirements.
+            for step in job_template["steps"]:
+                step["hostRequirements"] = host_requirements
 
         parameter_values = _get_parameter_values(settings, queue_parameters)
 
@@ -255,6 +262,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             on_create_job_bundle_callback=on_create_job_bundle_callback,
             parent=parent,
             f=f,
+            show_host_requirements_tab=True,
         )
     else:
         g_submitter_dialog.refresh(
