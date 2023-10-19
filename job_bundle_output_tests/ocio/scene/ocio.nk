@@ -1,6 +1,6 @@
-#! /opt/nuke/Nuke14.0v5/libnuke-14.0.5.so -nx
+#! /opt/nuke/Nuke13.2v4/libnuke-13.2.4.so -nx
 #write_info Write1 file:"output/output_%04d.png" format:"2048 1556 1" chans:":rgba.red:rgba.green:rgba.blue:" framerange:"1 100" fps:"0" colorspace:"matte_paint" datatype:"8 bit" transfer:"unknown" views:"main" colorManagement:"OCIO"
-version 14.0 v5
+version 13.2 v4
 define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
 <layout version="1.0">
     <window x="0" y="27" w="1512" h="848" maximized="1" screen="0">

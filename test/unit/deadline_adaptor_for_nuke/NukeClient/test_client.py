@@ -274,21 +274,21 @@ class TestNukeClient:
 
     @patch.dict(os.environ, {"NUKE_TEMP_DIR": "/var/tmp/nuke_temp_dir"})
     @patch(
-        "deadline.nuke.ocio_util.get_custom_ocio_config_path",
+        "deadline.nuke_util.ocio.get_custom_config_path",
         return_value="/session-dir/ocio/custom_config.ocio",
     )
     @patch(
-        "deadline.nuke.ocio_util.create_ocio_config_from_file",
+        "deadline.nuke_util.ocio.create_config_from_file",
         return_value=MockOCIOConfig(
             working_dir="/session-dir/ocio", search_paths=["luts", "/absolute/path/to/luts"]
         ),
     )
-    @patch("deadline.nuke.ocio_util.set_custom_ocio_config_path")
+    @patch("deadline.nuke_util.ocio.set_custom_config_path")
     def test_map_ocio_config(
         self,
-        mock_set_custom_ocio_config_path: Mock,
-        mock_create_ocio_config_from_file: Mock,
-        mock_get_custom_ocio_config_path: Mock,
+        mock_set_custom_config_path: Mock,
+        mock_create_config_from_file: Mock,
+        mock_get_custom_config_path: Mock,
     ):
         # GIVEN
         def map_path(path: str):
@@ -303,7 +303,7 @@ class TestNukeClient:
 
             expected_updated_config_path = os.path.join(
                 os.environ["NUKE_TEMP_DIR"],
-                os.path.basename(mock_get_custom_ocio_config_path.return_value),
+                os.path.basename(mock_get_custom_config_path.return_value),
             )
 
             temp_socket_file = tempfile.TemporaryFile()
@@ -312,17 +312,13 @@ class TestNukeClient:
             # WHEN
             client._map_ocio_config()
 
-            actual_updated_search_paths = (
-                mock_create_ocio_config_from_file.return_value.getSearchPaths()
-            )
+            actual_updated_search_paths = mock_create_config_from_file.return_value.getSearchPaths()
 
-            actual_updated_config_path = (
-                mock_create_ocio_config_from_file.return_value._serialize_path
-            )
+            actual_updated_config_path = mock_create_config_from_file.return_value._serialize_path
 
             # THEN
             assert expected_updated_search_paths == actual_updated_search_paths
 
             assert expected_updated_config_path == actual_updated_config_path
 
-            mock_set_custom_ocio_config_path.assert_called_once_with(expected_updated_config_path)
+            mock_set_custom_config_path.assert_called_once_with(expected_updated_config_path)

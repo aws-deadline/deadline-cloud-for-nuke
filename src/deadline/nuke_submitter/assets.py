@@ -12,7 +12,7 @@ import nuke
 
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
-from deadline.nuke import ocio_util
+from deadline.nuke_util import ocio as nuke_ocio
 
 FRAME_REGEX = re.compile(r"(#+)|%(\d*)d", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
@@ -38,7 +38,7 @@ def get_project_path() -> str:
 
 def get_scene_asset_references() -> AssetReferences:
     """Traverses all nodes to determine both input and output asset references"""
-    nuke.tprint("Walking scene graph to auto-detect input/output asset references...")
+    nuke.tprint("Walking node graph to auto-detect input/output asset references...")
     asset_references = AssetReferences()
     script_file = get_nuke_script_file()
     if not os.path.isfile(script_file):
@@ -46,7 +46,7 @@ def get_scene_asset_references() -> AssetReferences:
             "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
         )
     asset_references.input_filenames.add(script_file)
-    for node in nuke.allNodes():
+    for node in nuke.allNodes(recurseGroups=True):
         # do not need assets for disabled nodes
         if node.knob("disable") and node.knob("disable").value():
             continue
@@ -82,9 +82,9 @@ def get_scene_asset_references() -> AssetReferences:
                 asset_references.output_directories.add(dirname(filename))
 
     # if using a custom OCIO config, add the config file and associated search directories
-    if ocio_util.is_custom_ocio_config_enabled():
-        ocio_config_path = ocio_util.get_custom_ocio_config_path()
-        ocio_config_search_paths = ocio_util.get_ocio_config_absolute_search_paths(ocio_config_path)
+    if nuke_ocio.is_custom_config_enabled():
+        ocio_config_path = nuke_ocio.get_custom_config_path()
+        ocio_config_search_paths = nuke_ocio.get_config_absolute_search_paths(ocio_config_path)
 
         asset_references.input_filenames.add(ocio_config_path)
 
