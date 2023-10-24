@@ -5,5 +5,5 @@
         "frame": { "type": "number" },
         "endframe": {"type": "number"}
     },
-    "required": ["frame", "endframe"]
+    "required": ["frame"]
 }

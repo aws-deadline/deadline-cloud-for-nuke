@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import os as os
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
@@ -54,22 +53,11 @@ class NukeHandler:
         Raises:
             RuntimeError: If start render is called without a frame number.
         """
-        print("***** DATA IS %s" % str(data))
         start_frame = data.get("frame")
-        end_frame = data["endframe"] if data.get("endframe") else start_frame
+        if start_frame is None:
+            raise Exception("NukeClient: start_render called without a frame number.")
 
-        # TODO: validat {%d-%d} syntax
-        #print("FRAME IS: %s" % frame)
-        #print("******* STARTING RENDER %s" % frame)
-        #match = re.match(r"(\d+)-(\d+)", frame)
-        #if not match:
-        #    raise Exception("Invalid frame  %s" % frame)
-
-        #start_frame = int(match.group(1))
-        #end_frame = int(match.group(2))
-
-        #if frame is None:
-        #    raise RuntimeError("NukeClient: start_render called without a frame number.")
+        end_frame = data["endframe"] if data.get("endframe") is not None else start_frame
 
         if not self.write_nodes:
             self.write_nodes = NukeHandler._get_write_nodes()
@@ -79,8 +67,6 @@ class NukeHandler:
                 flush=True,
             )
 
-        # split the frame parameter via the "-" caharacter, if applicable
-        
         # enforce render order
         self.write_nodes.sort(key=lambda node: node.knobs()["render_order"].value())
 
@@ -91,7 +77,6 @@ class NukeHandler:
 
         # Run each write node
         for node, output in zip(self.write_nodes, output_counts):
-            print("********************* EXECUTING %s --- %s !!!!!" % (start_frame, end_frame))
             print(
                 f"NukeClient: Creating outputs {running_total}-{running_total + output} of "
                 f"{total_outputs} total outputs.",
@@ -111,7 +96,10 @@ class NukeHandler:
 
             running_total += output
 
-        print(f"NukeClient: Finished Rendering Frame {start_frame}", flush=True)
+        if end_frame > start_frame:
+            print(f"NukeClient: Finished Rendering Frames {start_frame}-{end_frame}", flush=True)
+        else:
+            print(f"NukeClient: Finished Rendering Frame {start_frame}", flush=True)
 
     def _get_all_nodes_total_outputs(self) -> List[int]:
         """

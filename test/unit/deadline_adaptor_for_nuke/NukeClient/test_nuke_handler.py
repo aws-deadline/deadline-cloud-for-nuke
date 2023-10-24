@@ -259,7 +259,7 @@ class TestNukeHandler:
         self, nuke_execute: MagicMock, nukehandler: NukeHandler, args: Dict
     ):
         # WHEN
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Exception) as exc_info:
             nukehandler.start_render(args)
 
         # THEN

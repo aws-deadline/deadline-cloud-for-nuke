@@ -125,11 +125,9 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
         # Check whether we're rendering a MOV
         write_node, _ = _get_write_node(settings)
 
-        # Set the Frames parameter value
-        # Check whether the write node is writing out a MOV file
-        # TODO CHECK FOR KNOB
-        
-        mov_render = write_node["file_type"].value() == "mov"
+        # Determine whether this is a MOV render. If it is, we want to ensure that the entire Nuke
+        # evaluation is placed on one task.
+        mov_render = "file_type" in write_node and write_node["file_type"].value() == "mov"
         if mov_render:
             if settings.override_frame_range:
                 frame_list = settings.frame_list
@@ -138,24 +136,21 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
             match = re.match(r"(\d+)-(\d+)", frame_list)
             if not match:
-                raise Exception("Invalid frame_list  %s" % frame_list)
+                raise DeadlineOperationError(
+                    "Invalid frame range {} for evaluating a MOV render. Frame range must follow the format 'startFrame - endFrame'".format(
+                        frame_list
+                    )
+                )
 
             start_frame = match.group(1)
             end_frame = match.group(2)
 
+            # Remove the Frame parameter space and update the script data with the desired start and end frame
             for step in job_template["steps"]:
-                print("**** MOV DETECTED, removing parameters space and updating frame range...")
                 del step["parameterSpace"]
-
-                #step["script"]["embeddedFiles"][0]["data"] = ("frame: {}\n"
-                #                                              "endframe: {}\n".format(start_frame, end_frame))
-                
-                step["script"]["embeddedFiles"][0]["data"] = ("endframe: {}\n"
-                                                              "frame: {}\n".format(30, 25))
-                
-                #step["script"]["embeddedFiles"][0]["data"] = "blob: 1"
-                
-                print(step)
+                step["script"]["embeddedFiles"][0]["data"] = "frame: {}\n" "endframe: {}\n".format(
+                    start_frame, end_frame
+                )
 
     return job_template
 

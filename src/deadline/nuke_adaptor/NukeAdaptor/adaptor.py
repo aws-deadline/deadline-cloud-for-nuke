@@ -144,7 +144,10 @@ class NukeAdaptor(Adaptor):
         """
         if not self._regex_callbacks:
             callback_list = []
-            completed_regexes = [re.compile("NukeClient: Finished Rendering Frame [0-9]+")]
+            completed_regexes = [
+                re.compile("NukeClient: Finished Rendering Frame [0-9]+"),
+                re.compile("NukeClient: Finished Rendering Frames [0-9]+-[0-9]+"),
+            ]
             progress_regexes = [
                 re.compile(
                     "NukeClient: Creating outputs ([0-9]+)-([0-9]+) of ([0-9]+) total outputs."
@@ -173,6 +176,7 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
+        print("******* HANDLE COMPLETE")
         self._is_rendering = False
         self.update_status(progress=100, status_message="RENDER COMPLETE")
 
@@ -183,6 +187,7 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
+        print("******* HANDLE PROGRESS")
         self._curr_output = int(match.groups()[0])
         self._total_outputs = int(match.groups()[2])
         self.update_status(progress=self.progress)
@@ -194,6 +199,7 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
+        print("******* HANDLE COMPFWEF")
         self._curr_output += 1
         if self._is_rendering:
             self.update_status(progress=self.progress)
@@ -330,7 +336,11 @@ class NukeAdaptor(Adaptor):
             raise NukeNotRunningError("Cannot render because Nuke is not running.")
         self.validators.run_data.validate(run_data)
         self._is_rendering = True
-        self._action_queue.enqueue_action(Action("start_render", {"frame": run_data["frame"]}))
+        self._action_queue.enqueue_action(
+            Action(
+                "start_render", {"frame": run_data["frame"], "endframe": run_data.get("endframe")}
+            )
+        )
 
         while self._nuke_is_running and self._is_rendering and not self._has_exception:
             time.sleep(0.1)  # busy wait so that on_cleanup is not called
