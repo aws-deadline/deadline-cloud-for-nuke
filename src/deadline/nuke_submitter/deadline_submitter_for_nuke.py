@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any, Optional
 import yaml  # type: ignore[import]
@@ -121,6 +122,41 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
             job_template["jobEnvironments"] = []
         job_template["jobEnvironments"].append(override_environment["environment"])
 
+        # Check whether we're rendering a MOV
+        write_node, _ = _get_write_node(settings)
+
+        # Set the Frames parameter value
+        # Check whether the write node is writing out a MOV file
+        # TODO CHECK FOR KNOB
+        
+        mov_render = write_node["file_type"].value() == "mov"
+        if mov_render:
+            if settings.override_frame_range:
+                frame_list = settings.frame_list
+            else:
+                frame_list = str(write_node.frameRange())
+
+            match = re.match(r"(\d+)-(\d+)", frame_list)
+            if not match:
+                raise Exception("Invalid frame_list  %s" % frame_list)
+
+            start_frame = match.group(1)
+            end_frame = match.group(2)
+
+            for step in job_template["steps"]:
+                print("**** MOV DETECTED, removing parameters space and updating frame range...")
+                del step["parameterSpace"]
+
+                #step["script"]["embeddedFiles"][0]["data"] = ("frame: {}\n"
+                #                                              "endframe: {}\n".format(start_frame, end_frame))
+                
+                step["script"]["embeddedFiles"][0]["data"] = ("endframe: {}\n"
+                                                              "frame: {}\n".format(30, 25))
+                
+                #step["script"]["embeddedFiles"][0]["data"] = "blob: 1"
+                
+                print(step)
+
     return job_template
 
 
@@ -132,19 +168,10 @@ def _get_parameter_values(
 
     write_node, write_node_name = _get_write_node(settings)
 
-    # Set the Frames parameter value
-    # Check whether the write node is writing out a MOV file
-    #mov_render = write_node["file_type"].value() == "mov"
-
     if settings.override_frame_range:
         frame_list = settings.frame_list
     else:
         frame_list = str(write_node.frameRange())
-
-    #if mov_render:
-        # Place on one task
-        # TODO: Check regex
-    #    frame_list = str(write_node.frameRange())
 
     parameter_values.append({"name": "Frames", "value": frame_list})
 

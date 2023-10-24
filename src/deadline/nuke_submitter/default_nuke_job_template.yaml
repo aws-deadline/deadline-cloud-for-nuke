@@ -65,6 +65,11 @@ parameterDefinitions:
   - 'false'
 steps:
 - name: Render
+  parameterSpace:
+    taskParameterDefinitions:
+    - name: Frame
+      type: INT
+      range: '{{Param.Frames}}'
   stepEnvironments:
   - name: Nuke
     description: Runs Nuke in the background with a script file loaded.
@@ -110,6 +115,9 @@ steps:
     - name: runData
       filename: run-data.yaml
       type: TEXT
+      data: |
+        frame: '{{Task.Param.Frame}}'
+        endframe: 17
     actions:
       onRun:
         command: NukeAdaptor
