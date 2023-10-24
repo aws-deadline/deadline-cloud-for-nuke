@@ -176,7 +176,6 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
-        print("******* HANDLE COMPLETE")
         self._is_rendering = False
         self.update_status(progress=100, status_message="RENDER COMPLETE")
 
@@ -187,7 +186,6 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
-        print("******* HANDLE PROGRESS")
         self._curr_output = int(match.groups()[0])
         self._total_outputs = int(match.groups()[2])
         self.update_status(progress=self.progress)
@@ -199,7 +197,6 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
-        print("******* HANDLE COMPFWEF")
         self._curr_output += 1
         if self._is_rendering:
             self.update_status(progress=self.progress)

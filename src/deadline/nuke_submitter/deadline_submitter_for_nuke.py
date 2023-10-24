@@ -122,18 +122,16 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
             job_template["jobEnvironments"] = []
         job_template["jobEnvironments"].append(override_environment["environment"])
 
-        # Check whether we're rendering a MOV
-        write_node, _ = _get_write_node(settings)
-
         # Determine whether this is a MOV render. If it is, we want to ensure that the entire Nuke
         # evaluation is placed on one task.
+        write_node, _ = _get_write_node(settings)
         mov_render = "file_type" in write_node and write_node["file_type"].value() == "mov"
         if mov_render:
-            if settings.override_frame_range:
-                frame_list = settings.frame_list
-            else:
-                frame_list = str(write_node.frameRange())
-
+            frame_list = (
+                settings.frame_list
+                if settings.override_frame_range
+                else str(write_node.frameRange())
+            )
             match = re.match(r"(\d+)-(\d+)", frame_list)
             if not match:
                 raise DeadlineOperationError(
@@ -163,11 +161,11 @@ def _get_parameter_values(
 
     write_node, write_node_name = _get_write_node(settings)
 
+    # Set the Frames parameter value
     if settings.override_frame_range:
         frame_list = settings.frame_list
     else:
         frame_list = str(write_node.frameRange())
-
     parameter_values.append({"name": "Frames", "value": frame_list})
 
     # Set the Nuke script file value
