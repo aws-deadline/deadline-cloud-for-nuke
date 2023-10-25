@@ -135,9 +135,7 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
             match = re.match(r"(\d+)-(\d+)", frame_list)
             if not match:
                 raise DeadlineOperationError(
-                    "Invalid frame range {} for evaluating a MOV render. Frame range must follow the format 'startFrame - endFrame'".format(
-                        frame_list
-                    )
+                    f"Invalid frame range {frame_list} for evaluating a MOV render. Frame range must follow the format 'startFrame - endFrame'"
                 )
 
             start_frame = match.group(1)
@@ -146,9 +144,9 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
             # Remove the Frame parameter space and update the script data with the desired start and end frame
             for step in job_template["steps"]:
                 del step["parameterSpace"]
-                step["script"]["embeddedFiles"][0]["data"] = "frame: {}\n" "endframe: {}\n".format(
-                    start_frame, end_frame
-                )
+                step["script"]["embeddedFiles"][0][
+                    "data"
+                ] = f"frame: {start_frame}\nendframe: {end_frame}\n"
 
     return job_template
 
