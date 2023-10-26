@@ -13,6 +13,7 @@ from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
     SubmitJobToDeadlineDialog,
+    JobBundlePurpose,
 )
 from nuke import Node
 from PySide2.QtCore import Qt  # pylint: disable=import-error
@@ -234,6 +235,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         queue_parameters: list[dict[str, Any]],
         asset_references: AssetReferences,
         host_requirements: Optional[dict[str, Any]] = None,
+        purpose: JobBundlePurpose = JobBundlePurpose.SUBMISSION,
     ) -> None:
         job_bundle_path = Path(job_bundle_dir)
         job_template = _get_job_template(settings)
