@@ -277,7 +277,10 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         g_submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
-            initial_shared_parameter_values={},
+            # Note: nuke-13 is currently the only nuke rez package available. Hardcoding to nuke-13 for now, but
+            # evenutally this should be set to nuke.env["NukeVersionMajor"] once more versions
+            # are supported.
+            initial_shared_parameter_values={"RezPackages": "nuke-13 deadline_cloud_for_nuke"},
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,
