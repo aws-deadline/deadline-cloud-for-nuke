@@ -10,6 +10,7 @@ import threading
 import time
 from typing import Callable, cast
 
+from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
 from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
 from openjd.adaptor_runtime_client import Action
 from openjd.adaptor_runtime.process import LoggingSubprocess
@@ -295,6 +296,14 @@ class NukeAdaptor(Adaptor):
         self._server_thread = self._start_nuke_server_thread()
         self._populate_action_queue()
 
+        # initialize telemetry client to handle opt out
+        self._get_deadline_telemetry_client(self.init_data.get("telemetry_opt_out", False))
+        self._record_adaptor_runtime_event(
+            self.__class__.__name__,
+            "on_start",
+            self._get_major_minor_version(os.environ.get("NUKE_VERSION", "")),
+        )
+
         self._start_nuke_client()
 
         is_timed_out = self._get_timer(self._NUKE_START_TIMEOUT_SECONDS)
@@ -322,6 +331,7 @@ class NukeAdaptor(Adaptor):
         self.validators.run_data.validate(run_data)
         self._is_rendering = True
         self._action_queue.enqueue_action(Action("start_render", {"frame": run_data["frame"]}))
+
         while self._nuke_is_running and self._is_rendering and not self._has_exception:
             time.sleep(0.1)  # busy wait so that on_cleanup is not called
 
@@ -329,6 +339,10 @@ class NukeAdaptor(Adaptor):
             #  This is always an error case because the Nuke Client should still be running and
             #  waiting for the next command. If the thread finished, then we cannot continue
             exit_code = self._nuke_client.returncode
+
+            self._get_deadline_telemetry_client().record_error(
+                {"exit_code": exit_code}, str(RuntimeError)
+            )
             raise RuntimeError(
                 "Nuke exited early and did not render successfully, please check render logs. "
                 f"Exit code {exit_code}"
@@ -456,3 +470,23 @@ class NukeAdaptor(Adaptor):
         for name in _NUKE_INIT_KEYS:
             if name in self.init_data:
                 self._action_queue.enqueue_action(Action(name, {name: self.init_data[name]}))
+
+    def _get_deadline_telemetry_client(self, adaptor_opt_out: bool = False) -> TelemetryClient:
+        """
+        Wrapper around the Deadline Client Library telemetry client, in order to set package-specific information
+        """
+        client = get_deadline_cloud_library_telemetry_client()
+        client.telemetry_opted_out = client.telemetry_opted_out or adaptor_opt_out
+        return client
+
+    def _record_adaptor_runtime_event(
+        self, adaptor_name: str, event_function_name: str, version: str
+    ):
+        event_details = {
+            "adaptor_name": adaptor_name,
+            "runtime_function": event_function_name,
+            "version": version,
+        }
+        self._get_deadline_telemetry_client().record_event(
+            event_type="com.amazon.rum.deadline.adaptor.runtime", event_details=event_details
+        )

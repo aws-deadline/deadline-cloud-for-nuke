@@ -16,6 +16,7 @@
                 "type": "string"
             }
         },
+        "telemetry_opt_out": { "type" : "boolean" },
         "script_file": { "type": "string" }
     },
     "required": [
