@@ -1,0 +1,79 @@
+#! /opt/nuke/Nuke13.2v1/libnuke-13.2.1.so -nx
+version 13.2 v1
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="51" y="64" w="1511" h="626" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="848" stretch="1"/>
+            <splitter orientation="2">
+                <split size="342"/>
+                <dock id="" activePageId="Viewer.1">
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="241"/>
+                <dock id="" activePageId="DAG.2" focus="true">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                    <page id="DAG.2"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+                <page id="Scenegraph.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name /home/rocky/src/deadline-cloud-for-nuke/job_bundle_output_tests/group-read/scene/group-read.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+Group {
+ inputs 0
+ name Group1
+ selected true
+ xpos -26
+ ypos -106
+}
+ Read {
+  inputs 0
+  file_type png
+  file colorbars.png
+  format "640 480 0 0 640 480 1 PC_Video"
+  origset true
+  name Read1
+  xpos 0
+  ypos 58
+ }
+ Output {
+  name Output1
+  xpos 0
+  ypos 300
+ }
+end_group
+Viewer {
+ frame_range 1-100
+ monitorOutOutputTransform rec709
+ name Viewer1
+ xpos -26
+ ypos 50
+}

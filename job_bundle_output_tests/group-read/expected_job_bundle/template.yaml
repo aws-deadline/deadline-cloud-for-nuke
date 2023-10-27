@@ -1,5 +1,5 @@
 specificationVersion: jobtemplate-2023-09
-name: multi-load-save.nk
+name: group-read.nk
 parameterDefinitions:
 - name: NukeScriptFile
   type: PATH
@@ -29,9 +29,6 @@ parameterDefinitions:
   default: All Write Nodes
   allowedValues:
   - All Write Nodes
-  - Write1
-  - Write2
-  - Write3
 - name: View
   type: STRING
   userInterface:

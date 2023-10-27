@@ -7,6 +7,7 @@ __pycache__/
 .venv
 /htmlcov
 .vscode
+.idea
 .attach_pid*
 /build
 *_version.py
