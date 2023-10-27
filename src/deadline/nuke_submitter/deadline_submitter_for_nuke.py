@@ -274,10 +274,13 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         attachments = AssetReferences()
 
     if not g_submitter_dialog:
+        nuke_version = nuke.env["NukeVersionMajor"]
         g_submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
-            initial_shared_parameter_values={},
+            initial_shared_parameter_values={
+                "RezPackages": f"nuke-{nuke_version} deadline_cloud_for_nuke"
+            },
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,
