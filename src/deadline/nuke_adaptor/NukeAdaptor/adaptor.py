@@ -8,6 +8,7 @@ import re
 import sys
 import threading
 import time
+import jsonschema  # type: ignore
 from typing import Callable, cast
 
 from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
@@ -333,8 +334,17 @@ class NukeAdaptor(Adaptor):
             raise NukeNotRunningError("Cannot render because Nuke is not running.")
         self.validators.run_data.validate(run_data)
         self._is_rendering = True
+
+        if "frameRange" not in run_data and "frame" not in run_data:
+            raise jsonschema.ValidationError(
+                "Cannot run Nuke adaptor. 'frame' or 'frameRange' is a required property."
+            )
+
         self._action_queue.enqueue_action(
-            Action("start_render", {"frameRange": run_data["frameRange"]})
+            Action(
+                "start_render",
+                {"frameRange": run_data.get("frameRange", str(run_data.get("frame", "")))},
+            )
         )
 
         while self._nuke_is_running and self._is_rendering and not self._has_exception:

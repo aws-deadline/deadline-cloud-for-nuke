@@ -148,7 +148,7 @@ class TestNukeHandler:
     @pytest.mark.parametrize("set_nodes", [True, False])
     @pytest.mark.parametrize("set_views", [True, False])
     @pytest.mark.parametrize("continueOnError", [True, False])
-    @pytest.mark.parametrize("args", [{"frameRange": 99}])
+    @pytest.mark.parametrize("args", [{"frameRange": "99"}])
     @patch.object(nuke, "execute")
     def test_start_render_single_frame(
         self,
@@ -174,7 +174,7 @@ class TestNukeHandler:
         nukehandler.render_kwargs = render_kwargs
 
         expected_progress_messages = _generate_progress_messages(nukehandler, write_nodes)
-        frame = args["frameRange"]
+        frame = int(args["frameRange"])
         execute_calls = [call(node, frame, frame, 1, **render_kwargs) for node in write_nodes]
 
         # WHEN
@@ -243,7 +243,7 @@ class TestNukeHandler:
         nuke_execute.assert_has_calls(execute_calls)
 
     @pytest.mark.parametrize("continueOnError", [True, False])
-    @pytest.mark.parametrize("args", [{"frameRange": 99}])
+    @pytest.mark.parametrize("args", [{"frameRange": "99"}])
     @patch.object(nuke, "execute")
     def test_start_render_exception(
         self,
@@ -267,7 +267,7 @@ class TestNukeHandler:
 
         nukehandler.render_kwargs = render_kwargs
 
-        frame = args["frameRange"]
+        frame = int(args["frameRange"])
         execute_calls = []
         expected_err_messages = []
         for node in sorted(write_nodes, key=lambda node: node.knobs()["render_order"].value()):

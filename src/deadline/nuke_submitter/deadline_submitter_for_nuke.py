@@ -122,11 +122,14 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
             job_template["jobEnvironments"] = []
         job_template["jobEnvironments"].append(override_environment["environment"])
 
-        # Determine whether this is a MOV render. If it is, we want to ensure that the entire Nuke
+        # Determine whether this is a movie render. If it is, we want to ensure that the entire Nuke
         # evaluation is placed on one task.
         write_node, _ = _get_write_node(settings)
-        mov_render = "file_type" in write_node.knobs() and write_node["file_type"].value() == "mov"
-        if mov_render:
+        movie_render = "file_type" in write_node.knobs() and write_node["file_type"].value() in [
+            "mov",
+            "mxf",
+        ]
+        if movie_render:
             frame_list = (
                 settings.frame_list
                 if settings.override_frame_range

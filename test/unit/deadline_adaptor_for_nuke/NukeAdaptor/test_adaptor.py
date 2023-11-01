@@ -43,7 +43,7 @@ def run_data() -> dict:
     Returns:
         dict: A run_data dictionary
     """
-    return {"frameRange": 42}
+    return {"frameRange": "42"}
 
 
 class TestNukeAdaptor_on_start:

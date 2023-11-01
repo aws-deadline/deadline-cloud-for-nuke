@@ -2,7 +2,8 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-        "frameRange": { "type": ["number", "string"] }
+        "frame": {"type": "number"},
+        "frameRange": { "type": "string"}
     },
-    "required": ["frameRange"]
+    "optional": ["frameRange", "frame"]
 }

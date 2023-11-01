@@ -54,29 +54,25 @@ class NukeHandler:
         Raises:
             RuntimeError: If start render is called without a frame number.
         """
-        frame_range = data.get("frameRange")
-        if frame_range is None:
+        frame_range = data.get("frameRange", "")
+        if frame_range == "":
             raise Exception("NukeClient: start_render called without a frameRange.")
 
-        if isinstance(frame_range, int):
-            start_frame = frame_range
-            end_frame = frame_range
-
-        elif isinstance(frame_range, str):
-            # FrameRange should be string of the format "startframe - endframe"
-            match = re.match(r"(\d+)-(\d+)", frame_range)
-            if not match:
-                raise Exception(
-                    f"Invalid frame range {frame_range}. The string frame range must follow the format 'startFrame - endFrame'"
-                )
-
+        # FrameRange should be a string of the format "<startframe>-<endframe>" or "<frame>"
+        match = re.match(r"(\d+)-(\d+)", frame_range)
+        if match:
             start_frame = int(match.group(1))
             end_frame = int(match.group(2))
 
         else:
-            raise Exception(
-                f"Invalid type for frame range '{type(frame_range)}'. Expected str or int"
-            )
+            match = re.match(r"(\d+)", frame_range)
+            if not match:
+                raise Exception(
+                    f"Invalid frame range {frame_range}. The string frame range must follow the format '<startFrame>-<endFrame>' or '<frame>'"
+                )
+
+            start_frame = int(frame_range)
+            end_frame = int(frame_range)
 
         if not self.write_nodes:
             self.write_nodes = NukeHandler._get_write_nodes()

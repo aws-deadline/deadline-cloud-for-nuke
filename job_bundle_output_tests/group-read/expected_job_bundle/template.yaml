@@ -116,7 +116,7 @@ steps:
     - name: runData
       filename: run-data.yaml
       type: TEXT
-      data: 'frameRange: {{Task.Param.Frame}}'
+      data: 'frameRange: "{{Task.Param.Frame}}"'
     actions:
       onRun:
         command: NukeAdaptor
