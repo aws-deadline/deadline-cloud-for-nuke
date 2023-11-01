@@ -146,7 +146,7 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
                 del step["parameterSpace"]
                 step["script"]["embeddedFiles"][0][
                     "data"
-                ] = f"frame: {start_frame}\nendframe: {end_frame}\n"
+                ] = f"frameRange: {start_frame}-{end_frame}\n"
 
     return job_template
 

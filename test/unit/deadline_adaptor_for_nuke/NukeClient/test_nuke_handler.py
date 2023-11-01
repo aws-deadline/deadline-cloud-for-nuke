@@ -148,9 +148,9 @@ class TestNukeHandler:
     @pytest.mark.parametrize("set_nodes", [True, False])
     @pytest.mark.parametrize("set_views", [True, False])
     @pytest.mark.parametrize("continueOnError", [True, False])
-    @pytest.mark.parametrize("args", [{"frame": 99}])
+    @pytest.mark.parametrize("args", [{"frameRange": 99}])
     @patch.object(nuke, "execute")
-    def test_start_render(
+    def test_start_render_single_frame(
         self,
         nuke_execute: MagicMock,
         nukehandler: NukeHandler,
@@ -174,7 +174,7 @@ class TestNukeHandler:
         nukehandler.render_kwargs = render_kwargs
 
         expected_progress_messages = _generate_progress_messages(nukehandler, write_nodes)
-        frame = args["frame"]
+        frame = args["frameRange"]
         execute_calls = [call(node, frame, frame, 1, **render_kwargs) for node in write_nodes]
 
         # WHEN
@@ -194,8 +194,56 @@ class TestNukeHandler:
             assert message in stdout
         nuke_execute.assert_has_calls(execute_calls)
 
+    @pytest.mark.parametrize("set_nodes", [True, False])
+    @pytest.mark.parametrize("set_views", [True, False])
     @pytest.mark.parametrize("continueOnError", [True, False])
-    @pytest.mark.parametrize("args", [{"frame": 99}])
+    @pytest.mark.parametrize("args", [{"frameRange": "5-10"}])
+    @patch.object(nuke, "execute")
+    def test_start_render_frame_range(
+        self,
+        nuke_execute: MagicMock,
+        nukehandler: NukeHandler,
+        set_nodes: bool,
+        write_nodes: List[MockNode],
+        args: Dict,
+        continueOnError: bool,
+        set_views: bool,
+        views: List[str],
+        capsys,
+    ):
+        """Tests that starting a render calls the correct nuke functions"""
+        # GIVEN
+        render_kwargs: Dict[str, Any] = {"continueOnError": continueOnError}
+        if set_views:
+            render_kwargs["views"] = views
+
+        if set_nodes:
+            nukehandler.write_nodes = write_nodes
+
+        nukehandler.render_kwargs = render_kwargs
+
+        expected_progress_messages = _generate_progress_messages(nukehandler, write_nodes)
+        execute_calls = [call(node, 5, 10, 1, **render_kwargs) for node in write_nodes]
+
+        # WHEN
+        nukehandler.start_render(args)
+
+        # THEN
+        stdout = capsys.readouterr().out
+        assert nukehandler.write_nodes == write_nodes
+        assert (
+            (
+                "NukeClient: No write nodes were specified, running all write nodes: "
+                f"{[node.name() for node in write_nodes]}"
+            )
+            in stdout
+        ) != set_nodes
+        for message in expected_progress_messages:
+            assert message in stdout
+        nuke_execute.assert_has_calls(execute_calls)
+
+    @pytest.mark.parametrize("continueOnError", [True, False])
+    @pytest.mark.parametrize("args", [{"frameRange": 99}])
     @patch.object(nuke, "execute")
     def test_start_render_exception(
         self,
@@ -219,7 +267,7 @@ class TestNukeHandler:
 
         nukehandler.render_kwargs = render_kwargs
 
-        frame = args["frame"]
+        frame = args["frameRange"]
         execute_calls = []
         expected_err_messages = []
         for node in sorted(write_nodes, key=lambda node: node.knobs()["render_order"].value()):
@@ -263,7 +311,7 @@ class TestNukeHandler:
             nukehandler.start_render(args)
 
         # THEN
-        assert str(exc_info.value) == "NukeClient: start_render called without a frame number."
+        assert str(exc_info.value) == "NukeClient: start_render called without a frameRange."
         nuke_execute.assert_not_called()
 
     def test_set_write_nodes(self, write_nodes: List[MockNode], nukehandler: NukeHandler):

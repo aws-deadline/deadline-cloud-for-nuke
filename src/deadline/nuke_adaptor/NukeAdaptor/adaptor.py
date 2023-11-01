@@ -334,9 +334,7 @@ class NukeAdaptor(Adaptor):
         self.validators.run_data.validate(run_data)
         self._is_rendering = True
         self._action_queue.enqueue_action(
-            Action(
-                "start_render", {"frame": run_data["frame"], "endframe": run_data.get("endframe")}
-            )
+            Action("start_render", {"frameRange": run_data["frameRange"]})
         )
 
         while self._nuke_is_running and self._is_rendering and not self._has_exception:

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os as os
+import re
+import os
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
 
@@ -44,20 +45,38 @@ class NukeHandler:
 
     def start_render(self, data: dict) -> None:
         """
-        Runs all write nodes for a given frame in Nuke, order that the write nodes are run is
+        Runs all write nodes for a given frameRange in Nuke, order that the write nodes are run is
         determined by the render order.
 
         Args:
-            data (dict): The data given from the Adaptor. Keys expected: ['frame']
+            data (dict): The data given from the Adaptor. Keys expected: ['frameRange']
 
         Raises:
             RuntimeError: If start render is called without a frame number.
         """
-        start_frame = data.get("frame")
-        if start_frame is None:
-            raise Exception("NukeClient: start_render called without a frame number.")
+        frame_range = data.get("frameRange")
+        if frame_range is None:
+            raise Exception("NukeClient: start_render called without a frameRange.")
 
-        end_frame = data["endframe"] if data.get("endframe") is not None else start_frame
+        if isinstance(frame_range, int):
+            start_frame = frame_range
+            end_frame = frame_range
+
+        elif isinstance(frame_range, str):
+            # FrameRange should be string of the format "startframe - endframe"
+            match = re.match(r"(\d+)-(\d+)", frame_range)
+            if not match:
+                raise Exception(
+                    f"Invalid frame range {frame_range}. The string frame range must follow the format 'startFrame - endFrame'"
+                )
+
+            start_frame = int(match.group(1))
+            end_frame = int(match.group(2))
+
+        else:
+            raise Exception(
+                f"Invalid type for frame range '{type(frame_range)}'. Expected str or int"
+            )
 
         if not self.write_nodes:
             self.write_nodes = NukeHandler._get_write_nodes()
