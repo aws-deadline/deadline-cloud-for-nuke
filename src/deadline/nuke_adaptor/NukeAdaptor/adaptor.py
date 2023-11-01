@@ -336,7 +336,7 @@ class NukeAdaptor(Adaptor):
         self._is_rendering = True
 
         if "frameRange" not in run_data and "frame" not in run_data:
-            raise jsonschema.ValidationError(
+            raise jsonschema.exceptions.ValidationError(
                 "Cannot run Nuke adaptor. 'frame' or 'frameRange' is a required property."
             )
 
