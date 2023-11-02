@@ -8,6 +8,7 @@ import re
 import sys
 import threading
 import time
+import jsonschema  # type: ignore
 from typing import Callable, cast
 
 from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
@@ -144,7 +145,10 @@ class NukeAdaptor(Adaptor):
         """
         if not self._regex_callbacks:
             callback_list = []
-            completed_regexes = [re.compile("NukeClient: Finished Rendering Frame [0-9]+")]
+            completed_regexes = [
+                re.compile("NukeClient: Finished Rendering Frame [0-9]+"),
+                re.compile("NukeClient: Finished Rendering Frames [0-9]+-[0-9]+"),
+            ]
             progress_regexes = [
                 re.compile(
                     "NukeClient: Creating outputs ([0-9]+)-([0-9]+) of ([0-9]+) total outputs."
@@ -328,9 +332,21 @@ class NukeAdaptor(Adaptor):
         """
         if not self._nuke_is_running:
             raise NukeNotRunningError("Cannot render because Nuke is not running.")
+
+        if "frameRange" not in run_data and "frame" not in run_data:
+            raise jsonschema.exceptions.ValidationError(
+                "Cannot run Nuke adaptor. 'frame' or 'frameRange' is a required property."
+            )
+
         self.validators.run_data.validate(run_data)
         self._is_rendering = True
-        self._action_queue.enqueue_action(Action("start_render", {"frame": run_data["frame"]}))
+
+        self._action_queue.enqueue_action(
+            Action(
+                "start_render",
+                {"frameRange": run_data.get("frameRange", str(run_data.get("frame", "")))},
+            )
+        )
 
         while self._nuke_is_running and self._is_rendering and not self._has_exception:
             time.sleep(0.1)  # busy wait so that on_cleanup is not called

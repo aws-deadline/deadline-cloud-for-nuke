@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os as os
+import re
+import os
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
 
@@ -44,18 +45,34 @@ class NukeHandler:
 
     def start_render(self, data: dict) -> None:
         """
-        Runs all write nodes for a given frame in Nuke, order that the write nodes are run is
+        Runs all write nodes for a given frameRange in Nuke, order that the write nodes are run is
         determined by the render order.
 
         Args:
-            data (dict): The data given from the Adaptor. Keys expected: ['frame']
+            data (dict): The data given from the Adaptor. Keys expected: ['frameRange']
 
         Raises:
             RuntimeError: If start render is called without a frame number.
         """
-        frame = data.get("frame")
-        if frame is None:
-            raise RuntimeError("NukeClient: start_render called without a frame number.")
+        frame_range = data.get("frameRange", "")
+        if frame_range == "":
+            raise Exception("NukeClient: start_render called without a frameRange.")
+
+        # FrameRange should be a string of the format "<startframe>-<endframe>" or "<frame>"
+        match = re.match(r"(\d+)-(\d+)", frame_range)
+        if match:
+            start_frame = int(match.group(1))
+            end_frame = int(match.group(2))
+
+        else:
+            match = re.match(r"(\d+)", frame_range)
+            if not match:
+                raise Exception(
+                    f"Invalid frame range {frame_range}. The string frame range must follow the format '<startFrame>-<endFrame>' or '<frame>'"
+                )
+
+            start_frame = int(frame_range)
+            end_frame = int(frame_range)
 
         if not self.write_nodes:
             self.write_nodes = NukeHandler._get_write_nodes()
@@ -81,7 +98,7 @@ class NukeHandler:
                 flush=True,
             )
             try:
-                nuke.execute(node, frame, frame, 1, **self.render_kwargs)
+                nuke.execute(node, start_frame, end_frame, 1, **self.render_kwargs)
             except Exception as e:
                 print(
                     "NukeClient: Encountered the following Exception while running node "
@@ -94,7 +111,10 @@ class NukeHandler:
 
             running_total += output
 
-        print(f"NukeClient: Finished Rendering Frame {frame}", flush=True)
+        if end_frame > start_frame:
+            print(f"NukeClient: Finished Rendering Frames {start_frame}-{end_frame}", flush=True)
+        else:
+            print(f"NukeClient: Finished Rendering Frame {start_frame}", flush=True)
 
     def _get_all_nodes_total_outputs(self) -> List[int]:
         """
