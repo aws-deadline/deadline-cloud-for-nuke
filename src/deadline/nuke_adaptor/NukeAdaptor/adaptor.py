@@ -332,13 +332,14 @@ class NukeAdaptor(Adaptor):
         """
         if not self._nuke_is_running:
             raise NukeNotRunningError("Cannot render because Nuke is not running.")
-        self.validators.run_data.validate(run_data)
-        self._is_rendering = True
 
         if "frameRange" not in run_data and "frame" not in run_data:
             raise jsonschema.exceptions.ValidationError(
                 "Cannot run Nuke adaptor. 'frame' or 'frameRange' is a required property."
             )
+
+        self.validators.run_data.validate(run_data)
+        self._is_rendering = True
 
         self._action_queue.enqueue_action(
             Action(
