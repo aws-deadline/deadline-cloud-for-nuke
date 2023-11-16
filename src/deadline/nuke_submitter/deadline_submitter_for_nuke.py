@@ -14,12 +14,14 @@ from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
     SubmitJobToDeadlineDialog,
+    JobBundlePurpose,
 )
 from nuke import Node
 from PySide2.QtCore import Qt  # pylint: disable=import-error
 from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QApplication,
     QMainWindow,
+    QMessageBox,
 )
 
 from .assets import get_nuke_script_file, get_scene_asset_references, find_all_write_nodes
@@ -264,7 +266,22 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         queue_parameters: list[dict[str, Any]],
         asset_references: AssetReferences,
         host_requirements: Optional[dict[str, Any]] = None,
+        purpose: JobBundlePurpose = JobBundlePurpose.SUBMISSION,
     ) -> None:
+        # if submitting, warn if the current scene has been modified
+        root = nuke.root()
+        if root is not None and root.modified() and purpose == JobBundlePurpose.SUBMISSION:
+            message = "Save script to %s before submitting?" % nuke.scriptName()
+            result = QMessageBox.question(
+                widget,
+                "Warning: Script not saved",
+                message,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if result == QMessageBox.Yes:
+                nuke.scriptSave()
+
         job_bundle_path = Path(job_bundle_dir)
         job_template = _get_job_template(settings)
 
