@@ -39,7 +39,7 @@ def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
         app = QApplication.instance()
         mainwin = [widget for widget in app.topLevelWidgets() if isinstance(widget, QMainWindow)][0]
     with gui_error_handler("Error opening Amazon Deadline Cloud Submitter", mainwin):
-        return show_nuke_render_submitter(mainwin)
+        return show_nuke_render_submitter(mainwin, f=Qt.Tool)
 
 
 def _get_deadline_telemetry_client() -> TelemetryClient:
