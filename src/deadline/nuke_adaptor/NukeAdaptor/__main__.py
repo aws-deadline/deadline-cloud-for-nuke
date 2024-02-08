@@ -1,34 +1,37 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-import logging as _logging
-import sys as _sys
+import logging
+import sys
+import typing
+import pathlib
 
-from openjd.adaptor_runtime import EntryPoint as _EntryPoint
+from openjd.adaptor_runtime import EntryPoint
 
 from .adaptor import NukeAdaptor
 
 __all__ = ["main"]
-_logger = _logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
-def main() -> None:
+def main(reentry_exe: typing.Optional[pathlib.Path] = None) -> int:
     """
     Entry point for the Nuke Adaptor
     """
     _logger.info("About to start the NukeAdaptor")
 
-    package_name = vars(_sys.modules[__name__])["__package__"]
+    package_name = vars(sys.modules[__name__])["__package__"]
     if not package_name:
         raise RuntimeError(f"Must be run as a module. Do not run {__file__} directly")
 
     try:
-        _EntryPoint(NukeAdaptor).start()
+        EntryPoint(NukeAdaptor).start(reentry_exe=reentry_exe)
     except Exception as e:
         _logger.error(f"Entrypoint failed: {e}")
-        _sys.exit(1)
+        return 1
 
     _logger.info("Done NukeAdaptor main")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -109,12 +109,12 @@ You can run the adaptor on your local workstation. This approach does not contai
 
    ```bash
    # Path mapping disabled
-   NukeAdaptor run --init-data file://init-data.yaml --run-data file://run-data.yaml
+   nuke-openjd run --init-data file://init-data.yaml --run-data file://run-data.yaml
 
    #path mapping enabled
-   NukeAdaptor run --init-data file://init-data.yaml --run-data file://run-data.yaml --path-mapping-rules file://path-mapping.yaml
+   nuke-openjd run --init-data file://init-data.yaml --run-data file://run-data.yaml --path-mapping-rules file://path-mapping.yaml
    ```
 
-   NOTE: The NukeAdaptor expects that the Nuke executable is named `nuke` and is set on the PATH. If this is not the case, you can set the `NUKE_ADAPTOR_NUKE_EXECUTABLE` environment variable to the path to the Nuke executable.
+   NOTE: The nuke-openjd binary expects that the Nuke executable is named `nuke` and is set on the PATH. If this is not the case, you can set the `NUKE_ADAPTOR_NUKE_EXECUTABLE` environment variable to the path to the Nuke executable.
 
 4. The result will be written based on the output specified on the write node, taking any path mapping into account.

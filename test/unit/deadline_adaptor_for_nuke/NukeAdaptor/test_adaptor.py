@@ -31,7 +31,6 @@ def init_data() -> dict:
         "write_nodes": ["Write1", "Write2", "Write3"],
         "views": ["left", "right"],
         "script_file": "/path/to/some/nukescript.nk",
-        "telemetry_opt_out": True,
     }
 
 
@@ -59,7 +58,7 @@ class TestNukeAdaptor_on_start:
     ) -> None:
         """Tests that on_start completes without error"""
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         adaptor.on_start()
 
     @patch("time.sleep")
@@ -80,7 +79,7 @@ class TestNukeAdaptor_on_start:
         socket_mock = PropertyMock(
             side_effect=[None, None, None, "/tmp/9999", "/tmp/9999", "/tmp/9999"]
         )
-        type(mock_server.return_value).socket_path = socket_mock
+        type(mock_server.return_value).server_path = socket_mock
 
         # WHEN
         adaptor.on_start()
@@ -149,7 +148,7 @@ class TestNukeAdaptor_on_start:
         """
         # GIVEN
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         new_timeout = 0.01
 
         with patch.object(adaptor, "_NUKE_START_TIMEOUT_SECONDS", new_timeout), pytest.raises(
@@ -181,7 +180,7 @@ class TestNukeAdaptor_on_start:
         """
         # GIVEN
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
 
         with pytest.raises(RuntimeError) as exc_info:
             # WHEN
@@ -205,7 +204,7 @@ class TestNukeAdaptor_on_start:
         # GIVEN
         mock_actions_queue.__len__.return_value = 0
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
 
         # WHEN
         adaptor.on_start()
@@ -241,7 +240,7 @@ class TestNukeAdaptor_on_start:
         }
         mock_actions_queue.__len__.return_value = 0
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         expected_action_names_queued = init_data.keys() & _NUKE_INIT_KEYS | set(_FIRST_NUKE_ACTIONS)
 
         # WHEN
@@ -290,7 +289,7 @@ class TestNukeAdaptor_on_run:
         """Tests that on_run waits for completion"""
         # GIVEN
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         # First side_effect value consumed by setter
         is_rendering_mock = PropertyMock(side_effect=[None, True, False])
         NukeAdaptor._is_rendering = is_rendering_mock
@@ -333,7 +332,7 @@ class TestNukeAdaptor_on_run:
         mock_nuke_is_running.side_effect = [True, True, True, False, False]
         mock_logging_subprocess.return_value.returncode = 1
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         adaptor.on_start()
 
         # WHEN
@@ -366,7 +365,7 @@ class TestNukeAdaptor_on_run:
         """Tests that on_run waits for completion"""
         # GIVEN
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         # First side_effect value consumed by setter
         mock_nuke_is_running.side_effect = [True]
         run_data = {"bad": "schema"}
@@ -396,7 +395,7 @@ class TestNukeAdaptor_on_stop:
     ) -> None:
         # GIVEN
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         is_rendering_mock = PropertyMock(return_value=False)
         NukeAdaptor._is_rendering = is_rendering_mock
         adaptor.on_start()
@@ -498,7 +497,7 @@ class TestNukeAdaptor_on_cleanup:
     ) -> None:
         # GIVEN
         adaptor = NukeAdaptor(init_data)
-        mock_server.return_value.socket_path = "/tmp/9999"
+        mock_server.return_value.server_path = "/tmp/9999"
         is_rendering_mock = PropertyMock(return_value=False)
         NukeAdaptor._is_rendering = is_rendering_mock
 

@@ -9,9 +9,19 @@ import sys
 import threading
 import time
 import jsonschema  # type: ignore
-from typing import Callable, cast
+from typing import Callable, cast, Any
 
-from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
+try:
+    get_deadline_cloud_library_telemetry_client: Any
+    from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
+except ModuleNotFoundError:
+    get_deadline_cloud_library_telemetry_client = None
+
+    class TelemetryClient:  # type: ignore[no-redef]
+        def record_event(self, *args, **kwargs):
+            pass
+
+
 from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
 from openjd.adaptor_runtime_client import Action
 from openjd.adaptor_runtime.process import LoggingSubprocess
@@ -214,7 +224,7 @@ class NukeAdaptor(Adaptor):
             self._exc_info = RuntimeError(f"Nuke Encountered an Error: {match.group(0)}")
 
     @property
-    def server_socket_path(self) -> str:
+    def server_server_path(self) -> str:
         """
         Performs a busy wait for the socket path that the adaptor server is running on, then returns
         it.
@@ -226,11 +236,11 @@ class NukeAdaptor(Adaptor):
             str: The socket path the adaptor server is running on.
         """
         is_timed_out = self._get_timer(self._SERVER_START_TIMEOUT_SECONDS)
-        while (self._server is None or self._server.socket_path is None) and not is_timed_out():
+        while (self._server is None or self._server.server_path is None) and not is_timed_out():
             time.sleep(0.01)
 
-        if self._server is not None and self._server.socket_path is not None:
-            return self._server.socket_path
+        if self._server is not None and self._server.server_path is not None:
+            return self._server.server_path
 
         raise RuntimeError("Could not find a socket because the server did not finish initializing")
 
@@ -301,6 +311,8 @@ class NukeAdaptor(Adaptor):
         self._populate_action_queue()
 
         # initialize telemetry client to handle opt out
+        # TODO: We will move this to a configuration file on the host, that can be controlled
+        #       by a Queue Environment.
         self._get_deadline_telemetry_client(self.init_data.get("telemetry_opt_out", False))
         self._record_adaptor_runtime_event(
             self.__class__.__name__,
@@ -412,7 +424,7 @@ class NukeAdaptor(Adaptor):
     def _start_nuke_server_thread(self) -> threading.Thread:
         """
         Starts the nuke adaptor server in a thread.
-        Sets the environment variable "NUKE_ADAPTOR_SOCKET_PATH" to the socket the server is running
+        Sets the environment variable "NUKE_ADAPTOR_SERVER_PATH" to the socket the server is running
         on after the server has finished starting.
 
         Returns:
@@ -429,7 +441,7 @@ class NukeAdaptor(Adaptor):
 
         server_thread = threading.Thread(target=start_nuke_server)
         server_thread.start()
-        os.environ["NUKE_ADAPTOR_SOCKET_PATH"] = self.server_socket_path
+        os.environ["NUKE_ADAPTOR_SERVER_PATH"] = self.server_server_path
 
         return server_thread
 
@@ -491,9 +503,12 @@ class NukeAdaptor(Adaptor):
         """
         Wrapper around the Deadline Client Library telemetry client, in order to set package-specific information
         """
-        client = get_deadline_cloud_library_telemetry_client()
-        client.telemetry_opted_out = client.telemetry_opted_out or adaptor_opt_out
-        return client
+        if get_deadline_cloud_library_telemetry_client is not None:
+            client = get_deadline_cloud_library_telemetry_client()
+            client.telemetry_opted_out = client.telemetry_opted_out or adaptor_opt_out
+            return client
+        else:
+            return TelemetryClient()  # type: ignore[call-arg]
 
     def _record_adaptor_runtime_event(
         self, adaptor_name: str, event_function_name: str, version: str

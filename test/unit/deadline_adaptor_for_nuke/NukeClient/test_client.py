@@ -30,14 +30,14 @@ class TestNukeClient:
         mock_handler.return_value.action_dict = handler_action_dict
 
         # WHEN
-        client = NukeClient(socket_path="/tmp/9999")
+        client = NukeClient(server_path="/tmp/9999")
 
         # THEN
         mock_handler.assert_called_once()
         assert handler_action_dict.items() <= client.actions.items()
 
     @patch("deadline.nuke_adaptor.NukeClient.nuke_client.os.path.exists")
-    @patch.dict(os.environ, {"NUKE_ADAPTOR_SOCKET_PATH": "9999"})
+    @patch.dict(os.environ, {"NUKE_ADAPTOR_SERVER_PATH": "9999"})
     @patch("deadline.nuke_adaptor.NukeClient.NukeClient.poll")
     @patch("deadline.nuke_adaptor.NukeClient.nuke_client._HTTPClientInterface")
     def test_main(self, mock_httpclient: Mock, mock_poll: Mock, mock_exists: Mock) -> None:
@@ -63,12 +63,12 @@ class TestNukeClient:
         # THEN
         assert str(exc_info.value) == (
             "NukeClient cannot connect to the Adaptor because the environment variable "
-            "NUKE_ADAPTOR_SOCKET_PATH does not exist"
+            "NUKE_ADAPTOR_SERVER_PATH does not exist"
         )
         mock_poll.assert_not_called()
 
     @patch("deadline.nuke_adaptor.NukeClient.nuke_client.os.path.exists")
-    @patch.dict(os.environ, {"NUKE_ADAPTOR_SOCKET_PATH": "/a/path/that/does/not/exist"})
+    @patch.dict(os.environ, {"NUKE_ADAPTOR_SERVER_PATH": "/a/path/that/does/not/exist"})
     @patch("deadline.nuke_adaptor.NukeClient.NukeClient.poll")
     def test_main_server_socket_not_exist(self, mock_poll: Mock, mock_exists: Mock) -> None:
         """Tests that the main method raises an OSError if the server socket does not exist"""
@@ -83,8 +83,8 @@ class TestNukeClient:
         mock_exists.assert_called_once_with("/a/path/that/does/not/exist")
         assert str(exc_info.value) == (
             "NukeClient cannot connect to the Adaptor because the socket at the path defined by "
-            "the environment variable NUKE_ADAPTOR_SOCKET_PATH does not exist. Got: "
-            f"{os.environ['NUKE_ADAPTOR_SOCKET_PATH']}"
+            "the environment variable NUKE_ADAPTOR_SERVER_PATH does not exist. Got: "
+            f"{os.environ['NUKE_ADAPTOR_SERVER_PATH']}"
         )
         mock_poll.assert_not_called()
 
@@ -95,7 +95,7 @@ class TestNukeClient:
         Test that nuke closes and exits on client.close()
         """
         # GIVEN
-        client = NukeClient(socket_path="/tmp/9999")
+        client = NukeClient(server_path="/tmp/9999")
 
         # WHEN
         client.close()
@@ -111,7 +111,7 @@ class TestNukeClient:
         Test that nuke closes and exits on client.graceful_shutdown
         """
         # GIVEN
-        client = NukeClient(socket_path="/tmp/9999")
+        client = NukeClient(server_path="/tmp/9999")
 
         # WHEN
         client.graceful_shutdown(1, Mock())
@@ -127,7 +127,7 @@ class TestNukeClient:
         Test that the ensure_output_dir handle which is run before each render works properly
         """
         # GIVEN
-        NukeClient(socket_path="/tmp/9999")
+        NukeClient(server_path="/tmp/9999")
         mock_os.path.isdir.return_value = is_dir
         ensure_output_dir = nuke.addBeforeRender.call_args[0][0]
 
@@ -192,7 +192,7 @@ class TestNukeClient:
     ):
         # GIVEN
         mocked_path_class.side_effect = new_path_class
-        client = NukeClient(socket_path="/tmp/9999")
+        client = NukeClient(server_path="/tmp/9999")
         mock_map_path.return_value = client_mapped
         mock_path_mapping_rules.return_value = rules
 
@@ -261,7 +261,7 @@ class TestNukeClient:
     ):
         # GIVEN
         mocked_path_class.side_effect = new_path_class
-        client = NukeClient(socket_path="/tmp/9999")
+        client = NukeClient(server_path="/tmp/9999")
         mock_map_path.return_value = client_mapped
         mock_path_mapping_rules.return_value = rules
 
@@ -307,7 +307,7 @@ class TestNukeClient:
             )
 
             temp_socket_file = tempfile.TemporaryFile()
-            client = NukeClient(socket_path=temp_socket_file.name)
+            client = NukeClient(server_path=temp_socket_file.name)
 
             # WHEN
             client._map_ocio_config()
