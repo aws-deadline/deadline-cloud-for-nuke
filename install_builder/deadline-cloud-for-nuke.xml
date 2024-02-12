@@ -1,7 +1,7 @@
 <component>
     <name>deadline_cloud_for_nuke</name>
-    <description>Deadline Cloud for Nuke</description>
-    <detailedDescription>Nuke plugin for submitting jobs to Amazon Deadline Cloud.</detailedDescription>
+    <description>Deadline Cloud for Nuke 13.2-14.0</description>
+    <detailedDescription>Nuke plugin for submitting jobs to Amazon Deadline Cloud. Compatible with Nuke 13.2-14.0</detailedDescription>
     <canBeEdited>1</canBeEdited>
     <selected>0</selected>
     <show>1</show>
@@ -67,7 +67,8 @@
 	</readyToInstallActionList>
 	<parameterList>
 		<stringParameter name="deadline_cloud_for_nuke_summary" ask="0" cliOptionShow="0">
-			<value>Deadline Cloud for Nuke
+			<value>Deadline Cloud for Nuke 13.2-14.0
+- Compatible with Nuke 13.2-14.0
 - Install the integrated Nuke submitter files to the installation directory
 - Register the plug-in with Nuke by creating or updating the NUKE_PATH environment variable.</value>
 		</stringParameter>
