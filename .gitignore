@@ -14,3 +14,8 @@ __pycache__/
 dependency_bundle
 **/test_job_bundle/
 **/test-job-bundle-results.txt
+.DS_Store
+dev_install
+.exe
+.run
+
