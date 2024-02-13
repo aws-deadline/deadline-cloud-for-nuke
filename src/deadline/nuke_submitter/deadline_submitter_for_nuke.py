@@ -63,8 +63,10 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     with open(Path(__file__).parent / "default_nuke_job_template.yaml") as f:
         job_template = yaml.safe_load(f)
 
-    # Set the job's name
+    # Set the job's name and description
     job_template["name"] = settings.name
+    if settings.description:
+        job_template["description"] = settings.description
 
     # Get a map of the parameter definitions for easier lookup
     parameter_def_map = {param["name"]: param for param in job_template["parameterDefinitions"]}

@@ -170,13 +170,14 @@ def run_render_submitter_job_bundle_output_test():
                 report_fh.write(f"Failed {count_failed} tests, succeeded {count_succeeded}.\n")
                 nuke.alert(
                     "Some Job Bundle Tests Failed\n\n"
-                    f"Failed {count_failed} tests, succeeded {count_succeeded}.\n"
-                    f"See the file {test_job_bundle_results_file} for a full report.",
+                    f"Failed {count_failed} tests, succeeded {count_succeeded}.\n\n"
+                    f'See the file "{test_job_bundle_results_file}" for a full report.',
                 )
             else:
                 report_fh.write(f"All tests passed, ran {count_succeeded} total.\n")
                 nuke.message(
-                    f"All Job Bundle Tests Passed\n\nRan {count_succeeded} tests in total.",
+                    f"All Job Bundle Tests Passed\n\nRan {count_succeeded} tests in total.\n\n"
+                    f'See the file "{test_job_bundle_results_file}" for a full report.',
                 )
             report_fh.write(f"Timestamp: {_timestamp_string()}\n")
 
