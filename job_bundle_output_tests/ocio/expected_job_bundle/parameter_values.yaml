@@ -5,8 +5,6 @@ parameterValues:
   value: /normalized/job/bundle/dir/ocio.nk
 - name: ProxyMode
   value: 'false'
-- name: TelemetryOptOut
-  value: 'false'
 - name: deadline:targetTaskRunStatus
   value: READY
 - name: deadline:maxFailedTasksCount

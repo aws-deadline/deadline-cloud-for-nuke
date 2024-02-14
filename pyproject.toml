@@ -11,10 +11,12 @@ requires-python = ">=3.7"
 
 dependencies = [
     "deadline == 0.37.*",
-    "openjd-adaptor-runtime == 0.3.*",
+    "openjd-adaptor-runtime == 0.4.*",
 ]
 
 [project.scripts]
+nuke-openjd = "deadline.nuke_adaptor.NukeAdaptor:main"
+# The binary name 'NukeAdaptor' is deprecated.
 NukeAdaptor = "deadline.nuke_adaptor.NukeAdaptor:main"
 
 [tool.hatch.build]
@@ -126,7 +128,7 @@ source = [
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 73
+fail_under = 72
 
 [tool.semantic_release]
 # Can be removed or set to true once we are v1

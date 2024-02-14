@@ -42,8 +42,8 @@ class NukeClient(_HTTPClientInterface):
     Client for that runs in Nuke for the Nuke Adaptor
     """
 
-    def __init__(self, socket_path: str) -> None:
-        super().__init__(socket_path=socket_path)
+    def __init__(self, server_path: str) -> None:
+        super().__init__(server_path=server_path)
         self.actions.update(NukeHandler().action_dict)
 
         def ensure_output_dir():
@@ -143,21 +143,21 @@ class NukeClient(_HTTPClientInterface):
 
 
 def main():
-    socket_path = os.environ.get("NUKE_ADAPTOR_SOCKET_PATH")
-    if not socket_path:
+    server_path = os.environ.get("NUKE_ADAPTOR_SERVER_PATH")
+    if not server_path:
         raise OSError(
             "NukeClient cannot connect to the Adaptor because the environment variable "
-            "NUKE_ADAPTOR_SOCKET_PATH does not exist"
+            "NUKE_ADAPTOR_SERVER_PATH does not exist"
         )
 
-    if not os.path.exists(socket_path):
+    if not os.path.exists(server_path):
         raise OSError(
             "NukeClient cannot connect to the Adaptor because the socket at the path defined by "
-            "the environment variable NUKE_ADAPTOR_SOCKET_PATH does not exist. Got: "
-            f"{os.environ['NUKE_ADAPTOR_SOCKET_PATH']}"
+            "the environment variable NUKE_ADAPTOR_SERVER_PATH does not exist. Got: "
+            f"{os.environ['NUKE_ADAPTOR_SERVER_PATH']}"
         )
 
-    client = NukeClient(socket_path)
+    client = NukeClient(server_path)
     client.poll()
 
 

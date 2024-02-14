@@ -24,6 +24,7 @@ from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QMessageBox,
 )
 
+from ._version import version_tuple as adaptor_version_tuple
 from .assets import get_nuke_script_file, get_scene_asset_references, find_all_write_nodes
 from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
@@ -176,11 +177,6 @@ def _get_parameter_values(
     # Set the Nuke script file value
     parameter_values.append({"name": "NukeScriptFile", "value": get_nuke_script_file()})
 
-    # Set the TelemetryOptOut parameter value
-    parameter_values.append(
-        {"name": "TelemetryOptOut", "value": "true" if settings.is_telemetry_opted_out else "false"}
-    )
-
     # Set the WriteNode parameter value
     if write_node_name:
         parameter_values.append({"name": "WriteNode", "value": write_node_name})
@@ -206,20 +202,26 @@ def _get_parameter_values(
             + f"{', '.join(parameter_overlap)}"
         )
 
-    # If we're overriding the adaptor with wheels, remove deadline_cloud_for_nuke from the RezPackages
+    # If we're overriding the adaptor with wheels, remove the adaptor from the Packages parameters
     if settings.include_adaptor_wheels:
         rez_param = {}
-        # Find the RezPackages parameter definition
+        conda_param = {}
+        # Find the Packages parameter definition
         for param in queue_parameters:
             if param["name"] == "RezPackages":
                 rez_param = param
-                break
-        # Remove the deadline_cloud_for_nuke rez package
+            if param["name"] == "CondaPackages":
+                conda_param = param
+        # Remove the deadline_cloud_for_nuke/nuke-openjd package
         if rez_param:
             rez_param["value"] = " ".join(
                 pkg
                 for pkg in rez_param["value"].split()
                 if not pkg.startswith("deadline_cloud_for_nuke")
+            )
+        if conda_param:
+            conda_param["value"] = " ".join(
+                pkg for pkg in conda_param["value"].split() if not pkg.startswith("nuke-openjd")
             )
 
     parameter_values.extend(
@@ -324,11 +326,18 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
 
     if not g_submitter_dialog:
         nuke_version = nuke.env["NukeVersionMajor"]
+        adaptor_version = ".".join(str(v) for v in adaptor_version_tuple[:2])
+
+        # Need Nuke and the Nuke OpenJD application interface adaptor
+        rez_packages = f"nuke-{nuke_version} deadline_cloud_for_nuke"
+        conda_packages = f"nuke={nuke_version}.* nuke-openjd={adaptor_version}.*"
+
         g_submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
             initial_shared_parameter_values={
-                "RezPackages": f"nuke-{nuke_version} deadline_cloud_for_nuke"
+                "RezPackages": rez_packages,
+                "CondaPackages": conda_packages,
             },
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,

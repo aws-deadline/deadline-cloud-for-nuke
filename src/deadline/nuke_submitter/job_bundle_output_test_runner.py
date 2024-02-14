@@ -231,7 +231,16 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             contents = contents.replace(tempdir, "/normalized/job/bundle/dir")
             contents = contents.replace(tempdir.replace("\\", "/"), "/normalized/job/bundle/dir")
 
+            # Windows corner case
+            contents = contents.replace("C:\\tmp\\", "/tmp/")
+            contents = contents.replace("C:\\tmp", "/tmp")
+            contents = contents.replace("C:/tmp", "/tmp")
+
             if os.getcwd() != "/":
+                contents = contents.replace(os.getcwd() + "\\", "/normalized/cwd/")
+                contents = contents.replace(
+                    os.getcwd().replace("\\", "/") + "\\", "/normalized/cwd/"
+                )
                 contents = contents.replace(os.getcwd(), "/normalized/cwd")
             else:
                 # Mac specific cases
