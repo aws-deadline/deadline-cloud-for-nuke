@@ -22,7 +22,7 @@ except ModuleNotFoundError:
             pass
 
 
-from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
+from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators, SemanticVersion
 from openjd.adaptor_runtime_client import Action
 from openjd.adaptor_runtime.process import LoggingSubprocess
 from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
@@ -87,6 +87,10 @@ class NukeAdaptor(Adaptor):
     # Output tracking for progress handling
     _curr_output: int = 1
     _total_outputs: int = 1
+
+    @property
+    def integration_data_interface_version(self) -> SemanticVersion:
+        return SemanticVersion(major=0, minor=1)
 
     @staticmethod
     def _get_timer(timeout: int | float) -> Callable[[], bool]:
@@ -474,9 +478,9 @@ class NukeAdaptor(Adaptor):
         deadline_util_namespace_dir = os.path.dirname(os.path.dirname(deadline.nuke_util.__file__))
         python_path_addition = f"{openjd_namespace_dir}{os.pathsep}{deadline_adaptor_namespace_dir}{os.pathsep}{deadline_util_namespace_dir}"
         if "PYTHONPATH" in os.environ:
-            os.environ[
-                "PYTHONPATH"
-            ] = f"{os.environ['PYTHONPATH']}{os.pathsep}{python_path_addition}"
+            os.environ["PYTHONPATH"] = (
+                f"{os.environ['PYTHONPATH']}{os.pathsep}{python_path_addition}"
+            )
         else:
             os.environ["PYTHONPATH"] = python_path_addition
 
