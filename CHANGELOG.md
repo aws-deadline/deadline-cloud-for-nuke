@@ -1,3 +1,10 @@
+## 0.17.0 (2024-03-08)
+
+### BREAKING CHANGES
+* **deps**: update openjd-adaptor-runtime to 0.5 (#100) ([`b01e7f5`](https://github.com/casillas2/deadline-cloud-for-nuke/commit/b01e7f5a2bdcc0b18a39d63737067143b5a126e2))
+
+
+
 ## 0.16.0 (2024-02-21)
 
 ### BREAKING CHANGES
