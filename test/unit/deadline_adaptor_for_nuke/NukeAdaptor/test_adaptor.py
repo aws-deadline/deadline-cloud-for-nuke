@@ -46,6 +46,7 @@ def run_data() -> dict:
 
 
 class TestNukeAdaptor_on_start:
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -54,6 +55,7 @@ class TestNukeAdaptor_on_start:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         init_data: dict,
     ) -> None:
         """Tests that on_start completes without error"""
@@ -62,6 +64,7 @@ class TestNukeAdaptor_on_start:
         adaptor.on_start()
 
     @patch("time.sleep")
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -70,6 +73,7 @@ class TestNukeAdaptor_on_start:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         mock_sleep: Mock,
         init_data: dict,
     ) -> None:
@@ -132,6 +136,7 @@ class TestNukeAdaptor_on_start:
             os.path.join(test_dir, "deadline", "nuke_adaptor", "NukeClient", "nuke_client.py")
         )
 
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=1)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -140,6 +145,7 @@ class TestNukeAdaptor_on_start:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         init_data: dict,
     ) -> None:
         """
@@ -165,6 +171,7 @@ class TestNukeAdaptor_on_start:
         assert str(exc_info.value) == error_msg
 
     @patch.object(NukeAdaptor, "_nuke_is_running", False)
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=1)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -173,6 +180,7 @@ class TestNukeAdaptor_on_start:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         init_data: dict,
     ) -> None:
         """
@@ -190,6 +198,7 @@ class TestNukeAdaptor_on_start:
         error_msg = "Nuke encountered an error and was not able to complete initialization actions."
         assert str(exc_info.value) == error_msg
 
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch.object(NukeAdaptor, "_action_queue")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -198,6 +207,7 @@ class TestNukeAdaptor_on_start:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         init_data: dict,
     ) -> None:
         """Tests that the action queue is populated correctly"""
@@ -274,6 +284,7 @@ class TestNukeAdaptor_on_start:
 
 class TestNukeAdaptor_on_run:
     @patch("time.sleep")
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -282,6 +293,7 @@ class TestNukeAdaptor_on_run:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         mock_sleep: Mock,
         init_data: dict,
         run_data: dict,
@@ -341,7 +353,7 @@ class TestNukeAdaptor_on_run:
 
         # THEN
         mock_sleep.assert_called_once_with(0.1)
-        assert mock_telemetry_client.call_count == 3  # twice on start, once on error
+        assert mock_telemetry_client.call_count == 2  # once on start, once on error
         assert str(exc_info.value) == (
             "Nuke exited early and did not render successfully, please check render logs. "
             "Exit code 1"
@@ -351,6 +363,7 @@ class TestNukeAdaptor_on_run:
         "deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._nuke_is_running",
         new_callable=PropertyMock,
     )
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -360,6 +373,7 @@ class TestNukeAdaptor_on_run:
         mock_nuke_is_running: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         init_data: dict,
     ) -> None:
         """Tests that on_run waits for completion"""
@@ -381,6 +395,7 @@ class TestNukeAdaptor_on_run:
 
 class TestNukeAdaptor_on_stop:
     @patch("time.sleep")
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -389,6 +404,7 @@ class TestNukeAdaptor_on_stop:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         mock_sleep: Mock,
         init_data: dict,
         run_data: dict,
@@ -483,6 +499,7 @@ class TestNukeAdaptor_on_cleanup:
         mock_server_thread.join.assert_called_once_with(timeout=0.01)
 
     @patch("time.sleep")
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess")
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.AdaptorServer")
@@ -491,6 +508,7 @@ class TestNukeAdaptor_on_cleanup:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
         mock_sleep: Mock,
         init_data: dict,
         run_data: dict,
@@ -667,6 +685,32 @@ class TestNukeAdaptor_on_cleanup:
             assert isinstance(adaptor._exc_info, RuntimeError)
             assert str(adaptor._exc_info) == f"Nuke Encountered an Error: {stdout}"
 
+    @pytest.mark.parametrize(
+        "version_string, expected_version",
+        [
+            ("NukeClient: Nuke Version 14.0v2", "14.0v2"),
+            (
+                "NukeClient: Nuke Version 13.2",
+                "13.2",
+            ),
+        ],
+    )
+    def test_handle_version(self, init_data: dict, version_string: str, expected_version: str):
+        """Tests that the _handle_version method returns the version correctly"""
+        # GIVEN
+        VERSION_CALLBACK_INDEX = 4
+        adaptor = NukeAdaptor(init_data)
+        regex_callbacks = adaptor.regex_callbacks
+        complete_regex = regex_callbacks[VERSION_CALLBACK_INDEX].regex_list[0]
+
+        # WHEN
+        match = complete_regex.search(version_string)
+        assert match is not None
+        adaptor._handle_version(match)
+
+        # THEN
+        assert adaptor._nuke_version == expected_version
+
     @pytest.mark.parametrize("adaptor_exc_info", [RuntimeError("Something Bad Happened!"), None])
     def test_has_exception(self, init_data: dict, adaptor_exc_info: Exception | None) -> None:
         """
@@ -733,34 +777,3 @@ class TestNukeAdaptor_on_cancel:
         # THEN
         assert "CANCEL REQUESTED" in caplog.text
         assert "Nothing to cancel because Nuke is not running" in caplog.text
-
-
-class TestNukeAdaptor_get_major_minor_version:
-    """Tests for static method _get_major_minor_version"""
-
-    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
-    def test_whole_version(self, mock_logger, init_data):
-        adaptor = NukeAdaptor(init_data)
-
-        # THEN
-        assert "13.2" == adaptor._get_major_minor_version("13.2v4")
-        mock_logger.info.assert_called_once_with("Using 13.2 to find Nuke executable")
-
-    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
-    def test_major_minor(self, mock_logger, init_data):
-        adaptor = NukeAdaptor(init_data)
-
-        # THEN
-        assert "13.2" == adaptor._get_major_minor_version("13.2")
-        mock_logger.info.assert_called_once_with("Using 13.2 to find Nuke executable")
-
-    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor._logger")
-    def test_no_major_minor_version(self, mock_logger, init_data):
-        adaptor = NukeAdaptor(init_data)
-
-        # THEN
-        assert "13" == adaptor._get_major_minor_version("13")
-        mock_logger.warning.assert_called_once_with(
-            "Could not find major.minor information from '13',"
-            " using '13' to find the Nuke executable"
-        )
