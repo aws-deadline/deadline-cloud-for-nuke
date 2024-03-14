@@ -1,4 +1,4 @@
-# Amazon Deadline Cloud for Nuke
+# AWS Deadline Cloud for Nuke
 
 This package provides user interface inside of Nuke for submitting jobs to Deadline Cloud, and
 an adaptor that runs Nuke on render hosts.

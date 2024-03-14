@@ -35,11 +35,11 @@ g_submitter_dialog = None
 
 
 def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
-    with gui_error_handler("Error opening Amazon Deadline Cloud Submitter", None):
+    with gui_error_handler("Error opening AWS Deadline Cloud Submitter", None):
         # Get the main Nuke window so we can parent the submitter to it
         app = QApplication.instance()
         mainwin = [widget for widget in app.topLevelWidgets() if isinstance(widget, QMainWindow)][0]
-    with gui_error_handler("Error opening Amazon Deadline Cloud Submitter", mainwin):
+    with gui_error_handler("Error opening AWS Deadline Cloud Submitter", mainwin):
         return show_nuke_render_submitter(mainwin, f=Qt.Tool)
 
 

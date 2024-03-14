@@ -1,4 +1,4 @@
-# Amazon Deadline Cloud for Nuke Development
+# AWS Deadline Cloud for Nuke Development
 
 ## `hatch` commands
 
@@ -43,7 +43,7 @@ WARNING: This workflow installs additional Python packages into your Nuke's pyth
 
 1. Create a development location within which to do your git checkouts. For example `~/deadline-clients`. Clone packages from this directory with commands like `git clone git@github.com:casillas2/deadline-cloud-for-nuke.git`. You'll also want the `deadline-cloud` repo.
 2. Switch to your Nuke directory, like `cd "C:\Program Files\Nuke13.2v4"`.
-3. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud` to install the Amazon Deadline Cloud Client Library in edit mode.
+3. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud` to install the AWS Deadline Cloud Client Library in edit mode.
 4. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke` to install the Nuke Submitter in edit mode.
 5. Run `set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src` to put the `menu.py` file in the path Nuke searches for menu extensions.
 6. Run `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true` to enable the job bundle debugging support. This enables a menu item you can use to run the tests from the `job_bundle_output_tests` directory.
