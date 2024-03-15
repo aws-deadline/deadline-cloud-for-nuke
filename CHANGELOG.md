@@ -1,3 +1,9 @@
+## 0.17.1 (2024-03-15)
+
+### Chore
+* update deps deadline-cloud 0.40 (#107) ([`6503f29`](https://github.com/casillas2/deadline-cloud-for-nuke/commit/6503f293c9f9ea7be5a513d84dffd4d4f0c2dc5f))
+
+
 ## 0.17.0 (2024-03-08)
 
 ### BREAKING CHANGES
