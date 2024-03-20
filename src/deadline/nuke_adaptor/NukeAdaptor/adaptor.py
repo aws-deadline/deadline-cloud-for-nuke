@@ -9,24 +9,17 @@ import sys
 import threading
 import time
 import jsonschema  # type: ignore
-from typing import Callable, cast, Any
+from typing import Callable, cast
 
-try:
-    get_deadline_cloud_library_telemetry_client: Any
-    from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
-except ModuleNotFoundError:
-    get_deadline_cloud_library_telemetry_client = None
-
-    class TelemetryClient:  # type: ignore[no-redef]
-        def record_event(self, *args, **kwargs):
-            pass
-
-
+from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
+from openjd.adaptor_runtime._version import version as openjd_adaptor_version
 from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators, SemanticVersion
 from openjd.adaptor_runtime_client import Action
 from openjd.adaptor_runtime.process import LoggingSubprocess
 from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
 from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
+
+from .._version import version as adaptor_version
 
 _logger = logging.getLogger(__name__)
 
@@ -45,9 +38,6 @@ _NUKE_INIT_KEYS = {
     "write_nodes",
     "views",
 }
-# Only capture the major minor group (ie. 13.2)
-# patch version (ie. v1) is an optional non-capturing subgroup.
-_MAJOR_MINOR_RE = re.compile(r"^(\d+\.\d+)(?:v\d+)?$")
 
 
 def _check_for_exception(func: Callable) -> Callable:
@@ -83,10 +73,12 @@ class NukeAdaptor(Adaptor):
     _performing_cleanup = False
     _regex_callbacks: list | None = None
     _validators: AdaptorDataValidators | None = None
+    _telemetry_client: TelemetryClient | None = None
 
     # Output tracking for progress handling
     _curr_output: int = 1
     _total_outputs: int = 1
+    _nuke_version: str = ""
 
     @property
     def integration_data_interface_version(self) -> SemanticVersion:
@@ -174,6 +166,8 @@ class NukeAdaptor(Adaptor):
                 re.compile(".*Error :.*"),
                 re.compile(".*Eddy\\[ERROR\\].*"),
             ]
+            # Capture the major minor group (ie. 13.2), patch version (ie. v1) is an optional subgroup.
+            version_regexes = [re.compile("NukeClient: Nuke Version ([0-9]+.[0-9]+)(v[0-9]+)?")]
             output_complete_regexes = [re.compile(r"Writing .+ took [0-9\.]+ seconds")]
             callback_list.append(RegexCallback(completed_regexes, self._handle_complete))
             callback_list.append(RegexCallback(progress_regexes, self._handle_progress))
@@ -181,6 +175,7 @@ class NukeAdaptor(Adaptor):
                 RegexCallback(output_complete_regexes, self._handle_output_complete)
             )
             callback_list.append(RegexCallback(error_regexes, self._handle_error))
+            callback_list.append(RegexCallback(version_regexes, self._handle_version))
             self._regex_callbacks = callback_list
         return self._regex_callbacks
 
@@ -227,6 +222,16 @@ class NukeAdaptor(Adaptor):
         if not self.continue_on_error:
             self._exc_info = RuntimeError(f"Nuke Encountered an Error: {match.group(0)}")
 
+    def _handle_version(self, match: re.Match) -> None:
+        """
+        Callback for stdout that records the Nuke version.
+        Args:
+            match (re.Match): The match object from the regex pattern that was matched the message
+        """
+        self._nuke_version = match.groups()[0]
+        if len(match.groups()) > 1 and match.groups()[1]:
+            self._nuke_version += match.groups()[1]
+
     @property
     def server_server_path(self) -> str:
         """
@@ -268,33 +273,6 @@ class NukeAdaptor(Adaptor):
             f"following directories: {sys.path[1:]}"
         )
 
-    @staticmethod
-    def _get_major_minor_version(nuke_version: str) -> str:
-        """Grab the major minor information from the nuke version string.
-
-        The submitter should be passing the whole version (ie. 13.2v4), but this can handle
-        just the major minor being passed in as well (ie. 13.2).
-
-        Args:
-            nuke_version (str): the nuke version passed in by the submitter or customer
-
-        Returns:
-            str: the major minor version of nuke
-        """
-        major_minor = nuke_version
-
-        match = _MAJOR_MINOR_RE.match(nuke_version)
-        if match:
-            major_minor = match.group(1)
-            _logger.info(f"Using {major_minor} to find Nuke executable")
-        else:
-            _logger.warning(
-                f"Could not find major.minor information from '{nuke_version}', "
-                f"using '{nuke_version}' to find the Nuke executable"
-            )
-
-        return major_minor
-
     def on_start(self) -> None:
         """
         Initializes Nuke for job stickiness by starting Nuke, establishing IPC, and initializing the
@@ -314,16 +292,6 @@ class NukeAdaptor(Adaptor):
         self._server_thread = self._start_nuke_server_thread()
         self._populate_action_queue()
 
-        # initialize telemetry client to handle opt out
-        # TODO: We will move this to a configuration file on the host, that can be controlled
-        #       by a Queue Environment.
-        self._get_deadline_telemetry_client(self.init_data.get("telemetry_opt_out", False))
-        self._record_adaptor_runtime_event(
-            self.__class__.__name__,
-            "on_start",
-            self._get_major_minor_version(os.environ.get("NUKE_VERSION", "")),
-        )
-
         self._start_nuke_client()
 
         is_timed_out = self._get_timer(self._NUKE_START_TIMEOUT_SECONDS)
@@ -335,6 +303,10 @@ class NukeAdaptor(Adaptor):
                 )
 
             time.sleep(0.1)  # busy wait for nuke to finish initialization
+
+        self._get_deadline_telemetry_client().record_event(
+            event_type="com.amazon.rum.deadline.adaptor.runtime.start", event_details={}
+        )
 
         if len(self._action_queue) > 0:
             raise RuntimeError(
@@ -373,7 +345,7 @@ class NukeAdaptor(Adaptor):
             exit_code = self._nuke_client.returncode
 
             self._get_deadline_telemetry_client().record_error(
-                {"exit_code": exit_code}, str(RuntimeError)
+                {"exit_code": exit_code, "exception_scope": "on_run"}, str(RuntimeError)
             )
             raise RuntimeError(
                 "Nuke exited early and did not render successfully, please check render logs. "
@@ -503,25 +475,17 @@ class NukeAdaptor(Adaptor):
             if name in self.init_data:
                 self._action_queue.enqueue_action(Action(name, {name: self.init_data[name]}))
 
-    def _get_deadline_telemetry_client(self, adaptor_opt_out: bool = False) -> TelemetryClient:
+    def _get_deadline_telemetry_client(self):
         """
         Wrapper around the Deadline Client Library telemetry client, in order to set package-specific information
         """
-        if get_deadline_cloud_library_telemetry_client is not None:
-            client = get_deadline_cloud_library_telemetry_client()
-            client.telemetry_opted_out = client.telemetry_opted_out or adaptor_opt_out
-            return client
-        else:
-            return TelemetryClient()  # type: ignore[call-arg]
-
-    def _record_adaptor_runtime_event(
-        self, adaptor_name: str, event_function_name: str, version: str
-    ):
-        event_details = {
-            "adaptor_name": adaptor_name,
-            "runtime_function": event_function_name,
-            "version": version,
-        }
-        self._get_deadline_telemetry_client().record_event(
-            event_type="com.amazon.rum.deadline.adaptor.runtime", event_details=event_details
-        )
+        if not self._telemetry_client:
+            self._telemetry_client = get_deadline_cloud_library_telemetry_client()
+            self._telemetry_client.update_common_details(
+                {
+                    "deadline-cloud-for-nuke-adaptor-version": adaptor_version,
+                    "nuke-version": self._nuke_version,
+                    "open-jd-adaptor-runtime-version": openjd_adaptor_version,
+                }
+            )
+        return self._telemetry_client

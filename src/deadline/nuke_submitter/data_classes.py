@@ -26,7 +26,6 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     write_node_selection: str = field(default="", metadata={"sticky": True})
     view_selection: str = field(default="", metadata={"sticky": True})
     is_proxy_mode: bool = field(default=False, metadata={"sticky": True})
-    is_telemetry_opted_out: bool = field(default=False, metadata={"sticky": True})
 
     input_filenames: list[str] = field(default_factory=list, metadata={"sticky": True})
     input_directories: list[str] = field(default_factory=list, metadata={"sticky": True})

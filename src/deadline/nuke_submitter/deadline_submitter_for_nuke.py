@@ -9,7 +9,7 @@ from typing import Any, Optional
 import yaml  # type: ignore[import]
 
 import nuke
-from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
+from deadline.client.api import get_deadline_cloud_library_telemetry_client
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
@@ -24,7 +24,7 @@ from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QMessageBox,
 )
 
-from ._version import version_tuple as adaptor_version_tuple
+from ._version import version, version_tuple as adaptor_version_tuple
 from .assets import get_nuke_script_file, get_scene_asset_references, find_all_write_nodes
 from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
@@ -41,13 +41,6 @@ def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
         mainwin = [widget for widget in app.topLevelWidgets() if isinstance(widget, QMainWindow)][0]
     with gui_error_handler("Error opening AWS Deadline Cloud Submitter", mainwin):
         return show_nuke_render_submitter(mainwin, f=Qt.Tool)
-
-
-def _get_deadline_telemetry_client() -> TelemetryClient:
-    """
-    Wrapper around the Deadline Client Library telemetry client, in order to set package-specific information
-    """
-    return get_deadline_cloud_library_telemetry_client()
 
 
 def _get_write_node(settings: RenderSubmitterUISettings) -> tuple[Node, str]:
@@ -234,13 +227,19 @@ def _get_parameter_values(
 def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
     global g_submitter_dialog
 
+    # Initialize telemetry client, opt-out is respected
+    get_deadline_cloud_library_telemetry_client().update_common_details(
+        {
+            "deadline-cloud-for-nuke-submitter-version": version,
+            "nuke-version": nuke.env["NukeVersionString"],
+        }
+    )
     render_settings = RenderSubmitterUISettings()
 
     # Set the setting defaults that come from the scene
     render_settings.name = Path(get_nuke_script_file()).name
     render_settings.frame_list = str(nuke.root().frameRange())
     render_settings.is_proxy_mode = nuke.root().proxy()
-    render_settings.is_telemetry_opted_out = _get_deadline_telemetry_client().telemetry_opted_out
 
     script_path = get_nuke_script_file()
     if not script_path:
@@ -352,10 +351,6 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
         )
-
-    _get_deadline_telemetry_client().record_event(
-        "com.amazon.rum.deadline.submitter.window", {"submitter_name": "Nuke"}
-    )
 
     g_submitter_dialog.show()
     return g_submitter_dialog

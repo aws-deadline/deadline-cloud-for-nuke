@@ -45,6 +45,7 @@ class NukeClient(_HTTPClientInterface):
     def __init__(self, server_path: str) -> None:
         super().__init__(server_path=server_path)
         self.actions.update(NukeHandler().action_dict)
+        print(f"NukeClient: Nuke Version {nuke.env['NukeVersionString']}", flush=True)
 
         def ensure_output_dir():
             """Ensures the output directory exists before rendering"""
