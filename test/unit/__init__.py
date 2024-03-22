@@ -14,6 +14,10 @@ mock_modules = [
     "PySide2.QtGui",
     "PySide2.QtWidgets",
     "PyOpenColorIO",
+    "qtpy",
+    "qtpy.QtCore",
+    "qtpy.QtWidgets",
+    "qtpy.QtGui",
 ]
 
 for module in mock_modules:
