@@ -1,3 +1,12 @@
+## 0.17.2 (2024-03-26)
+
+
+### Features
+* Improve telemetry for submitter and adaptor (#103) ([`0811e05`](https://github.com/casillas2/deadline-cloud-for-nuke/commit/0811e0500547326ef9b3d369f1aa3211073c5616))
+
+### Bug Fixes
+* include deadline-cloud in the adaptor packaging script (#117) ([`9a72baf`](https://github.com/casillas2/deadline-cloud-for-nuke/commit/9a72baff204d2073c35fdede2dc238c2e6515ee0))
+
 ## 0.17.1 (2024-03-15)
 
 ### Chore
