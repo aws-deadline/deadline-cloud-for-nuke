@@ -6,8 +6,8 @@ build-backend = "hatchling.build"
 name = "deadline-cloud-for-nuke"
 dynamic = ["version"]
 readme = "README.md"
-license = ""
-requires-python = ">=3.7"
+license = "Apache-2.0"
+requires-python = ">=3.9"
 
 dependencies = [
     "deadline == 0.45.*",
@@ -68,7 +68,12 @@ explicit_package_bases = true
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["nuke.*","PySide2.*","PyOpenColorIO.*"]
+module = [
+  "nuke.*",
+  "PySide2.*",
+  "PyOpenColorIO.*",
+  "qtpy.*"
+]
 ignore_missing_imports = true
 
 [tool.ruff]

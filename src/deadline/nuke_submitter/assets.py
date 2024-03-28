@@ -64,8 +64,8 @@ def get_scene_asset_references() -> AssetReferences:
                     # Windows / Linux
                     install_path = dirname(nuke.EXE_PATH)
                     if platform.startswith("darwin"):
-                        # EXE_PATH: /Applications/Nuke13.2v4/Nuke13.2v4.app/Contents/MacOS/Nuke13.2
-                        # INSTALL_PATH: /Applications/Nuke13.2v4/Nuke13.2v4.app
+                        # EXE_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app/Contents/MacOS/Nuke15.0
+                        # INSTALL_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app
                         install_path = dirname(dirname(dirname(nuke.EXE_PATH)))
                     try:
                         common_file_path = commonpath((filename, install_path))
