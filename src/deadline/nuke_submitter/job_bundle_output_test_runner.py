@@ -206,12 +206,18 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
 
         # Save the Job Bundle
         # Use patching to set the job bundle directory and skip the success messagebox
-        with mock.patch.object(
-            submit_job_to_deadline_dialog,
-            "create_job_history_bundle_dir",
-            return_value=temp_job_bundle_dir,
-        ), mock.patch.object(submit_job_to_deadline_dialog, "QMessageBox"), mock.patch.object(
-            os, "startfile", create=True  # only exists on win. Just create to avoid AttributeError
+        with (
+            mock.patch.object(
+                submit_job_to_deadline_dialog,
+                "create_job_history_bundle_dir",
+                return_value=temp_job_bundle_dir,
+            ),
+            mock.patch.object(submit_job_to_deadline_dialog, "QMessageBox"),
+            mock.patch.object(
+                os,
+                "startfile",
+                create=True,  # only exists on win. Just create to avoid AttributeError
+            ),
         ):
             submitter.on_export_bundle()
         QApplication.processEvents()
@@ -266,11 +272,10 @@ def _run_job_bundle_output_test(test_dir: str, dcc_scene_file: str, report_fh, m
             filtered_diff = []
             if dcmp.diff_files:
                 for file in dcmp.diff_files:
-                    with open(
-                        os.path.join(expected_job_bundle_dir, file), encoding="utf8"
-                    ) as fleft, open(
-                        os.path.join(test_job_bundle_dir, file), encoding="utf8"
-                    ) as fright:
+                    with (
+                        open(os.path.join(expected_job_bundle_dir, file), encoding="utf8") as fleft,
+                        open(os.path.join(test_job_bundle_dir, file), encoding="utf8") as fright,
+                    ):
                         # Convert the yaml to an ordered dict to verify the differences are not caused by ordering.
                         # For example, MacOS creates "/tmp/luts" directory in different order compare to Windows/Linux
                         # NOTE: if there are other diffs in the same file, then the ordering mismatch will still

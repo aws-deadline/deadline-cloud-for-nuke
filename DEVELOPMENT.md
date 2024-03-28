@@ -42,7 +42,7 @@ will work on Linux or MacOS if you modify the path references as appropriate.
 WARNING: This workflow installs additional Python packages into your Nuke's python distribution. You may need to run the Command Prompt in Administrative mode if your current user does not have permission to write on Nuke's site-package folder.
 
 1. Create a development location within which to do your git checkouts. For example `~/deadline-clients`. Clone packages from this directory with commands like `git clone git@github.com:casillas2/deadline-cloud-for-nuke.git`. You'll also want the `deadline-cloud` repo.
-2. Switch to your Nuke directory, like `cd "C:\Program Files\Nuke13.2v4"`.
+2. Switch to your Nuke directory, like `cd "C:\Program Files\Nuke15.0v2"`.
 3. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud` to install the AWS Deadline Cloud Client Library in edit mode.
 4. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke` to install the Nuke Submitter in edit mode.
 5. Run `set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src` to put the `menu.py` file in the path Nuke searches for menu extensions.

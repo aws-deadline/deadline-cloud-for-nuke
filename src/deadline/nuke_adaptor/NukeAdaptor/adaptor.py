@@ -166,7 +166,7 @@ class NukeAdaptor(Adaptor):
                 re.compile(".*Error :.*"),
                 re.compile(".*Eddy\\[ERROR\\].*"),
             ]
-            # Capture the major minor group (ie. 13.2), patch version (ie. v1) is an optional subgroup.
+            # Capture the major minor group (ie. 15.0), patch version (ie. v1) is an optional subgroup.
             version_regexes = [re.compile("NukeClient: Nuke Version ([0-9]+.[0-9]+)(v[0-9]+)?")]
             output_complete_regexes = [re.compile(r"Writing .+ took [0-9\.]+ seconds")]
             callback_list.append(RegexCallback(completed_regexes, self._handle_complete))
