@@ -1,3 +1,15 @@
+## 0.18.0 (2024-04-01)
+
+### BREAKING CHANGES
+* public release (#123) ([`515891b`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/515891bec7f82da0e8efaab2e6f94adf1a7289b7))
+
+
+### Bug Fixes
+* include deps with openjd adaptor package (#121) ([`fed5129`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/fed5129a936522b26bc34d955b03f4d6ccf1387a))
+* include the adaptor deps in the package (#119) ([`ca51be5`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/ca51be5de62d5de1e5c851ce769473be3dacd17b))
+* incorrect package name in create adaptor script (#120) ([`ba2f9f8`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/ba2f9f8a37839c382bb19dfadfb548028022c578))
+* set python 3.8 to minimum python version in hatch testing matrix (#123) ([`515891b`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/515891bec7f82da0e8efaab2e6f94adf1a7289b7))
+
 ## 0.17.2 (2024-03-26)
 
 
