@@ -1,4 +1,12 @@
-# AWS Deadline Cloud for Nuke Development
+# Development documentation
+
+This package provides user interface inside of Nuke for submitting jobs to Deadline Cloud, and
+an adaptor that runs Nuke on render hosts.
+
+This package has two active branches:
+
+- `mainline` -- For active development. This branch is not intended to be consumed by other packages. Any commit to this branch may break APIs, dependencies, and so on, and thus break any consumer without notice.
+- `release` -- The official release of the package intended for consumers. Any breaking releases will be accompanied with an increase to this package's interface version.
 
 ## `hatch` commands
 
@@ -41,7 +49,7 @@ will work on Linux or MacOS if you modify the path references as appropriate.
 
 WARNING: This workflow installs additional Python packages into your Nuke's python distribution. You may need to run the Command Prompt in Administrative mode if your current user does not have permission to write on Nuke's site-package folder.
 
-1. Create a development location within which to do your git checkouts. For example `~/deadline-clients`. Clone packages from this directory with commands like `git clone git@github.com:casillas2/deadline-cloud-for-nuke.git`. You'll also want the `deadline-cloud` repo.
+1. Create a development location within which to do your git checkouts. For example `~/deadline-clients`. Clone packages from this directory with commands like `git clone git@github.com:aws-deadline/deadline-cloud-for-nuke.git`. You'll also want the `deadline-cloud` repo.
 2. Switch to your Nuke directory, like `cd "C:\Program Files\Nuke15.0v2"`.
 3. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud` to install the AWS Deadline Cloud Client Library in edit mode.
 4. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke` to install the Nuke Submitter in edit mode.
