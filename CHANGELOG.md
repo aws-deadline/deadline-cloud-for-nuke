@@ -1,3 +1,10 @@
+## 0.18.1 (2024-04-02)
+
+
+
+### Bug Fixes
+* show the correct supported versions (#129) ([`d2e5774`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/d2e577419269cce3d3c5c3db19423682e57a36bc))
+
 ## 0.18.0 (2024-04-01)
 
 ### BREAKING CHANGES
