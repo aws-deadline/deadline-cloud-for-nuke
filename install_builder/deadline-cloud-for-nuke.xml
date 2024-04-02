@@ -67,8 +67,8 @@
 	</readyToInstallActionList>
 	<parameterList>
 		<stringParameter name="deadline_cloud_for_nuke_summary" ask="0" cliOptionShow="0">
-			<value>Deadline Cloud for Nuke 13.2-14.0
-- Compatible with Nuke 13.2-14.0
+			<value>Deadline Cloud for Nuke 14.0-15.0
+- Compatible with Nuke 14.0-15.0
 - Install the integrated Nuke submitter files to the installation directory
 - Register the plug-in with Nuke by creating or updating the NUKE_PATH environment variable.</value>
 		</stringParameter>
