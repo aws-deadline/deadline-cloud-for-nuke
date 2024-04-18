@@ -340,6 +340,15 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
                         trace=traceback.format_exc()
                     )
                 )
+
+            if not callback_loader.validate_function_signature(on_pre_submit_callback):
+                raise DeadlineOperationError(
+                    "Python function at {path}:on_pre_submit_callback does not match function signature: {signature}."
+                    .format(
+                        path=os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK"),
+                        signature=callback_loader.CALLBACK_REFERENCE_SIGNATURE,
+                    )
+                )
             callback_kwargs["on_pre_submit_callback"] = on_pre_submit_callback
 
         if os.path.exists(os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK", "")):
@@ -355,6 +364,14 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
                     "Error while loading on_post_submit_callback at {path}. {trace}".format(
                         path=os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK"),
                         trace=traceback.format_exc()
+                    )
+                )
+            if not callback_loader.validate_function_signature(on_post_submit_callback):
+                raise DeadlineOperationError(
+                    "Python function at {path}:on_post_submit_callback does not match function signature: {signature}."
+                    .format(
+                        path=os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK"),
+                        signature=callback_loader.CALLBACK_REFERENCE_SIGNATURE,
                     )
                 )
             callback_kwargs["on_post_submit_callback"] = on_post_submit_callback
