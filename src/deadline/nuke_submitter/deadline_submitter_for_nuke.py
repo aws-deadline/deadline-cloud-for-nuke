@@ -326,19 +326,37 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
 
         callback_kwargs = {}
         if os.path.exists(os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK", "")):
-            on_pre_submit_callback = callback_loader.import_module_function(
-                module_path=os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK"),
-                module_name="submit_callback",
-                function_name="on_pre_submit_callback",
-            )
+            try:
+                on_pre_submit_callback = callback_loader.import_module_function(
+                    module_path=os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK"),
+                    module_name="submit_callback",
+                    function_name="on_pre_submit_callback",
+                )
+            except Exception:
+                import traceback
+                raise DeadlineOperationError(
+                    "Error while loading on_pre_submit_callback at {path}. {trace}".format(
+                        path=os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK"),
+                        trace=traceback.format_exc()
+                    )
+                )
             callback_kwargs["on_pre_submit_callback"] = on_pre_submit_callback
 
         if os.path.exists(os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK", "")):
-            on_post_submit_callback = callback_loader.import_module_function(
-                module_path=os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK"),
-                module_name="submit_callback",
-                function_name="on_post_submit_callback",
-            )
+            try:
+                on_post_submit_callback = callback_loader.import_module_function(
+                    module_path=os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK"),
+                    module_name="submit_callback",
+                    function_name="on_post_submit_callback",
+                )
+            except Exception:
+                import traceback
+                raise DeadlineOperationError(
+                    "Error while loading on_post_submit_callback at {path}. {trace}".format(
+                        path=os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK"),
+                        trace=traceback.format_exc()
+                    )
+                )
             callback_kwargs["on_post_submit_callback"] = on_post_submit_callback
 
 
