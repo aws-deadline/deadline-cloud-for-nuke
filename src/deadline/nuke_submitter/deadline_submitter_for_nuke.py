@@ -30,6 +30,7 @@ from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
+from deadline.client.util import callback_loader
 
 g_submitter_dialog = None
 
@@ -323,6 +324,24 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         nuke_version = nuke.env["NukeVersionMajor"]
         adaptor_version = ".".join(str(v) for v in adaptor_version_tuple[:2])
 
+        callback_kwargs = {}
+        if os.path.exists(os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK", "")):
+            on_pre_submit_callback = callback_loader.import_module_function(
+                module_path=os.environ.get("DEADLINE_PRE_SUBMIT_CALLBACK"),
+                module_name="submit_callback",
+                function_name="on_pre_submit_callback",
+            )
+            callback_kwargs["on_pre_submit_callback"] = on_pre_submit_callback
+
+        if os.path.exists(os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK", "")):
+            on_post_submit_callback = callback_loader.import_module_function(
+                module_path=os.environ.get("DEADLINE_POST_SUBMIT_CALLBACK"),
+                module_name="submit_callback",
+                function_name="on_post_submit_callback",
+            )
+            callback_kwargs["on_post_submit_callback"] = on_post_submit_callback
+
+
         # Need Nuke and the Nuke OpenJD application interface adaptor
         rez_packages = f"nuke-{nuke_version} deadline_cloud_for_nuke"
         conda_packages = f"nuke={nuke_version}.* nuke-openjd={adaptor_version}.*"
@@ -340,6 +359,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             parent=parent,
             f=f,
             show_host_requirements_tab=True,
+            **callback_kwargs,
         )
     else:
         g_submitter_dialog.refresh(
