@@ -30,7 +30,7 @@ from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
-from deadline.client.util import callback_loader
+from deadline.client.util import ui_callback, post_submit_callback
 
 g_submitter_dialog = None
 
@@ -325,38 +325,26 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         adaptor_version = ".".join(str(v) for v in adaptor_version_tuple[:2])
 
         callback_kwargs = {}
-        if os.path.exists(os.environ.get("DEADLINE_NUKE_PRE_SUBMIT_CALLBACK", "")):
+        if os.path.exists(os.environ.get("DEADLINE_NUKE_UI_CALLBACK", "")):
             try:
-                on_pre_submit_callback = callback_loader.import_module_function(
-                    module_path=os.environ.get("DEADLINE_NUKE_PRE_SUBMIT_CALLBACK"),
-                    module_name="submit_callback",
-                    function_name="on_pre_submit_callback",
+                on_ui_callback = ui_callback.load_ui_callback(
+                    module_path=os.environ.get("DEADLINE_NUKE_UI_CALLBACK")
                 )
             except Exception:
                 import traceback
                 raise DeadlineOperationError(
                     "Error while loading on_pre_submit_callback at {path}. {trace}".format(
-                        path=os.environ.get("DEADLINE_NUKE_PRE_SUBMIT_CALLBACK"),
+                        path=os.environ.get("DEADLINE_NUKE_UI_CALLBACK"),
                         trace=traceback.format_exc()
                     )
                 )
 
-            if not callback_loader.validate_function_signature(on_pre_submit_callback):
-                raise DeadlineOperationError(
-                    "Python function at {path}:on_pre_submit_callback does not match function signature: {signature}."
-                    .format(
-                        path=os.environ.get("DEADLINE_NUKE_PRE_SUBMIT_CALLBACK"),
-                        signature=callback_loader.CALLBACK_REFERENCE_SIGNATURE,
-                    )
-                )
-            callback_kwargs["on_pre_submit_callback"] = on_pre_submit_callback
+            callback_kwargs["on_ui_callback"] = on_ui_callback
 
         if os.path.exists(os.environ.get("DEADLINE_NUKE_POST_SUBMIT_CALLBACK", "")):
             try:
-                on_post_submit_callback = callback_loader.import_module_function(
+                on_post_submit_callback = post_submit_callback.load_post_submit_callback(
                     module_path=os.environ.get("DEADLINE_NUKE_POST_SUBMIT_CALLBACK"),
-                    module_name="submit_callback",
-                    function_name="on_post_submit_callback",
                 )
             except Exception:
                 import traceback
@@ -364,14 +352,6 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
                     "Error while loading on_post_submit_callback at {path}. {trace}".format(
                         path=os.environ.get("DEADLINE_NUKE_POST_SUBMIT_CALLBACK"),
                         trace=traceback.format_exc()
-                    )
-                )
-            if not callback_loader.validate_function_signature(on_post_submit_callback):
-                raise DeadlineOperationError(
-                    "Python function at {path}:on_post_submit_callback does not match function signature: {signature}."
-                    .format(
-                        path=os.environ.get("DEADLINE_NUKE_POST_SUBMIT_CALLBACK"),
-                        signature=callback_loader.CALLBACK_REFERENCE_SIGNATURE,
                     )
                 )
             callback_kwargs["on_post_submit_callback"] = on_post_submit_callback
