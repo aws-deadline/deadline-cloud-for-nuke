@@ -1,3 +1,10 @@
+## 0.18.2 (2024-05-01)
+
+
+
+### Bug Fixes
+* check for movie output regardless of adaptor override (#134) ([`0fda9a7`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/0fda9a75338fa30bbe4125bab503b8a6654e7d4f))
+
 ## 0.18.1 (2024-04-02)
 
 
