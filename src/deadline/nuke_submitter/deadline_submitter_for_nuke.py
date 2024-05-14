@@ -99,12 +99,6 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
                 + f"Actual: {wheels_path_package_names}"
             )
 
-        adaptor_wheels_param = [
-            param
-            for param in override_environment["parameterDefinitions"]
-            if param["name"] == "AdaptorWheels"
-        ][0]
-        adaptor_wheels_param["default"] = str(wheels_path)
         override_adaptor_name_param = [
             param
             for param in override_environment["parameterDefinitions"]
@@ -178,6 +172,9 @@ def _get_parameter_values(
     parameter_values.append(
         {"name": "ProxyMode", "value": "true" if settings.is_proxy_mode else "false"}
     )
+    if settings.include_adaptor_wheels:
+        wheels_path = str(Path(__file__).parent.parent.parent.parent / "wheels")
+        parameter_values.append({"name": "AdaptorWheels", "value": wheels_path})
 
     # Check for any overlap between the job parameters we've defined and the
     # queue parameters. This is an error, as we weren't synchronizing the values
@@ -230,13 +227,6 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             "nuke-version": nuke.env["NukeVersionString"],
         }
     )
-    render_settings = RenderSubmitterUISettings()
-
-    # Set the setting defaults that come from the scene
-    render_settings.name = Path(get_nuke_script_file()).name
-    render_settings.frame_list = str(nuke.root().frameRange())
-    render_settings.is_proxy_mode = nuke.root().proxy()
-
     script_path = get_nuke_script_file()
     if not script_path:
         raise DeadlineOperationError(
