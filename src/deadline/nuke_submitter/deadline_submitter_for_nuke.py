@@ -30,7 +30,7 @@ from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
-from deadline.client.util import ui_callback, post_submit_callback
+from deadline.client.util import ui_callback, post_submit_callback, create_job_bundle_callback
 
 g_submitter_dialog = None
 
@@ -324,7 +324,25 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         nuke_version = nuke.env["NukeVersionMajor"]
         adaptor_version = ".".join(str(v) for v in adaptor_version_tuple[:2])
 
-        callback_kwargs = {}
+        callback_kwargs = {
+            "on_create_job_bundle_callback": on_create_job_bundle_callback
+        }
+        if os.path.exists(os.environ.get("DEADLINE_NUKE_CREATE_JOB_BUNDLE_CALLBACK", "")):
+            try:
+                on_create_job_bundle_callback = create_job_bundle_callback.load_create_job_bundle_callback(
+                    module_path=os.environ.get("DEADLINE_NUKE_CREATE_JOB_BUNDLE_CALLBACK")
+                )
+            except Exception:
+                import traceback
+                raise DeadlineOperationError(
+                    "Error while loading on_create_job_bundle_callback at {path}. {trace}".format(
+                        path=os.environ.get("DEADLINE_NUKE_CREATE_JOB_BUNDLE_CALLBACK"),
+                        trace=traceback.format_exc()
+                    )
+                )
+
+            callback_kwargs["on_create_job_bundle_callback"] = on_create_job_bundle_callback
+
         if os.path.exists(os.environ.get("DEADLINE_NUKE_UI_CALLBACK", "")):
             try:
                 on_ui_callback = ui_callback.load_ui_callback(
@@ -370,7 +388,6 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             },
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
-            on_create_job_bundle_callback=on_create_job_bundle_callback,
             parent=parent,
             f=f,
             show_host_requirements_tab=True,
