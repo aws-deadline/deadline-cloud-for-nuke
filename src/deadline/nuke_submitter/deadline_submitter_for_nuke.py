@@ -51,6 +51,33 @@ def _get_write_node(settings: RenderSubmitterUISettings) -> tuple[Node, str]:
     return write_node, settings.write_node_selection
 
 
+def _set_timeouts(template: dict[str, Any], settings: RenderSubmitterUISettings) -> None:
+    """
+    Timeouts are an OpenJD field applicable to actions but for specification 2023-09, timeouts must
+    be hard-coded in the job template. There are three types of actions: OnRun, onEnter, and onExit.
+    This function does an in-place modification of timeout values for each action in the template.
+    """
+
+    def _handle_environment(environment: dict):
+        if "script" in environment:
+            actions = environment["script"]["actions"]
+            actions["onEnter"]["timeout"] = settings.on_enter_timeout_seconds
+            if "onExit" in actions:
+                actions["onExit"]["timeout"] = settings.on_exit_timeout_seconds
+
+    def _handle_step(step: dict):
+        for environment in step.get("stepEnvironments", []):
+            _handle_environment(environment)
+
+        step["script"]["actions"]["onRun"]["timeout"] = settings.on_run_timeout_seconds
+
+    for environment in template.get("jobEnvironments", []):
+        _handle_environment(environment)
+
+    for step in template.get("steps", []):
+        _handle_step(step)
+
+
 def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     # Load the default Nuke job template, and then fill in scene-specific
     # values it needs.
@@ -61,6 +88,9 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     job_template["name"] = settings.name
     if settings.description:
         job_template["description"] = settings.description
+
+    # Set the timeouts for each action:
+    _set_timeouts(job_template, settings)
 
     # Get a map of the parameter definitions for easier lookup
     parameter_def_map = {param["name"]: param for param in job_template["parameterDefinitions"]}
@@ -270,6 +300,20 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             )
             if result == QMessageBox.Yes:
                 nuke.scriptSave()
+
+        if settings.timeouts_enabled:
+            message = "The following timeout value(s) must be greater than 0: \n"
+            zero_timeouts = []
+            if not settings.on_run_timeout_seconds:
+                zero_timeouts.append("Render Timeout")
+            if not settings.on_enter_timeout_seconds:
+                zero_timeouts.append("Setup Timeout")
+            if not settings.on_exit_timeout_seconds:
+                zero_timeouts.append("Teardown Timeout")
+            if zero_timeouts:
+                message += ", ".join(zero_timeouts)
+                message += "\n\nPlease configure these value(s) in the 'Job-Specific Settings' tab."
+                raise DeadlineOperationError(message)
 
         job_bundle_path = Path(job_bundle_dir)
         job_template = _get_job_template(settings)

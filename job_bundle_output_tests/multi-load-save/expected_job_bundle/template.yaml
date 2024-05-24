@@ -98,6 +98,7 @@ steps:
           - file://{{ Env.File.initData }}
           cancelation:
             mode: NOTIFY_THEN_TERMINATE
+          timeout: 86400
         onExit:
           command: NukeAdaptor
           args:
@@ -107,6 +108,7 @@ steps:
           - '{{ Session.WorkingDirectory }}/connection.json'
           cancelation:
             mode: NOTIFY_THEN_TERMINATE
+          timeout: 3600
   script:
     embeddedFiles:
     - name: runData
@@ -125,3 +127,4 @@ steps:
         - file://{{ Task.File.runData }}
         cancelation:
           mode: NOTIFY_THEN_TERMINATE
+        timeout: 518400

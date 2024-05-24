@@ -31,6 +31,11 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     input_directories: list[str] = field(default_factory=list, metadata={"sticky": True})
     output_directories: list[str] = field(default_factory=list, metadata={"sticky": True})
 
+    timeouts_enabled: bool = field(default=True, metadata={"sticky": True})
+    on_run_timeout_seconds: int = field(default=518400, metadata={"sticky": True})  # 6 days
+    on_enter_timeout_seconds: int = field(default=86400, metadata={"sticky": True})  # 1 day
+    on_exit_timeout_seconds: int = field(default=3600, metadata={"sticky": True})  # 1 hour
+
     # developer options
     include_adaptor_wheels: bool = field(default=False, metadata={"sticky": True})
 
