@@ -1,3 +1,12 @@
+## 0.18.3 (2024-05-29)
+
+
+### Features
+* add ability to configure timeouts in submission UI (#143) ([`4535fa0`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/4535fa0a9bbd9a05ca1dd204da70e02f62b7c033))
+
+### Bug Fixes
+* include adaptor wheels developer option (#142) ([`0edc735`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/0edc735b2a2f117abddb43d9fc5cfdd013c315f1))
+
 ## 0.18.2 (2024-05-01)
 
 
