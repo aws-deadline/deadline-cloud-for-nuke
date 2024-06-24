@@ -55,7 +55,7 @@ WARNING: This workflow installs additional Python packages into your Nuke's pyth
 4. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke` to install the Nuke Submitter in edit mode.
 5. Run `set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src` to put the `menu.py` file in the path Nuke searches for menu extensions.
 6. Run `set DEADLINE_ENABLE_DEVELOPER_OPTIONS=true` to enable the job bundle debugging support. This enables a menu item you can use to run the tests from the `job_bundle_output_tests` directory.
-7. Run `.\Nuke<version>.exe` to run Nuke. The Nuke submitter should be available in the Thinkbox menu.
+7. Run `.\Nuke<version>.exe` to run Nuke. The Nuke submitter should be available in the AWS Deadline menu.
 
 ## Application Interface Adaptor Development Workflow
 
