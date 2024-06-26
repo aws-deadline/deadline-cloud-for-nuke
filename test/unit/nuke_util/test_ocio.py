@@ -109,6 +109,7 @@ def test_create_config_from_file(
     create_from_file.assert_called_once_with(custom_ocio_config_path)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Does not run on Windows")
 def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = True

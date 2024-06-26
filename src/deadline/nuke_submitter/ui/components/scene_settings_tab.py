@@ -84,6 +84,10 @@ class SceneSettingsWidget(QWidget):
         timeouts_lyt = QGridLayout(self.timeouts_box)
         lyt.addWidget(self.timeouts_box, 5, 0, 1, -1)
 
+        self.gizmos_checkbox = QCheckBox("Include Gizmos In Job Bundle", self)
+        self.gizmos_checkbox.setChecked(True)
+        lyt.addWidget(self.gizmos_checkbox, 6, 0)
+
         def create_timeout_row(label, tooltip, row):
             qlabel = QLabel(label)
             qlabel.setToolTip(tooltip)
@@ -244,6 +248,8 @@ class SceneSettingsWidget(QWidget):
         settings.on_run_timeout_seconds = self.on_run_timeout_seconds
         settings.on_enter_timeout_seconds = self.on_enter_timeout_seconds
         settings.on_exit_timeout_seconds = self.on_exit_timeout_seconds
+
+        settings.include_gizmos_in_job_bundle = self.gizmos_checkbox.isChecked()
 
         if self.developer_options:
             settings.include_adaptor_wheels = self.include_adaptor_wheels.isChecked()
