@@ -146,15 +146,13 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
     # Determine whether this is a movie render. If it is, we want to ensure that the entire Nuke
     # evaluation is placed on one task.
-    write_node, _ = _get_write_node(settings)
+    write_node, write_node_name = _get_write_node(settings)
     movie_render = "file_type" in write_node.knobs() and write_node["file_type"].value() in [
         "mov",
         "mxf",
     ]
     if movie_render:
-        frame_list = (
-            settings.frame_list if settings.override_frame_range else str(write_node.frameRange())
-        )
+        frame_list = _get_frame_list(settings, write_node, write_node_name)
         match = re.match(r"(\d+)-(\d+)", frame_list)
         if not match:
             raise DeadlineOperationError(
@@ -181,11 +179,9 @@ def _get_parameter_values(
     write_node, write_node_name = _get_write_node(settings)
 
     # Set the Frames parameter value
-    if settings.override_frame_range:
-        frame_list = settings.frame_list
-    else:
-        frame_list = str(write_node.frameRange())
-    parameter_values.append({"name": "Frames", "value": frame_list})
+    parameter_values.append(
+        {"name": "Frames", "value": _get_frame_list(settings, write_node, write_node_name)}
+    )
 
     # Set the Nuke script file value
     parameter_values.append({"name": "NukeScriptFile", "value": get_nuke_script_file()})
@@ -245,6 +241,24 @@ def _get_parameter_values(
     )
 
     return parameter_values
+
+
+def _get_frame_list(
+    settings: RenderSubmitterUISettings,
+    write_node: Node,
+    write_node_name: Optional[str],
+) -> str:
+    # Set the Frames parameter value
+    if settings.override_frame_range:
+        frame_list = settings.frame_list
+    else:
+        # frame range from project setting
+        frame_list = str(nuke.root().frameRange())
+        if write_node_name and write_node.knob("use_limit").value():
+            first_frame = int(write_node.knob("first").value())
+            last_frame = int(write_node.knob("last").value())
+            frame_list = f"{first_frame}-{last_frame}"
+    return frame_list
 
 
 def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
