@@ -18,7 +18,7 @@
                     <onPackingFilterList>
                         <fileNameFilter pattern="*/deadline/nuke_submitter/*" logic="matches" patternType="glob"/>
                         <fileNameFilter pattern="*/deadline/nuke_util/*" logic="matches" patternType="glob"/>
-                        <fileNameFilter pattern="*/menu.py" logic="matches" patternType="glob"/>
+                        <fileNameFilter pattern="*/deadline/nuke_submitter/menu.py" logic="matches" patternType="glob"/>
                     </onPackingFilterList>
                 </distributionDirectory>
             </distributionFileList>
