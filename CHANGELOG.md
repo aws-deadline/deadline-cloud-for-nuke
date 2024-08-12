@@ -1,3 +1,10 @@
+## 0.18.4 (2024-08-12)
+
+
+
+### Bug Fixes
+* Update write nodes and views when refeshing the job settings ui (#151) ([`1175cc9`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/1175cc9c4d71bbaeec49d707f40058feb6dba4f9))
+
 ## 0.18.3 (2024-05-29)
 
 
