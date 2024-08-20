@@ -1,0 +1,17 @@
+{
+ "name": "frame.nk",
+ "description": "",
+ "override_frame_range": false,
+ "frame_list": "1-100",
+ "write_node_selection": "Write1",
+ "view_selection": "",
+ "is_proxy_mode": false,
+ "input_filenames": [],
+ "input_directories": [],
+ "output_directories": [],
+ "timeouts_enabled": true,
+ "on_run_timeout_seconds": 518400,
+ "on_enter_timeout_seconds": 86400,
+ "on_exit_timeout_seconds": 3600,
+ "include_adaptor_wheels": false
+}

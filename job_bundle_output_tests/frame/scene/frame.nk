@@ -1,0 +1,78 @@
+#! /Applications/Nuke15.0v4/Nuke15.0v4.app/Contents/MacOS/libnuke-15.0.4.dylib -nx
+#write_info Write1 file:"ColorBars.png" format:"2048 1556 1" chans:":rgba.red:rgba.green:rgba.blue:" framerange:"1 100" fps:"0" colorspace:"default (sRGB)" datatype:"8 bit" transfer:"unknown" views:"main" colorManagement:"Nuke"
+version 15.0 v4
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="0" y="38" w="1512" h="916" maximized="1" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="849" stretch="1"/>
+            <splitter orientation="2">
+                <split size="526"/>
+                <dock id="" activePageId="Viewer.1">
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="370"/>
+                <dock id="" activePageId="DAG.1">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1" focus="true">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+                <page id="Scenegraph.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name /Users/chaejung/Desktop/submitter/deadline-cloud-for-nuke/job_bundle_output_tests/frame/scene/frame.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+ColorBars {
+ inputs 0
+ name ColorBars1
+ xpos -195
+ ypos -157
+}
+Write {
+ file ColorBars.png
+ file_type png
+ first 3
+ last 7
+ use_limit true
+ checkHashOnRead false
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write1
+ selected true
+ xpos -195
+ ypos -83
+}
+Viewer {
+ frame_range 1-100
+ monitorOutNDISenderName "Nuke - frame - Viewer1"
+ monitorOutOutputTransform rec709
+ name Viewer1
+ xpos -195
+ ypos -57
+}

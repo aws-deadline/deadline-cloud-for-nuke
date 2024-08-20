@@ -1,0 +1,128 @@
+specificationVersion: jobtemplate-2023-09
+name: frame.nk
+parameterDefinitions:
+- name: NukeScriptFile
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  userInterface:
+    control: CHOOSE_INPUT_FILE
+    label: Nuke Script File
+    fileFilters:
+    - label: Nuke Script Files
+      patterns:
+      - '*.nk'
+    - label: All Files
+      patterns:
+      - '*'
+  description: The Nuke script file to render.
+- name: Frames
+  type: STRING
+  description: The frames to render. E.g. 1-3,8,11-15
+  minLength: 1
+- name: WriteNode
+  type: STRING
+  userInterface:
+    control: DROPDOWN_LIST
+    label: Write Node
+  description: Which write node to render ('All Write Nodes' for all of them)
+  default: All Write Nodes
+  allowedValues:
+  - All Write Nodes
+  - Write1
+- name: View
+  type: STRING
+  userInterface:
+    control: DROPDOWN_LIST
+  description: Which view to render ('All Views' for all of them)
+  default: All Views
+  allowedValues:
+  - All Views
+  - main
+- name: ProxyMode
+  type: STRING
+  userInterface:
+    control: CHECK_BOX
+    label: Proxy Mode
+  description: Render in Proxy Mode.
+  default: 'false'
+  allowedValues:
+  - 'true'
+  - 'false'
+- name: ContinueOnError
+  type: STRING
+  userInterface:
+    control: CHECK_BOX
+    label: Continue On Error
+  description: Continue processing when errors occur.
+  default: 'false'
+  allowedValues:
+  - 'true'
+  - 'false'
+steps:
+- name: Render
+  parameterSpace:
+    taskParameterDefinitions:
+    - name: Frame
+      type: INT
+      range: '{{Param.Frames}}'
+  stepEnvironments:
+  - name: Nuke
+    description: Runs Nuke in the background with a script file loaded.
+    script:
+      embeddedFiles:
+      - name: initData
+        filename: init-data.yaml
+        type: TEXT
+        data: |
+          continue_on_error: {{Param.ContinueOnError}}
+          proxy: {{Param.ProxyMode}}
+          script_file: '{{Param.NukeScriptFile}}'
+          write_nodes:
+          - '{{Param.WriteNode}}'
+          views:
+          - '{{Param.View}}'
+      actions:
+        onEnter:
+          command: NukeAdaptor
+          args:
+          - daemon
+          - start
+          - --path-mapping-rules
+          - file://{{Session.PathMappingRulesFile}}
+          - --connection-file
+          - '{{Session.WorkingDirectory}}/connection.json'
+          - --init-data
+          - file://{{ Env.File.initData }}
+          cancelation:
+            mode: NOTIFY_THEN_TERMINATE
+          timeout: 86400
+        onExit:
+          command: NukeAdaptor
+          args:
+          - daemon
+          - stop
+          - --connection-file
+          - '{{ Session.WorkingDirectory }}/connection.json'
+          cancelation:
+            mode: NOTIFY_THEN_TERMINATE
+          timeout: 3600
+  script:
+    embeddedFiles:
+    - name: runData
+      filename: run-data.yaml
+      type: TEXT
+      data: 'frameRange: "{{Task.Param.Frame}}"'
+    actions:
+      onRun:
+        command: NukeAdaptor
+        args:
+        - daemon
+        - run
+        - --connection-file
+        - '{{Session.WorkingDirectory}}/connection.json'
+        - --run-data
+        - file://{{ Task.File.runData }}
+        cancelation:
+          mode: NOTIFY_THEN_TERMINATE
+        timeout: 518400
