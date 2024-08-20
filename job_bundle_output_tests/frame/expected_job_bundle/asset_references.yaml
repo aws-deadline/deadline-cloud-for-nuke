@@ -1,9 +1,0 @@
-assetReferences:
-  inputs:
-    directories: []
-    filenames:
-    - /normalized/job/bundle/dir/frame.nk
-  outputs:
-    directories:
-    - /normalized/cwd
-  referencedPaths: []
