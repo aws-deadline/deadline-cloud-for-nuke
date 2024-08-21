@@ -1,0 +1,17 @@
+parameterValues:
+- name: Frames
+  value: 3-7
+- name: NukeScriptFile
+  value: /normalized/job/bundle/dir/frame.nk
+- name: WriteNode
+  value: Write1
+- name: ProxyMode
+  value: 'false'
+- name: deadline:targetTaskRunStatus
+  value: READY
+- name: deadline:maxFailedTasksCount
+  value: 20
+- name: deadline:maxRetriesPerTask
+  value: 5
+- name: deadline:priority
+  value: 50
