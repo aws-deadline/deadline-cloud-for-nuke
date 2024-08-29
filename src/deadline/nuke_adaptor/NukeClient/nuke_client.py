@@ -15,13 +15,13 @@ from typing import (
 # so that importing just the adaptor_runtime_client should work.
 try:
     from adaptor_runtime_client import (  # type: ignore[import]
-        HTTPClientInterface as _HTTPClientInterface,
+        ClientInterface as _ClientInterface,
         PathMappingRule,
     )
     from nuke_adaptor.NukeClient.nuke_handler import NukeHandler  # type: ignore[import]
 except ImportError:
     from openjd.adaptor_runtime_client import (
-        HTTPClientInterface as _HTTPClientInterface,
+        ClientInterface as _ClientInterface,
         PathMappingRule,
     )
     from deadline.nuke_adaptor.NukeClient.nuke_handler import NukeHandler
@@ -37,7 +37,7 @@ except ImportError:
     from deadline.nuke_util import ocio as nuke_ocio
 
 
-class NukeClient(_HTTPClientInterface):
+class NukeClient(_ClientInterface):
     """
     Client for that runs in Nuke for the Nuke Adaptor
     """

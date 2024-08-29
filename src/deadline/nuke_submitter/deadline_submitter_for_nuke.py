@@ -78,6 +78,40 @@ def _set_timeouts(template: dict[str, Any], settings: RenderSubmitterUISettings)
         _handle_step(step)
 
 
+def _remove_gizmo_dir_from_job_template(job_template: dict[str, Any]) -> None:
+    for index, param in enumerate(job_template["parameterDefinitions"]):
+        if param["name"] == "GizmoDir":
+            job_template["parameterDefinitions"].pop(index)
+            break
+
+
+def _add_gizmo_dir_to_job_template(job_template: dict[str, Any]) -> None:
+    if "jobEnvironments" not in job_template:
+        job_template["jobEnvironments"] = []
+
+    # This needs to be prepended rather than appended
+    # as it must run before the "Nuke" environment.
+    job_template["jobEnvironments"].insert(
+        0,
+        {
+            "name": "Add Gizmos to NUKE_PATH",
+            "script": {
+                "actions": {"onEnter": {"command": "{{Env.File.Enter}}"}},
+                "embeddedFiles": [
+                    {
+                        "name": "Enter",
+                        "type": "TEXT",
+                        "runnable": True,
+                        "data": """#!/bin/bash
+    echo 'openjd_env: NUKE_PATH=$NUKE_PATH:{{Param.GizmoDir}}'
+    """,
+                    }
+                ],
+            },
+        },
+    )
+
+
 def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     # Load the default Nuke job template, and then fill in scene-specific
     # values it needs.
@@ -91,6 +125,13 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
     # Set the timeouts for each action:
     _set_timeouts(job_template, settings)
+
+    # Add Gizmo directory to NUKE_PATH if we copied
+    # any gizmos to the job bundle.
+    if settings.include_gizmos_in_job_bundle:
+        _add_gizmo_dir_to_job_template(job_template)
+    else:
+        _remove_gizmo_dir_from_job_template(job_template)
 
     # Get a map of the parameter definitions for easier lookup
     parameter_def_map = {param["name"]: param for param in job_template["parameterDefinitions"]}

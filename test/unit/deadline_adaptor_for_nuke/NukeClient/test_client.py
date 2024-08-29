@@ -13,7 +13,7 @@ from test.unit.mock_stubs import MockOCIOConfig
 import nuke
 import pytest
 from openjd.adaptor_runtime_client import (
-    HTTPClientInterface,
+    ClientInterface,
     PathMappingRule,
 )
 
@@ -39,8 +39,8 @@ class TestNukeClient:
     @patch("deadline.nuke_adaptor.NukeClient.nuke_client.os.path.exists")
     @patch.dict(os.environ, {"NUKE_ADAPTOR_SERVER_PATH": "9999"})
     @patch("deadline.nuke_adaptor.NukeClient.NukeClient.poll")
-    @patch("deadline.nuke_adaptor.NukeClient.nuke_client._HTTPClientInterface")
-    def test_main(self, mock_httpclient: Mock, mock_poll: Mock, mock_exists: Mock) -> None:
+    @patch("deadline.nuke_adaptor.NukeClient.nuke_client._ClientInterface")
+    def test_main(self, mock_client: Mock, mock_poll: Mock, mock_exists: Mock) -> None:
         """Tests that the main method starts the nuke client polling method"""
         # GIVEN
         mock_exists.return_value = True
@@ -141,6 +141,7 @@ class TestNukeClient:
         else:
             mock_os.makedirs.assert_called_once_with(mock_os.path.dirname.return_value)
 
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX path mapping not implemented on Windows")
     @pytest.mark.parametrize(
         "path, client_mapped, expected_mapped, new_path_class, rules",
         [
@@ -176,8 +177,8 @@ class TestNukeClient:
     )
     @patch.object(nuke, "addFilenameFilter")
     @patch.object(nuke_client_mod, "Path")
-    @patch.object(HTTPClientInterface, "map_path")
-    @patch.object(HTTPClientInterface, "path_mapping_rules")
+    @patch.object(ClientInterface, "map_path")
+    @patch.object(ClientInterface, "path_mapping_rules")
     def test_map_path(
         self,
         mock_path_mapping_rules: Mock,
@@ -245,8 +246,8 @@ class TestNukeClient:
     )
     @patch.object(nuke, "addFilenameFilter")
     @patch.object(nuke_client_mod, "Path")
-    @patch.object(HTTPClientInterface, "map_path")
-    @patch.object(HTTPClientInterface, "path_mapping_rules")
+    @patch.object(ClientInterface, "map_path")
+    @patch.object(ClientInterface, "path_mapping_rules")
     def test_recursive_map_path(
         self,
         mock_path_mapping_rules: Mock,
@@ -272,6 +273,7 @@ class TestNukeClient:
         mock_addfilenamefilter.assert_called_once_with(client.map_path)
         assert mapped == expected_mapped
 
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX path mapping not implemented on Windows")
     @patch.dict(os.environ, {"NUKE_TEMP_DIR": "/var/tmp/nuke_temp_dir"})
     @patch(
         "deadline.nuke_util.ocio.get_custom_config_path",
