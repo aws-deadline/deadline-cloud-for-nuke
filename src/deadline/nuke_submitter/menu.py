@@ -34,7 +34,7 @@ def add_deadline_menu() -> None:
                 run_render_submitter_job_bundle_output_test,
                 "",
             )
-    except BaseException:
+    except Exception:
         print("Failed to load deadline.nuke_submitter. Reason:", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
 

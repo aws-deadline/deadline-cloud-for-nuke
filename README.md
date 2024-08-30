@@ -12,17 +12,17 @@ AWS Deadline Cloud for Nuke is a python package that allows users to create [AWS
 [openjd-adaptor-runtime]: https://github.com/OpenJobDescription/openjd-adaptor-runtime-for-python
 [openjd-adaptor-runtime-lifecycle]: https://github.com/OpenJobDescription/openjd-adaptor-runtime-for-python/blob/release/README.md#adaptor-lifecycle
 
-## Submitter
-
-This package provides a Nuke plugin that creates jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded comp it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
-
-### Compatibility
+## Compatibility
 
 This library requires:
 
 1. Nuke 15,
 1. Python 3.9 or higher; and
 1. Linux, Windows, or a macOS operating system.
+
+## Submitter
+
+This package provides a Nuke plugin that creates jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded comp it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
 ## Adaptor
 
@@ -32,14 +32,6 @@ The Nuke Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that 
 * path mapping, that enables cross-platform rendering
 
 Jobs created by the submitter use this adaptor by default.
-
-### Compatibility
-
-This library requires:
-
-1. Nuke 15,
-1. Python 3.9 or higher; and
-1. Linux operating system.
 
 ### Getting Started
 
