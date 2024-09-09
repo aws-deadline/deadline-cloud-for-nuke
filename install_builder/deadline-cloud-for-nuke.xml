@@ -76,7 +76,7 @@
 		<fnAddPathEnvironmentVariable>
 			<progressText>Setting NUKE_PATH</progressText>
 			<name>NUKE_PATH</name>
-			<value>${nuke_installdir}\deadline\nuke_submitter</value>
+			<value>${nuke_installdir}/deadline/nuke_submitter</value>
 			<scope>${installscope}</scope>
 			<insertAt>end</insertAt>
 		</fnAddPathEnvironmentVariable>
