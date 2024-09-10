@@ -24,6 +24,28 @@ This library requires:
 
 This package provides a Nuke plugin that creates jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded comp it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
+### Getting Started
+
+To install the submitter manually, you can use pip.
+
+```sh
+$ pip install deadline-cloud-for-nuke -t target-directory
+```
+
+For Windows,
+```sh
+$ set NUKE_PATH=%NUKE_PATH%;<target-directory>/deadline/nuke_submitter
+```
+
+For Linux and MacOS:
+```sh
+$ export NUKE_PATH=${NUKE_PATH}:<target-directory>/deadline/nuke_submitter
+```
+
+After installation and within the same terminal, run `Nuke<version>` executable. The Nuke submitter should now be available in the AWS Deadline menu.
+
+NOTE: If you want the submitter available outside of this shell, consider using `NUKE_PATH` as an environment variable rather than a shell variable.
+
 ## Adaptor
 
 The Nuke Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Nuke and feed it commands. This gives the following benefits:
