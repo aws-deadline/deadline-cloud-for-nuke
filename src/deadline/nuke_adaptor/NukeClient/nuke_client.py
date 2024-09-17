@@ -58,8 +58,8 @@ class NukeClient(_ClientInterface):
                 os.makedirs(output_dir)
 
         def verify_ocio_config():
-            """If using a custom OCIO config, update the internal search paths if necessary"""
-            if nuke_ocio.is_custom_config_enabled():
+            """If using an OCIO config, update the internal search paths if necessary"""
+            if nuke_ocio.is_OCIO_enabled():
                 self._map_ocio_config()
 
         nuke.addBeforeRender(verify_ocio_config)

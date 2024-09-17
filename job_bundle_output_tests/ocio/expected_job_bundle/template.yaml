@@ -16,6 +16,11 @@ parameterDefinitions:
       patterns:
       - '*'
   description: The Nuke script file to render.
+- name: OCIOConfigPath
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  description: The directory containing OCIO config files used by this job.
 - name: Frames
   type: STRING
   description: The frames to render. E.g. 1-3,8,11-15
@@ -126,3 +131,15 @@ steps:
         cancelation:
           mode: NOTIFY_THEN_TERMINATE
         timeout: 518400
+jobEnvironments:
+- name: Add OCIO Path to Environment Variable
+  script:
+    actions:
+      onEnter:
+        command: '{{Env.File.Enter}}'
+    embeddedFiles:
+    - name: Enter
+      type: TEXT
+      runnable: true
+      data: "#!/bin/bash\n    echo 'openjd_env: OCIO={{Param.OCIOConfigPath}}'\n \
+        \   "

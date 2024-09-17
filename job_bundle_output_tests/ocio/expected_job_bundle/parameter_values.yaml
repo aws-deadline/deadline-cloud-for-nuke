@@ -3,6 +3,8 @@ parameterValues:
   value: 1-100
 - name: NukeScriptFile
   value: /normalized/job/bundle/dir/ocio.nk
+- name: OCIOConfigPath
+  value: /normalized/job/bundle/dir/config.ocio
 - name: ProxyMode
   value: 'false'
 - name: deadline:targetTaskRunStatus
