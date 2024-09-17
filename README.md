@@ -29,20 +29,23 @@ This package provides a Nuke plugin that creates jobs for AWS Deadline Cloud usi
 To install the submitter manually, you can use pip.
 
 ```sh
-$ pip install deadline-cloud-for-nuke -t target-directory
+pip install deadline-cloud-for-nuke -t ~/deadline-cloud-for-nuke
 ```
+Please note that target directory is `~/deadline-cloud-for-nuke` in the example, but you can choose any other directorys that you'd prefer.
 
 For Windows,
 ```sh
-$ set NUKE_PATH=%NUKE_PATH%;<target-directory>/deadline/nuke_submitter
+set NUKE_PATH=%NUKE_PATH%;~/deadline-cloud-for-nuke/deadline/nuke_submitter
 ```
 
 For Linux and MacOS:
 ```sh
-$ export NUKE_PATH=${NUKE_PATH}:<target-directory>/deadline/nuke_submitter
+export NUKE_PATH=${NUKE_PATH}:~/deadline-cloud-for-nuke/deadline/nuke_submitter
 ```
 
 After installation and within the same terminal, run `Nuke<version>` executable. The Nuke submitter should now be available in the AWS Deadline menu.
+
+For Mac, Nuke executable will be somewhere in `/Applications/Nuke15.0v4/Nuke15.0v4.app/Contents/MacOS` directory.
 
 NOTE: If you want the submitter available outside of this shell, consider using `NUKE_PATH` as an environment variable rather than a shell variable.
 
