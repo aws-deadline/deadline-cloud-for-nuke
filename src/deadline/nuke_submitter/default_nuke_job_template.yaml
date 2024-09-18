@@ -29,7 +29,7 @@ parameterDefinitions:
   type: PATH
   objectType: FILE
   dataFlow: IN
-  description: The directory containing OCIO config files used by this job.
+  description: The OCIO config file used by this job.
 - name: Frames
   type: STRING
   description: The frames to render. E.g. 1-3,8,11-15
