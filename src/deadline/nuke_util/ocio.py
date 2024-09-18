@@ -21,7 +21,7 @@ def get_env_config_path() -> Optional[str]:
 
 
 def is_stock_config_enabled() -> bool:
-    """True if the script is using a custom OCIO config"""
+    """True if the script is using a default OCIO config"""
     return (
         nuke.root().knob("colorManagement").value() == "OCIO"
         and nuke.root().knob("OCIO_config").value() != "custom"

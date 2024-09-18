@@ -128,19 +128,7 @@ def _add_ocio_path_to_job_template(job_template: dict[str, Any]) -> None:
         0,
         {
             "name": "Add OCIO Path to Environment Variable",
-            "script": {
-                "actions": {"onEnter": {"command": "{{Env.File.Enter}}"}},
-                "embeddedFiles": [
-                    {
-                        "name": "Enter",
-                        "type": "TEXT",
-                        "runnable": True,
-                        "data": """#!/bin/bash
-    echo 'openjd_env: OCIO={{Param.OCIOConfigPath}}'
-    """,
-                    }
-                ],
-            },
+            "variables": {"OCIO": "{{Param.OCIOConfigPath}}"},
         },
     )
 
@@ -289,8 +277,12 @@ def _get_parameter_values(
     # Set the OCIO config path value
     if nuke_ocio.is_OCIO_enabled():
         ocio_config_path = get_ocio_config_path()
-        parameter_values.append({"name": "OCIOConfigPath", "value": ocio_config_path})
-
+        if ocio_config_path:
+            parameter_values.append({"name": "OCIOConfigPath", "value": ocio_config_path})
+        else:
+            raise DeadlineOperationError(
+                "OCIO is enabled but OCIO config file is not specified. Please check and update the config file before proceeding."
+            )
     if settings.include_adaptor_wheels:
         wheels_path = str(Path(__file__).parent.parent.parent.parent / "wheels")
         parameter_values.append({"name": "AdaptorWheels", "value": wheels_path})

@@ -95,27 +95,24 @@ def get_scene_asset_references() -> AssetReferences:
                 for search_path in ocio_config_search_paths:
                     asset_references.input_directories.add(search_path)
             else:
-                nuke.alert(
-                    "OCIO config file specified(%s) is not an existing file." % ocio_config_path
+                raise DeadlineOperationError(
+                    "OCIO config file specified(%s) is not an existing file. Please check and update the config file before proceeding."
+                    % ocio_config_path
                 )
 
     return asset_references
 
 
 def get_ocio_config_path() -> Optional[str]:
-    ocio_config_path = None
-
     # if using a custom OCIO environment variable
     if nuke_ocio.is_env_config_enabled():
-        ocio_config_path = nuke_ocio.get_env_config_path()
+        return nuke_ocio.get_env_config_path()
+    elif nuke_ocio.is_custom_config_enabled():
+        return nuke_ocio.get_custom_config_path()
+    elif nuke_ocio.is_stock_config_enabled():
+        return nuke_ocio.get_stock_config_path()
     else:
-        print("here?")
-        # if using a custom OCIO config file
-        if nuke_ocio.is_custom_config_enabled():
-            ocio_config_path = nuke_ocio.get_custom_config_path()
-        elif nuke_ocio.is_stock_config_enabled():
-            ocio_config_path = nuke_ocio.get_stock_config_path()
-    return ocio_config_path
+        return None
 
 
 def find_all_write_nodes() -> set:

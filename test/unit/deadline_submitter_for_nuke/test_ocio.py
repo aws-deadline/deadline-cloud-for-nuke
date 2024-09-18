@@ -26,19 +26,7 @@ def test_add__dir_to_job_template():
 
     expected_environment = {
         "name": "Add OCIO Path to Environment Variable",
-        "script": {
-            "actions": {"onEnter": {"command": "{{Env.File.Enter}}"}},
-            "embeddedFiles": [
-                {
-                    "name": "Enter",
-                    "type": "TEXT",
-                    "runnable": True,
-                    "data": """#!/bin/bash
-    echo 'openjd_env: OCIO={{Param.OCIOConfigPath}}'
-    """,
-                }
-            ],
-        },
+        "variables": {"OCIO": "{{Param.OCIOConfigPath}}"},
     }
 
     assert len(job_template["jobEnvironments"]) == 1
