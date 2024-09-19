@@ -29,8 +29,18 @@ def ocio_config_knob() -> MockKnob:
 
 
 @pytest.fixture()
+def ocio_default_config_knob() -> MockKnob:
+    return MockKnob("nuke-default")
+
+
+@pytest.fixture()
 def custom_ocio_config_path_knob() -> MockKnob:
     return MockKnob("/this/ocio_configs/config.ocio")
+
+
+@pytest.fixture()
+def default_ocio_config_path_knob() -> MockKnob:
+    return MockKnob("/this/ocio_configs/nuke-default/config.ocio")
 
 
 @pytest.fixture()
@@ -47,12 +57,26 @@ def root_node(
     return MockNode(name="root", knobs=knobs, class_name="Root")
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
+def root_node_with_default_ocio(
+    color_management_knob: MockKnob,
+    ocio_default_config_knob: MockKnob,
+    default_ocio_config_path_knob: MockKnob,
+):
+    knobs = {
+        "colorManagement": color_management_knob,
+        "OCIO_config": ocio_default_config_knob,
+        "OCIOConfigPath": default_ocio_config_path_knob,
+    }
+    return MockNode(name="root", knobs=knobs, class_name="Root")
+
+
+@pytest.fixture(autouse=False)
 def setup_nuke(root_node: MockNode) -> None:
     nuke.root.return_value = root_node
 
 
-def test_is_custom_config_enabled() -> None:
+def test_is_custom_config_enabled(setup_nuke) -> None:
     # GIVEN (custom OCIO enabled)
     expected = True
 
@@ -84,7 +108,7 @@ def test_is_custom_config_enabled() -> None:
     assert expected == actual
 
 
-def test_get_custom_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
+def test_get_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     expected = custom_ocio_config_path_knob.getEvaluatedValue()
 
@@ -155,7 +179,7 @@ def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert search_paths == ocio_config._search_paths
 
 
-def test_set_custom_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
+def test_set_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     ocio_config_path = "/nuke_temp_dir/temp_ocio_config.ocio"
 
@@ -164,3 +188,54 @@ def test_set_custom_config_path(custom_ocio_config_path_knob: MockKnob) -> None:
 
     # THEN
     assert ocio_config_path == custom_ocio_config_path_knob.getEvaluatedValue()
+
+
+def test_is_env_config_enabled_and_get_env_config_path() -> None:
+    os.environ["OCIO"] = "not-empty"
+    assert nuke_ocio.is_env_config_enabled() is True
+    assert "not-empty" == nuke_ocio.get_env_config_path()
+
+    os.environ.pop("OCIO")
+    assert nuke_ocio.is_env_config_enabled() is False
+
+
+def test_is_stock_config_enabled(root_node_with_default_ocio) -> None:
+    nuke.root.return_value = root_node_with_default_ocio
+
+    # GIVEN (default OCIO enabled)
+    expected = True
+
+    # WHEN
+    actual = nuke_ocio.is_stock_config_enabled()
+
+    # THEN
+    assert expected == actual
+
+    assert "/this/ocio_configs/nuke-default/config.ocio" == nuke_ocio.get_stock_config_path()
+
+    # GIVEN (custom OCIO enabled)
+    nuke.root().knob("colorManagement").setValue("OCIO")
+    nuke.root().knob("OCIO_config").setValue("custom")
+
+    # WHEN
+    actual = nuke_ocio.is_stock_config_enabled()
+    expected = False
+
+    # THEN
+    assert expected == actual
+
+
+def test_is_OCIO_enabled(root_node_with_default_ocio, root_node) -> None:
+    expected = True
+
+    nuke.root.return_value = root_node_with_default_ocio
+    actual = nuke_ocio.is_OCIO_enabled()
+    assert expected == actual
+
+    nuke.root.return_value = root_node
+    actual = nuke_ocio.is_OCIO_enabled()
+    assert expected == actual
+
+    os.environ["OCIO"] = "not-empty"
+    actual = nuke_ocio.is_OCIO_enabled()
+    assert expected == actual
