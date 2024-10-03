@@ -14,6 +14,7 @@ from deadline.nuke_submitter.assets import (
     get_node_file_knob_paths,
     get_node_filenames,
     get_scene_asset_references,
+    get_ocio_config_path,
 )
 
 
@@ -37,6 +38,8 @@ def _activated_reading_write_node_knobs(knob_name: str):
     return_value=["/one/asset.png", "/two/asset.png"],
 )
 @patch("deadline.nuke_util.ocio.is_custom_config_enabled", return_value=False)
+@patch("deadline.nuke_util.ocio.is_stock_config_enabled", return_value=False)
+@patch("deadline.nuke_util.ocio.is_OCIO_enabled", return_value=False)
 @patch(
     "deadline.nuke_util.ocio.get_custom_config_path",
     return_value="/this/ocio_configs/config.ocio",
@@ -48,6 +51,8 @@ def _activated_reading_write_node_knobs(knob_name: str):
 def test_get_scene_asset_references(
     mock_get_config_absolute_search_paths: Mock,
     mock_get_custom_config_path: Mock,
+    mock_is_OCIO_enabled: Mock,
+    mock_is_stock_config_enabled: Mock,
     mock_is_custom_config_enabled: Mock,
     mock_get_node_filenames: Mock,
     mock_get_nuke_script_file: Mock,
@@ -95,10 +100,11 @@ def test_get_scene_asset_references(
 
     nuke.allNodes.return_value = []
     mock_is_custom_config_enabled.return_value = True
+    mock_is_OCIO_enabled.return_value = True
+    mock_is_stock_config_enabled.return_value = False
 
     # WHEN
     results = get_scene_asset_references()
-
     # THEN
     assert expected_script_file in results.input_filenames
     assert expected_ocio_config_path in results.input_filenames
@@ -106,6 +112,44 @@ def test_get_scene_asset_references(
         search_path in expected_ocio_config_search_paths
         for search_path in results.input_directories
     )
+
+
+@patch("deadline.nuke_util.ocio.is_env_config_enabled", return_value=True)
+@patch("deadline.nuke_util.ocio.is_custom_config_enabled", return_value=False)
+@patch("deadline.nuke_util.ocio.is_stock_config_enabled", return_value=False)
+@patch(
+    "deadline.nuke_util.ocio.get_env_config_path",
+    return_value="/this/ocio_configs/env_variable_config.ocio",
+)
+@patch(
+    "deadline.nuke_util.ocio.get_custom_config_path",
+    return_value="/this/ocio_configs/custom_config.ocio",
+)
+@patch(
+    "deadline.nuke_util.ocio.get_stock_config_path",
+    return_value="/this/ocio_configs/stock_config.ocio",
+)
+def test_get_ocio_config_path(
+    mock_get_stock_config_path,
+    mock_get_custom_config_path,
+    mock_get_env_config_path,
+    mock_is_stock_config_enabled,
+    mock_is_custom_enabled,
+    mock_is_env_config_enabled,
+):
+    env_variable_ocio_path = get_ocio_config_path()
+    assert env_variable_ocio_path == "/this/ocio_configs/env_variable_config.ocio"
+
+    mock_is_env_config_enabled.return_value = False
+    mock_is_custom_enabled.return_value = True
+    custom_ocio_path = get_ocio_config_path()
+    assert custom_ocio_path == "/this/ocio_configs/custom_config.ocio"
+
+    mock_is_env_config_enabled.return_value = False
+    mock_is_custom_enabled.return_value = False
+    mock_is_stock_config_enabled.return_value = True
+    stock_ocio_path = get_ocio_config_path()
+    assert stock_ocio_path == "/this/ocio_configs/stock_config.ocio"
 
 
 @patch("os.path.isfile", return_value=False)

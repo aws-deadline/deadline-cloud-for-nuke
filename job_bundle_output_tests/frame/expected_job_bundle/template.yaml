@@ -1,5 +1,5 @@
 specificationVersion: jobtemplate-2023-09
-name: ocio.nk
+name: frame.nk
 parameterDefinitions:
 - name: NukeScriptFile
   type: PATH
@@ -16,11 +16,6 @@ parameterDefinitions:
       patterns:
       - '*'
   description: The Nuke script file to render.
-- name: OCIOConfigPath
-  type: PATH
-  objectType: FILE
-  dataFlow: IN
-  description: The OCIO config file used by this job.
 - name: Frames
   type: STRING
   description: The frames to render. E.g. 1-3,8,11-15
@@ -131,7 +126,3 @@ steps:
         cancelation:
           mode: NOTIFY_THEN_TERMINATE
         timeout: 518400
-jobEnvironments:
-- name: Add OCIO Path to Environment Variable
-  variables:
-    OCIO: '{{Param.OCIOConfigPath}}'

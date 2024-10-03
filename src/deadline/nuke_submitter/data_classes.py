@@ -36,6 +36,8 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     on_enter_timeout_seconds: int = field(default=86400, metadata={"sticky": True})  # 1 day
     on_exit_timeout_seconds: int = field(default=3600, metadata={"sticky": True})  # 1 hour
 
+    include_gizmos_in_job_bundle: bool = field(default=False, metadata={"sticky": True})
+
     # developer options
     include_adaptor_wheels: bool = field(default=False, metadata={"sticky": True})
 

@@ -15,13 +15,13 @@ from typing import (
 # so that importing just the adaptor_runtime_client should work.
 try:
     from adaptor_runtime_client import (  # type: ignore[import]
-        HTTPClientInterface as _HTTPClientInterface,
+        ClientInterface as _ClientInterface,
         PathMappingRule,
     )
     from nuke_adaptor.NukeClient.nuke_handler import NukeHandler  # type: ignore[import]
 except ImportError:
     from openjd.adaptor_runtime_client import (
-        HTTPClientInterface as _HTTPClientInterface,
+        ClientInterface as _ClientInterface,
         PathMappingRule,
     )
     from deadline.nuke_adaptor.NukeClient.nuke_handler import NukeHandler
@@ -37,7 +37,7 @@ except ImportError:
     from deadline.nuke_util import ocio as nuke_ocio
 
 
-class NukeClient(_HTTPClientInterface):
+class NukeClient(_ClientInterface):
     """
     Client for that runs in Nuke for the Nuke Adaptor
     """
@@ -58,8 +58,8 @@ class NukeClient(_HTTPClientInterface):
                 os.makedirs(output_dir)
 
         def verify_ocio_config():
-            """If using a custom OCIO config, update the internal search paths if necessary"""
-            if nuke_ocio.is_custom_config_enabled():
+            """If using an OCIO config, update the internal search paths if necessary"""
+            if nuke_ocio.is_OCIO_enabled():
                 self._map_ocio_config()
 
         nuke.addBeforeRender(verify_ocio_config)

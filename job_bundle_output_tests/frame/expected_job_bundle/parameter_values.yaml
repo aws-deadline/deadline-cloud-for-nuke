@@ -1,10 +1,10 @@
 parameterValues:
 - name: Frames
-  value: 1-100
+  value: 3-7
 - name: NukeScriptFile
-  value: /normalized/job/bundle/dir/ocio.nk
-- name: OCIOConfigPath
-  value: /normalized/job/bundle/dir/config.ocio
+  value: /normalized/job/bundle/dir/frame.nk
+- name: WriteNode
+  value: Write1
 - name: ProxyMode
   value: 'false'
 - name: deadline:targetTaskRunStatus

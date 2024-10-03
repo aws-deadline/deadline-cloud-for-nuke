@@ -16,6 +16,7 @@ from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: 
     SubmitJobToDeadlineDialog,
     JobBundlePurpose,
 )
+from deadline.nuke_util import ocio as nuke_ocio
 from nuke import Node
 from PySide2.QtCore import Qt  # pylint: disable=import-error
 from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
@@ -25,7 +26,12 @@ from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
 )
 
 from ._version import version, version_tuple as adaptor_version_tuple
-from .assets import get_nuke_script_file, get_scene_asset_references, find_all_write_nodes
+from .assets import (
+    get_nuke_script_file,
+    get_scene_asset_references,
+    find_all_write_nodes,
+    get_ocio_config_path,
+)
 from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
 from deadline.client.job_bundle.submission import AssetReferences
@@ -78,6 +84,62 @@ def _set_timeouts(template: dict[str, Any], settings: RenderSubmitterUISettings)
         _handle_step(step)
 
 
+def _remove_gizmo_dir_from_job_template(job_template: dict[str, Any]) -> None:
+    for index, param in enumerate(job_template["parameterDefinitions"]):
+        if param["name"] == "GizmoDir":
+            job_template["parameterDefinitions"].pop(index)
+            break
+
+
+def _add_gizmo_dir_to_job_template(job_template: dict[str, Any]) -> None:
+    if "jobEnvironments" not in job_template:
+        job_template["jobEnvironments"] = []
+
+    # This needs to be prepended rather than appended
+    # as it must run before the "Nuke" environment.
+    job_template["jobEnvironments"].insert(
+        0,
+        {
+            "name": "Add Gizmos to NUKE_PATH",
+            "script": {
+                "actions": {"onEnter": {"command": "{{Env.File.Enter}}"}},
+                "embeddedFiles": [
+                    {
+                        "name": "Enter",
+                        "type": "TEXT",
+                        "runnable": True,
+                        "data": """#!/bin/bash
+    echo 'openjd_env: NUKE_PATH=$NUKE_PATH:{{Param.GizmoDir}}'
+    """,
+                    }
+                ],
+            },
+        },
+    )
+
+
+def _add_ocio_path_to_job_template(job_template: dict[str, Any]) -> None:
+    if "jobEnvironments" not in job_template:
+        job_template["jobEnvironments"] = []
+
+    # This needs to be prepended rather than appended
+    # as it must run before the "Nuke" environment.
+    job_template["jobEnvironments"].insert(
+        0,
+        {
+            "name": "Add OCIO Path to Environment Variable",
+            "variables": {"OCIO": "{{Param.OCIOConfigPath}}"},
+        },
+    )
+
+
+def _remove_ocio_path_from_job_template(job_template: dict[str, Any]) -> None:
+    for index, param in enumerate(job_template["parameterDefinitions"]):
+        if param["name"] == "OCIOConfigPath":
+            job_template["parameterDefinitions"].pop(index)
+            break
+
+
 def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     # Load the default Nuke job template, and then fill in scene-specific
     # values it needs.
@@ -92,6 +154,13 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
     # Set the timeouts for each action:
     _set_timeouts(job_template, settings)
 
+    # Add Gizmo directory to NUKE_PATH if we copied
+    # any gizmos to the job bundle.
+    if settings.include_gizmos_in_job_bundle:
+        _add_gizmo_dir_to_job_template(job_template)
+    else:
+        _remove_gizmo_dir_from_job_template(job_template)
+
     # Get a map of the parameter definitions for easier lookup
     parameter_def_map = {param["name"]: param for param in job_template["parameterDefinitions"]}
 
@@ -102,6 +171,12 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
     # Set the View parameter allowed values
     parameter_def_map["View"]["allowedValues"] = ["All Views"] + sorted(nuke.views())
+
+    # if OCIO is disabled, remove OCIO path from the template
+    if nuke_ocio.is_OCIO_enabled():
+        _add_ocio_path_to_job_template(job_template)
+    else:
+        _remove_ocio_path_from_job_template(job_template)
 
     # If this developer option is enabled, merge the adaptor_override_environment
     if settings.include_adaptor_wheels:
@@ -146,15 +221,13 @@ def _get_job_template(settings: RenderSubmitterUISettings) -> dict[str, Any]:
 
     # Determine whether this is a movie render. If it is, we want to ensure that the entire Nuke
     # evaluation is placed on one task.
-    write_node, _ = _get_write_node(settings)
+    write_node, write_node_name = _get_write_node(settings)
     movie_render = "file_type" in write_node.knobs() and write_node["file_type"].value() in [
         "mov",
         "mxf",
     ]
     if movie_render:
-        frame_list = (
-            settings.frame_list if settings.override_frame_range else str(write_node.frameRange())
-        )
+        frame_list = _get_frame_list(settings, write_node, write_node_name)
         match = re.match(r"(\d+)-(\d+)", frame_list)
         if not match:
             raise DeadlineOperationError(
@@ -181,11 +254,9 @@ def _get_parameter_values(
     write_node, write_node_name = _get_write_node(settings)
 
     # Set the Frames parameter value
-    if settings.override_frame_range:
-        frame_list = settings.frame_list
-    else:
-        frame_list = str(write_node.frameRange())
-    parameter_values.append({"name": "Frames", "value": frame_list})
+    parameter_values.append(
+        {"name": "Frames", "value": _get_frame_list(settings, write_node, write_node_name)}
+    )
 
     # Set the Nuke script file value
     parameter_values.append({"name": "NukeScriptFile", "value": get_nuke_script_file()})
@@ -202,6 +273,16 @@ def _get_parameter_values(
     parameter_values.append(
         {"name": "ProxyMode", "value": "true" if settings.is_proxy_mode else "false"}
     )
+
+    # Set the OCIO config path value
+    if nuke_ocio.is_OCIO_enabled():
+        ocio_config_path = get_ocio_config_path()
+        if ocio_config_path:
+            parameter_values.append({"name": "OCIOConfigPath", "value": ocio_config_path})
+        else:
+            raise DeadlineOperationError(
+                "OCIO is enabled but OCIO config file is not specified. Please check and update the config file before proceeding."
+            )
     if settings.include_adaptor_wheels:
         wheels_path = str(Path(__file__).parent.parent.parent.parent / "wheels")
         parameter_values.append({"name": "AdaptorWheels", "value": wheels_path})
@@ -245,6 +326,24 @@ def _get_parameter_values(
     )
 
     return parameter_values
+
+
+def _get_frame_list(
+    settings: RenderSubmitterUISettings,
+    write_node: Node,
+    write_node_name: Optional[str],
+) -> str:
+    # Set the Frames parameter value
+    if settings.override_frame_range:
+        frame_list = settings.frame_list
+    else:
+        # frame range from project setting
+        frame_list = str(nuke.root().frameRange())
+        if write_node_name and write_node.knob("use_limit").value():
+            first_frame = int(write_node.knob("first").value())
+            last_frame = int(write_node.knob("last").value())
+            frame_list = f"{first_frame}-{last_frame}"
+    return frame_list
 
 
 def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
