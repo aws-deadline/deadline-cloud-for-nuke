@@ -276,7 +276,7 @@ class TestNukeClient:
     @pytest.mark.skipif(os.name == "nt", reason="POSIX path mapping not implemented on Windows")
     @patch.dict(os.environ, {"NUKE_TEMP_DIR": "/var/tmp/nuke_temp_dir"})
     @patch(
-        "deadline.nuke_util.ocio.get_custom_config_path",
+        "deadline.nuke_util.ocio.get_ocio_config_path",
         return_value="/session-dir/ocio/custom_config.ocio",
     )
     @patch(

@@ -84,3 +84,22 @@ def update_config_search_paths(ocio_config: OCIO.Config, search_paths: list[str]
 def set_custom_config_path(ocio_config_path: str) -> None:
     """Set the knob on the root settings to update the OCIO config"""
     nuke.root().knob("customOCIOConfigPath").setValue(ocio_config_path)
+
+
+def get_ocio_config_path() -> Optional[str]:
+    """
+    Get the path to the OCIO configurations. Supports:
+        - OCIO environment variable
+        - Custom config
+        - Stock config
+    Returns None if OCIO is not enabled
+    """
+    # if using a custom OCIO environment variable
+    if is_env_config_enabled():
+        return get_env_config_path()
+    elif is_custom_config_enabled():
+        return get_custom_config_path()
+    elif is_stock_config_enabled():
+        return get_stock_config_path()
+    else:
+        return None
