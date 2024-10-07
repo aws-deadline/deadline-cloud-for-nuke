@@ -30,7 +30,6 @@ from .assets import (
     get_nuke_script_file,
     get_scene_asset_references,
     find_all_write_nodes,
-    get_ocio_config_path,
 )
 from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
@@ -276,7 +275,7 @@ def _get_parameter_values(
 
     # Set the OCIO config path value
     if nuke_ocio.is_OCIO_enabled():
-        ocio_config_path = get_ocio_config_path()
+        ocio_config_path = nuke_ocio.get_ocio_config_path()
         if ocio_config_path:
             parameter_values.append({"name": "OCIOConfigPath", "value": ocio_config_path})
         else:

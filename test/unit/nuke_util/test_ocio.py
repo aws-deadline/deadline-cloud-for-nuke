@@ -239,3 +239,41 @@ def test_is_OCIO_enabled(root_node_with_default_ocio, root_node) -> None:
     os.environ["OCIO"] = "not-empty"
     actual = nuke_ocio.is_OCIO_enabled()
     assert expected == actual
+
+
+@patch("deadline.nuke_util.ocio.is_env_config_enabled", return_value=True)
+@patch("deadline.nuke_util.ocio.is_custom_config_enabled", return_value=False)
+@patch("deadline.nuke_util.ocio.is_stock_config_enabled", return_value=False)
+@patch(
+    "deadline.nuke_util.ocio.get_env_config_path",
+    return_value="/this/ocio_configs/env_variable_config.ocio",
+)
+@patch(
+    "deadline.nuke_util.ocio.get_custom_config_path",
+    return_value="/this/ocio_configs/custom_config.ocio",
+)
+@patch(
+    "deadline.nuke_util.ocio.get_stock_config_path",
+    return_value="/this/ocio_configs/stock_config.ocio",
+)
+def test_get_ocio_config_path(
+    mock_get_stock_config_path,
+    mock_get_custom_config_path,
+    mock_get_env_config_path,
+    mock_is_stock_config_enabled,
+    mock_is_custom_enabled,
+    mock_is_env_config_enabled,
+):
+    env_variable_ocio_path = nuke_ocio.get_ocio_config_path()
+    assert env_variable_ocio_path == "/this/ocio_configs/env_variable_config.ocio"
+
+    mock_is_env_config_enabled.return_value = False
+    mock_is_custom_enabled.return_value = True
+    custom_ocio_path = nuke_ocio.get_ocio_config_path()
+    assert custom_ocio_path == "/this/ocio_configs/custom_config.ocio"
+
+    mock_is_env_config_enabled.return_value = False
+    mock_is_custom_enabled.return_value = False
+    mock_is_stock_config_enabled.return_value = True
+    stock_ocio_path = nuke_ocio.get_ocio_config_path()
+    assert stock_ocio_path == "/this/ocio_configs/stock_config.ocio"

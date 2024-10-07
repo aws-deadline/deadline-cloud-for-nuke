@@ -7,7 +7,6 @@ import re
 from collections.abc import Generator
 from os.path import commonpath, dirname, join, normpath, samefile
 from sys import platform
-from typing import Optional
 import nuke
 
 from deadline.client.job_bundle.submission import AssetReferences
@@ -83,7 +82,7 @@ def get_scene_asset_references() -> AssetReferences:
 
     if nuke_ocio.is_OCIO_enabled():
         # Determine and add the config file and associated search directories
-        ocio_config_path = get_ocio_config_path()
+        ocio_config_path = nuke_ocio.get_ocio_config_path()
         # Add the references
         if ocio_config_path is not None:
             if os.path.isfile(ocio_config_path):
@@ -101,18 +100,6 @@ def get_scene_asset_references() -> AssetReferences:
                 )
 
     return asset_references
-
-
-def get_ocio_config_path() -> Optional[str]:
-    # if using a custom OCIO environment variable
-    if nuke_ocio.is_env_config_enabled():
-        return nuke_ocio.get_env_config_path()
-    elif nuke_ocio.is_custom_config_enabled():
-        return nuke_ocio.get_custom_config_path()
-    elif nuke_ocio.is_stock_config_enabled():
-        return nuke_ocio.get_stock_config_path()
-    else:
-        return None
 
 
 def find_all_write_nodes() -> set:
