@@ -1,3 +1,15 @@
+## 0.18.5 (2024-10-16)
+
+
+### Features
+* Handle different OCIO configs in adapter (#168) ([`5d55675`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/5d55675eab8e17155eb7a5044f9453b473700fb4))
+* Added support for including gizmos in job bundle (#162) ([`a0704a3`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/a0704a359d4e83daade6bf41b1b766886384c37d))
+
+### Bug Fixes
+* Add OCIO configuration to Job Environments (#166) ([`0eb87cb`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/0eb87cbdb1bf86dff2799b48ba4ef89c70341c21))
+* Resolve menu.py not found error when running pip install deadline-cloud-for-nuke -t &lt;folder&gt; (#165) ([`82b7eb2`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/82b7eb2d9f509a09c9974ec237a1031f4782847a))
+* Update frame range when write node is selected (#161) ([`e6398c9`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/e6398c919ae7faa099f007ad2195732958ac0f9a))
+
 ## 0.18.4 (2024-08-12)
 
 
