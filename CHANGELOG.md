@@ -1,3 +1,10 @@
+## 0.18.6 (2024-10-21)
+
+
+
+### Bug Fixes
+* Revert &#34;fix: Resolve menu.py not found error when running pip install deadline-cloud-for-nuke -t &lt;folder&gt; (#165)&#34; (#170) ([`71b8c8b`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/71b8c8b762f7f3a1999640a4e6a3d646e575146d))
+
 ## 0.18.5 (2024-10-16)
 
 
