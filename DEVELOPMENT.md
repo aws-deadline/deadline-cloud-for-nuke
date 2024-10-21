@@ -87,12 +87,12 @@ WARNING: This workflow installs additional Python packages into your Nuke's pyth
 
    Windows (update the paths as needed):
    ```
-   set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src\deadline\nuke_submitter:C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src
+   set NUKE_PATH=C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke\src
    ```
 
    Mac (update the paths as needed):
    ```
-   export NUKE_PATH=/Users/<username>/dev/deadline-clients/deadline-cloud-for-nuke/src/deadline/nuke_submitter:/Users/<username>/dev/deadline-clients/deadline-cloud-for-nuke/src
+   export NUKE_PATH=/Users/<username>/dev/deadline-clients/deadline-cloud-for-nuke/src
    ```
 1. Set the `DEADLINE_ENABLE_DEVELOPER_OPTIONS` environment variable to `true` to enable the job bundle debugging support. This enables a menu item you can use to run the tests from the `job_bundle_output_tests` directory.
 

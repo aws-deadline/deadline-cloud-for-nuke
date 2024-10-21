@@ -18,6 +18,7 @@
                     <onPackingFilterList>
                         <fileNameFilter pattern="*/deadline/nuke_submitter/*" logic="matches" patternType="glob"/>
                         <fileNameFilter pattern="*/deadline/nuke_util/*" logic="matches" patternType="glob"/>
+                        <fileNameFilter pattern="*/menu.py" logic="matches" patternType="glob"/>
                     </onPackingFilterList>
                 </distributionDirectory>
             </distributionFileList>
@@ -76,7 +77,7 @@
 		<fnAddPathEnvironmentVariable>
 			<progressText>Setting NUKE_PATH</progressText>
 			<name>NUKE_PATH</name>
-			<value>${nuke_installdir}/deadline/nuke_submitter</value>
+			<value>${nuke_installdir}</value>
 			<scope>${installscope}</scope>
 			<insertAt>end</insertAt>
 		</fnAddPathEnvironmentVariable>
