@@ -18,7 +18,6 @@
                     <onPackingFilterList>
                         <fileNameFilter pattern="*/deadline/nuke_submitter/*" logic="matches" patternType="glob"/>
                         <fileNameFilter pattern="*/deadline/nuke_util/*" logic="matches" patternType="glob"/>
-                        <fileNameFilter pattern="*/menu.py" logic="matches" patternType="glob"/>
                     </onPackingFilterList>
                 </distributionDirectory>
             </distributionFileList>
@@ -74,13 +73,36 @@
 		</stringParameter>
 	</parameterList>
     <postInstallationActionList>
-		<fnAddPathEnvironmentVariable>
-			<progressText>Setting NUKE_PATH</progressText>
-			<name>NUKE_PATH</name>
-			<value>${nuke_installdir}</value>
-			<scope>${installscope}</scope>
-			<insertAt>end</insertAt>
-		</fnAddPathEnvironmentVariable>
+        <if>
+            <conditionRuleList>
+                <platformTest type="windows"/>
+            </conditionRuleList>
+            <actionList>
+                <fnAddPathEnvironmentVariable>
+                    <progressText>Setting NUKE_PATH</progressText>
+                    <name>NUKE_PATH</name>
+                    <value>${nuke_installdir};${nuke_installdir}/deadline/nuke_submitter</value>
+                    <scope>${installscope}</scope>
+                    <insertAt>end</insertAt>
+                </fnAddPathEnvironmentVariable>
+            </actionList>
+        </if>
+        <if>
+            <ruleEvaluationLogic>or</ruleEvaluationLogic>
+            <conditionRuleList>
+                <platformTest type="osx"/>
+                <platformTest type="linux"/>
+            </conditionRuleList>
+            <actionList>
+                <fnAddPathEnvironmentVariable>
+                    <progressText>Setting NUKE_PATH</progressText>
+                    <name>NUKE_PATH</name>
+                    <value>${nuke_installdir}:${nuke_installdir}/deadline/nuke_submitter</value>
+                    <scope>${installscope}</scope>
+                    <insertAt>end</insertAt>
+                </fnAddPathEnvironmentVariable>
+            </actionList>
+        </if>
         <unzip>
             <destinationDirectory>${nuke_installdir}</destinationDirectory>
             <zipFile>${installdir}/tmp/nuke_deps/dependency_bundle/deadline_cloud_for_nuke_submitter-deps-${nuke_deps_platform}.zip</zipFile>
