@@ -1,3 +1,10 @@
+## 0.18.7 (2024-11-21)
+
+
+
+### Bug Fixes
+* Resolve menu.py not found error when installing via pip (#172) ([`9364964`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/9364964e50b02cda097df3866fa6c7bc755d7878))
+
 ## 0.18.6 (2024-10-21)
 
 
