@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 import jsonschema  # type: ignore
-from typing import Callable, cast
+from typing import Callable
 
 from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
 from openjd.adaptor_runtime._version import version as openjd_adaptor_version
@@ -111,7 +111,7 @@ class NukeAdaptor(Adaptor):
         Returns:
             bool: True if the behavior is to continue on errors. False otherwise.
         """
-        return cast(bool, self.init_data.get("continue_on_error", True))
+        return True  # Temporarily continue_on_error by default until we have an option for it on the GUI submitter
 
     @property
     def _nuke_is_running(self) -> bool:
@@ -219,6 +219,9 @@ class NukeAdaptor(Adaptor):
         Args:
             match (re.Match): The match object from the regex pattern that was matched the message
         """
+        # Always log the error
+        _logger.error(f"Nuke encountered an error: {match.group(0)}")
+
         if not self.continue_on_error:
             self._exc_info = RuntimeError(f"Nuke Encountered an Error: {match.group(0)}")
 
@@ -468,11 +471,14 @@ class NukeAdaptor(Adaptor):
         Client will request and perform. The action must be present in the _FIRST_NUKE_ACTIONS or
         _NUKE_INIT_KEYS set to be added to the action queue.
         """
+        # Always set continue_on_error to True first
+        self._action_queue.enqueue_action(Action("continue_on_error", {"continue_on_error": True}))
+
         for name in _FIRST_NUKE_ACTIONS:
             self._action_queue.enqueue_action(Action(name, {name: self.init_data[name]}))
 
         for name in _NUKE_INIT_KEYS:
-            if name in self.init_data:
+            if name in self.init_data and name != "continue_on_error":
                 self._action_queue.enqueue_action(Action(name, {name: self.init_data[name]}))
 
     def _get_deadline_telemetry_client(self):

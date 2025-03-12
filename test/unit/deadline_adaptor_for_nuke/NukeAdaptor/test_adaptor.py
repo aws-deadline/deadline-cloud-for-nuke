@@ -223,11 +223,16 @@ class TestNukeAdaptor_on_start:
 
         # THEN
         calls = mock_actions_queue.enqueue_action.call_args_list
-        for _call, name in zip(calls[: len(_FIRST_NUKE_ACTIONS)], _FIRST_NUKE_ACTIONS):
+        # First action should be continue_on_error
+        assert calls[0].args[0].name == "continue_on_error"
+        # Then check the rest of the first actions
+        for _call, name in zip(calls[1 : 1 + len(_FIRST_NUKE_ACTIONS)], _FIRST_NUKE_ACTIONS):
             assert _call.args[0].name == name, f"Action: {name} missing from first actions"
+        # Skip continue_on_error in _NUKE_INIT_KEYS since we already added it first
+        init_keys = [key for key in _NUKE_INIT_KEYS if key != "continue_on_error"]
         for _call, name in zip(
-            calls[len(_FIRST_NUKE_ACTIONS) : len(_FIRST_NUKE_ACTIONS) + len(_NUKE_INIT_KEYS)],
-            _NUKE_INIT_KEYS,
+            calls[1 + len(_FIRST_NUKE_ACTIONS) :],
+            init_keys,
         ):
             assert _call.args[0].name == name, f"Action: {name} missing from init actions"
 
@@ -661,7 +666,6 @@ class TestNukeAdaptor_on_cleanup:
         ("Eddy[ERROR] - Something terrible happened", 3),
     ]
 
-    @pytest.mark.parametrize("continue_on_error", [True, False])
     @pytest.mark.parametrize("stdout, regex_index", handle_error_params)
     @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor.update_status")
     @patch.object(NukeAdaptor, "_is_rendering", new_callable=PropertyMock(return_value=True))
@@ -671,12 +675,10 @@ class TestNukeAdaptor_on_cleanup:
         mock_update_status: Mock,
         stdout: str,
         regex_index: int,
-        continue_on_error: bool,
         init_data: dict,
     ) -> None:
         # GIVEN
         ERROR_CALLBACK_INDEX = 3
-        init_data["continue_on_error"] = continue_on_error
         adaptor = NukeAdaptor(init_data)
         regex_callbacks = adaptor.regex_callbacks
         error_regex = regex_callbacks[ERROR_CALLBACK_INDEX].regex_list[regex_index]
@@ -687,11 +689,8 @@ class TestNukeAdaptor_on_cleanup:
 
         # THEN
         assert match
-        if continue_on_error:
-            assert adaptor._exc_info is None
-        else:
-            assert isinstance(adaptor._exc_info, RuntimeError)
-            assert str(adaptor._exc_info) == f"Nuke Encountered an Error: {stdout}"
+        # Since continue_on_error is always True now, _exc_info should always be None
+        assert adaptor._exc_info is None
 
     @pytest.mark.parametrize(
         "version_string, expected_version",
