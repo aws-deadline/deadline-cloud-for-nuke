@@ -366,7 +366,7 @@ class TestNukeHandler:
             nukehandler.set_write_nodes(data)
 
         # THEN
-        assert type(exc_info.value) == type(expected_err)
+        assert type(exc_info.value) is type(expected_err)
         assert str(exc_info.value) == str(expected_err)
 
     def test_set_write_nodes_missing_nodes_wrong_type(self, nukehandler: NukeHandler):
@@ -440,7 +440,7 @@ class TestNukeHandler:
             nukehandler.set_views(data)
 
         # THEN
-        assert type(exc_info.value) == type(expected_err)
+        assert type(exc_info.value) is type(expected_err)
         assert str(exc_info.value) == str(expected_err)
 
     @pytest.mark.parametrize("data", [{"script_file": "a/script/path.nk"}])
