@@ -12,6 +12,7 @@ import nuke
 from deadline.client.api import get_deadline_cloud_library_telemetry_client
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
+from deadline.client.ui.dataclasses import HostRequirements, OsRequirements
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
     SubmitJobToDeadlineDialog,
     JobBundlePurpose,
@@ -459,6 +460,13 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         rez_packages = f"nuke-{nuke_version} deadline_cloud_for_nuke"
         conda_packages = f"nuke={nuke_version}.* nuke-openjd={adaptor_version}.*"
 
+        # Default to Linux host requirement as Nuke is only supported on Linux for Deadline Cloud service
+        # and is generally less expensive than Windows for all fleet types
+
+        # Create a HostRequirements object with Linux OS
+        os_requirements = OsRequirements(operating_systems=["linux"])
+        default_host_requirements = HostRequirements(os_requirements=os_requirements)
+
         g_submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
@@ -472,6 +480,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             parent=parent,
             f=f,
             show_host_requirements_tab=True,
+            host_requirements=default_host_requirements,
         )
     else:
         g_submitter_dialog.refresh(
