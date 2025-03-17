@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import os
 import nuke
 import pytest
+import platform
 
 from deadline.nuke_util import ocio as nuke_ocio
 
@@ -35,12 +36,18 @@ def ocio_default_config_knob() -> MockKnob:
 
 @pytest.fixture()
 def custom_ocio_config_path_knob() -> MockKnob:
-    return MockKnob("/this/ocio_configs/config.ocio")
+    path = "/this/ocio_configs/config.ocio"
+    if platform.system() == "Windows":
+        path = "D:\\this\\ocio_configs\\config.ocio"
+    return MockKnob(path)
 
 
 @pytest.fixture()
 def default_ocio_config_path_knob() -> MockKnob:
-    return MockKnob("/this/ocio_configs/nuke-default/config.ocio")
+    path = "/this/ocio_configs/nuke-default/config.ocio"
+    if platform.system() == "Windows":
+        path = "D:\\this\\ocio_configs\\nuke-default\\config.ocio"
+    return MockKnob(path)
 
 
 @pytest.fixture()
@@ -182,6 +189,8 @@ def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
 def test_set_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     ocio_config_path = "/nuke_temp_dir/temp_ocio_config.ocio"
+    if platform.system() == "Windows":
+        ocio_config_path = "D:\\nuke_temp_dir\\temp_ocio_config.ocio"
 
     # WHEN
     nuke_ocio.set_custom_config_path(ocio_config_path=ocio_config_path)
@@ -211,7 +220,12 @@ def test_is_stock_config_enabled(root_node_with_default_ocio) -> None:
     # THEN
     assert expected == actual
 
-    assert "/this/ocio_configs/nuke-default/config.ocio" == nuke_ocio.get_stock_config_path()
+    # Get the expected path based on platform
+    expected_path = "/this/ocio_configs/nuke-default/config.ocio"
+    if platform.system() == "Windows":
+        expected_path = "D:\\this\\ocio_configs\\nuke-default\\config.ocio"
+
+    assert expected_path == nuke_ocio.get_stock_config_path()
 
     # GIVEN (custom OCIO enabled)
     nuke.root().knob("colorManagement").setValue("OCIO")

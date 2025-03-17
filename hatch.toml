@@ -5,7 +5,7 @@ pre-install-commands = [
 
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
-test = "pytest {args:test/unit/*}"
+test = "pytest --cov-config pyproject.toml {args:test/unit}"
 typing = "mypy {args:src test}"
 style = [
   "ruff check {args:.}",
@@ -20,23 +20,24 @@ lint = [
   "typing",
 ]
 
+[envs.integ.scripts]
+test = "pytest --no-cov {args:test/*/integ}"
+
+[envs.e2e.scripts]
+test = "pytest --no-cov {args:test/*/e2e}"
+
 [[envs.all.matrix]]
 python = ["3.9", "3.10", "3.11"]
 
 [envs.default.env-vars]
 SKIP_BOOTSTRAP_TEST_RESOURCES="True"
+DEADLINE_ENABLE_DEVELOPER_OPTIONS="True"
 
 [envs.codebuild.scripts]
 build = "hatch build"
 
 [envs.codebuild.env-vars]
 SKIP_BOOTSTRAP_TEST_RESOURCES="True"
-
-[envs.integ.scripts]
-test = "pytest --no-cov {args:test/*/integ}"
-
-[envs.e2e.scripts]
-test = "pytest --no-cov {args:test/*/e2e}"
 
 [envs.release]
 detached = true

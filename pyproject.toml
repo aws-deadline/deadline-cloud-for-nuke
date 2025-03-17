@@ -116,19 +116,19 @@ line-length = 100
 xfail_strict = true
 addopts = [
     "--durations=5",
+    "--color=yes",
     "--cov=src/deadline/nuke_adaptor",
     "--cov=src/deadline/nuke_util",
     "--cov=src/deadline/nuke_submitter",
-    "--color=yes",
     "--cov-report=html:build/coverage",
     "--cov-report=xml:build/coverage/coverage.xml",
     "--cov-report=term-missing",
-    "--numprocesses=auto",
+    "--numprocesses=auto"
 ]
-testpaths = [ "test/unit" ]
+testpaths = [ "test" ]
 looponfailroots = [
     "src",
-    "test/unit",
+    "test",
 ]
 # looponfailroots is deprecated, this removes the deprecation from the test output
 filterwarnings = [
