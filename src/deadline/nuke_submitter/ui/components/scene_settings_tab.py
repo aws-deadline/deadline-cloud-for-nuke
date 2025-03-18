@@ -44,7 +44,7 @@ class SceneSettingsWidget(QWidget):
 
         self.write_node_box = QComboBox(self)
         self._rebuild_write_node_drop_down()
-        lyt.addWidget(QLabel("Write Nodes"), 0, 0)
+        lyt.addWidget(QLabel("Write nodes"), 0, 0)
         lyt.addWidget(self.write_node_box, 0, 1, 1, -1)
 
         self.views_box = QComboBox(self)
@@ -52,16 +52,16 @@ class SceneSettingsWidget(QWidget):
         lyt.addWidget(QLabel("Views"), 1, 0)
         lyt.addWidget(self.views_box, 1, 1, 1, -1)
 
-        self.frame_override_chck = QCheckBox("Override Frame Range", self)
+        self.frame_override_chck = QCheckBox("Override frame range", self)
         self.frame_override_txt = QLineEdit(self)
         lyt.addWidget(self.frame_override_chck, 2, 0)
         lyt.addWidget(self.frame_override_txt, 2, 1, 1, -1)
         self.frame_override_chck.stateChanged.connect(self.activate_frame_override_changed)
 
-        self.proxy_mode_check = QCheckBox("Use Proxy Mode", self)
+        self.proxy_mode_check = QCheckBox("Use proxy mode", self)
         lyt.addWidget(self.proxy_mode_check, 3, 0)
 
-        self.timeout_checkbox = QCheckBox("Use Timeouts", self)
+        self.timeout_checkbox = QCheckBox("Use timeouts", self)
         self.timeout_checkbox.setChecked(True)
         self.timeout_checkbox.clicked.connect(self.activate_timeout_changed)
         self.timeout_checkbox.setToolTip(
@@ -76,7 +76,7 @@ class SceneSettingsWidget(QWidget):
         timeouts_lyt = QGridLayout(self.timeouts_box)
         lyt.addWidget(self.timeouts_box, 5, 0, 1, -1)
 
-        self.gizmos_checkbox = QCheckBox("Include Gizmos In Job Bundle", self)
+        self.gizmos_checkbox = QCheckBox("Include gizmos in job bundle", self)
         lyt.addWidget(self.gizmos_checkbox, 6, 0)
 
         def create_timeout_row(label, tooltip, row):
@@ -106,21 +106,21 @@ class SceneSettingsWidget(QWidget):
                 timeout_box.valueChanged.connect(indicate_is_valid_callback)
 
         self.on_run_timeouts = create_timeout_row(
-            label="Render Task Timeout",
+            label="Render task timeout",
             tooltip="Maximum duration of each action which performs a render. Default is 6 days.",
             row=0,
         )
         hookup_zero_callback(self.on_run_timeouts)
 
         self.on_enter_timeouts = create_timeout_row(
-            label="Setup Timeout",
+            label="Setup timeout",
             tooltip="Maximum duration of each action which sets up the job for rendering, such as scene load. Default is 1 day.",
             row=1,
         )
         hookup_zero_callback(self.on_enter_timeouts)
 
         self.on_exit_timeouts = create_timeout_row(
-            label="Teardown Timeout",
+            label="Teardown timeout",
             tooltip="Maximum duration of action which tears down the setup required for rendering. Default is 1 hour.",
             row=2,
         )
@@ -128,7 +128,7 @@ class SceneSettingsWidget(QWidget):
 
         if self.developer_options:
             self.include_adaptor_wheels = QCheckBox(
-                "Developer Option: Include Adaptor Wheels", self
+                "Developer option: Include adaptor wheels", self
             )
             lyt.addWidget(self.include_adaptor_wheels, 7, 0, 1, 2)
 
@@ -178,7 +178,7 @@ class SceneSettingsWidget(QWidget):
 
     def _rebuild_write_node_drop_down(self) -> None:
         self.write_node_box.clear()
-        self.write_node_box.addItem("All Write Nodes", None)
+        self.write_node_box.addItem("All write nodes", None)
         for write_node in sorted(
             find_all_write_nodes(), key=lambda write_node: write_node.fullName()
         ):
@@ -187,7 +187,7 @@ class SceneSettingsWidget(QWidget):
 
     def _rebuild_views_drop_down(self) -> None:
         self.views_box.clear()
-        self.views_box.addItem("All Views", "")
+        self.views_box.addItem("All views", "")
         for view in sorted(nuke.views()):
             self.views_box.addItem(view, view)
 
