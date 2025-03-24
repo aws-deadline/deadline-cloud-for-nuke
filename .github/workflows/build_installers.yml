@@ -1,36 +1,41 @@
-name: Build Installers
+name: "Build Installers"
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - mainline
-      - release
-    paths:
-      - "installer/**"
-      - "scripts/build_installer*.py"
-      - "scripts/common.py"
-      - "scripts/find_installbuilder.py"
-      - "pyproject.toml"
-      - ".github/workflows/build_installers.yml"
-  push:
-    branches:
-      - mainline
-      - release
-    paths:
-      - "installer/**"
-      - "scripts/build_installer*.py"
-      - "scripts/common.py"
-      - "scripts/find_installbuilder.py"
-      - "pyproject.toml"
-      - ".github/workflows/build_installers.yml"
+    inputs:
+      os:
+        required: true
+        default: Linux
+        type: choice
+        options:
+        - Linux
+        - Windows
+      ref_type:
+        required: true
+        default: tags
+        type: choice
+        options:
+        - tags
+        - heads
+      ref:
+        required: true
+        type: string
+        default: mainline
+      environment:
+        required: true
+        type: choice
+        options:
+        - mainline
 
 jobs:
-  build-installers:
-    name: Build Installers
+  BuildInstaller:
+    if: (github.repository == 'aws-deadline/deadline-cloud-for-nuke')
+    name: Build Installer
     uses: aws-deadline/.github/.github/workflows/reusable_build_installers.yml@mainline
-    with:
-      project_name: deadline-cloud-for-nuke
-      ref: ${{ github.ref }}
-      ref_type: ${{ github.ref_type }}
     secrets: inherit
+    with:
+      environment: ${{inputs.environment}}
+      ref_type: ${{inputs.ref_type}}
+      ref: ${{inputs.ref}}
+      oses: "['${{inputs.os}}']"
+      project_name: "deadline-cloud-for-nuke"
