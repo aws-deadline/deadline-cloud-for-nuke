@@ -6,6 +6,10 @@
 
 ### How was this change tested?
 
+#### Please run the integration tests and paste the results below
+
+#### If `installer/` was modified or a file was added/removed from `src/`, then update the installer tests and post the test results below
+
 ### Did you run the "Job Bundle Output Tests"? If not, why not? If so, paste the test results here.
 
 ```

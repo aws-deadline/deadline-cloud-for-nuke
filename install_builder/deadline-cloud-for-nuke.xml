@@ -13,7 +13,7 @@
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
-                    <origin>components/deadline-cloud-for-nuke/src/*</origin>
+                    <origin>../src/*</origin>
                     <filterEvaluationLogic>or</filterEvaluationLogic>
                     <onPackingFilterList>
                         <fileNameFilter pattern="*/deadline/nuke_submitter/*" logic="matches" patternType="glob"/>
@@ -30,7 +30,7 @@
              <platforms>all</platforms>
              <distributionFileList>
                  <distributionDirectory allowWildcards="1">
-                     <origin>components/deadline-cloud-for-nuke/dependency_bundle</origin>
+                     <origin>../dependency_bundle</origin>
                  </distributionDirectory>
              </distributionFileList>
          </folder>
@@ -39,7 +39,17 @@
         <setInstallerVariable name="all_components" value="${all_components} deadline_cloud_for_nuke"/>
 	</initializationActionList>
     <readyToInstallActionList>
-		<setInstallerVariable name="nuke_installdir" value="${installdir}/Submitters/Nuke"/>
+        <if>
+            <conditionRuleList>
+                <isTrue value="${individual_install}"/>
+            </conditionRuleList>
+            <actionList>
+                <setInstallerVariable name="nuke_installdir" value="${installdir}" />
+            </actionList>
+            <elseActionList>
+                <setInstallerVariable name="nuke_installdir" value="${installdir}/Submitters/Nuke" />
+            </elseActionList>
+        </if>
         <if>
              <conditionRuleList>
                  <platformTest type="windows"/>

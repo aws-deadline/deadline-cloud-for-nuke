@@ -18,6 +18,21 @@ To develop this package, you'll need Python with `hatch` installed to start.
 hatch build
 ```
 
+### Build the installer
+
+```bash
+hatch run build-installer --local-dev-build --platform <PLATFORM> [--install-builder-location <LOCATION> --output-dir <DIR>]
+```
+
+Run `hatch run build-installer -h` to see the full list of arguments.
+
+...
+
+### Test a local installer
+```bash
+hatch run test-installer
+```
+
 ### Run tests
 
 ```bash
