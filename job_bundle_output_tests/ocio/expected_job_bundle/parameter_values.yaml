@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 parameterValues:
 - name: Frames
   value: 1-100
