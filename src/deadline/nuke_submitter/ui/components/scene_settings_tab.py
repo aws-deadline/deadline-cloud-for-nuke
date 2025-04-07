@@ -61,6 +61,12 @@ class SceneSettingsWidget(QWidget):
         self.proxy_mode_check = QCheckBox("Use proxy mode", self)
         lyt.addWidget(self.proxy_mode_check, 3, 0)
 
+        self.continue_on_error_check = QCheckBox("Continue on error", self)
+        self.continue_on_error_check.setToolTip(
+            "Allow Nuke to continue rendering when it encounters non-fatal errors in the graph"
+        )
+        lyt.addWidget(self.continue_on_error_check, 3, 1)
+
         self.timeout_checkbox = QCheckBox("Use timeouts", self)
         self.timeout_checkbox.setChecked(True)
         self.timeout_checkbox.clicked.connect(self.activate_timeout_changed)
@@ -223,6 +229,7 @@ class SceneSettingsWidget(QWidget):
             self.views_box.setCurrentIndex(0)
 
         self.proxy_mode_check.setChecked(settings.is_proxy_mode)
+        self.continue_on_error_check.setChecked(settings.continue_on_error)
 
         self.timeout_checkbox.setChecked(settings.timeouts_enabled)
 
@@ -255,6 +262,7 @@ class SceneSettingsWidget(QWidget):
         settings.write_node_selection = self.write_node_box.currentData()
         settings.view_selection = self.views_box.currentData()
         settings.is_proxy_mode = self.proxy_mode_check.isChecked()
+        settings.continue_on_error = self.continue_on_error_check.isChecked()
 
         settings.timeouts_enabled = self.timeout_checkbox.isChecked()
         settings.on_run_timeout_seconds = self.on_run_timeout_seconds
