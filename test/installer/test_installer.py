@@ -3,7 +3,6 @@ import getpass
 import glob
 import os
 import platform
-import pwd
 import re
 import shutil
 import stat
@@ -172,7 +171,7 @@ def test_default_location(installer_path: Path):
 
     assert (
         location is not None
-    ), f"Could not find default install location in help output:\n{help_result.stdout}"
+    ), f"Could not find default install location in help output:\n{help_output}"
     if platform.system() != "Windows":
         assert location.group(1) == default_install_location.as_posix()
     else:
@@ -259,6 +258,8 @@ class TestLinuxAndMacOS:
         return bool(mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
 
     def _validate_posix_permissions(self, installation_path: Path):
+        import pwd
+
         # assists mypy type checking to ignore this on Windows
         assert sys.platform != "win32"
         # GIVEN
