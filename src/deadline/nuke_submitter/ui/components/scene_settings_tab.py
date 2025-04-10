@@ -61,23 +61,29 @@ class SceneSettingsWidget(QWidget):
         self.proxy_mode_check = QCheckBox("Use proxy mode", self)
         lyt.addWidget(self.proxy_mode_check, 3, 0)
 
+        self.continue_on_error_check = QCheckBox("Continue on error", self)
+        self.continue_on_error_check.setToolTip(
+            "Allow Nuke to continue rendering when it encounters non-fatal errors in the graph"
+        )
+        lyt.addWidget(self.continue_on_error_check, 4, 0)
+
         self.timeout_checkbox = QCheckBox("Use timeouts", self)
         self.timeout_checkbox.setChecked(True)
         self.timeout_checkbox.clicked.connect(self.activate_timeout_changed)
         self.timeout_checkbox.setToolTip(
             "Set a maximum duration for actions from this job. See AWS Deadline Cloud documentation to learn more"
         )
-        lyt.addWidget(self.timeout_checkbox, 4, 0)
+        lyt.addWidget(self.timeout_checkbox, 5, 0)
         self.timeouts_subtext = QLabel("Set a maximum duration for actions from this job")
         self.timeouts_subtext.setStyleSheet("font-style: italic")
-        lyt.addWidget(self.timeouts_subtext, 4, 1, 1, -1)
+        lyt.addWidget(self.timeouts_subtext, 5, 1, 1, -1)
 
         self.timeouts_box = QGroupBox()
         timeouts_lyt = QGridLayout(self.timeouts_box)
-        lyt.addWidget(self.timeouts_box, 5, 0, 1, -1)
+        lyt.addWidget(self.timeouts_box, 6, 0, 1, -1)
 
         self.gizmos_checkbox = QCheckBox("Include gizmos in job bundle", self)
-        lyt.addWidget(self.gizmos_checkbox, 6, 0)
+        lyt.addWidget(self.gizmos_checkbox, 7, 0)
 
         def create_timeout_row(label, tooltip, row):
             qlabel = QLabel(label)
@@ -130,9 +136,9 @@ class SceneSettingsWidget(QWidget):
             self.include_adaptor_wheels = QCheckBox(
                 "Developer option: Include adaptor wheels", self
             )
-            lyt.addWidget(self.include_adaptor_wheels, 7, 0, 1, 2)
+            lyt.addWidget(self.include_adaptor_wheels, 8, 0, 1, 2)
 
-        lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 7, 0)
+        lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 9, 0)
 
     def indicate_if_valid(self, timeout_boxes: tuple[QLabel, QSpinBox, QSpinBox, QSpinBox]):
         if (
@@ -223,6 +229,7 @@ class SceneSettingsWidget(QWidget):
             self.views_box.setCurrentIndex(0)
 
         self.proxy_mode_check.setChecked(settings.is_proxy_mode)
+        self.continue_on_error_check.setChecked(settings.continue_on_error)
 
         self.timeout_checkbox.setChecked(settings.timeouts_enabled)
 
@@ -255,6 +262,7 @@ class SceneSettingsWidget(QWidget):
         settings.write_node_selection = self.write_node_box.currentData()
         settings.view_selection = self.views_box.currentData()
         settings.is_proxy_mode = self.proxy_mode_check.isChecked()
+        settings.continue_on_error = self.continue_on_error_check.isChecked()
 
         settings.timeouts_enabled = self.timeout_checkbox.isChecked()
         settings.on_run_timeout_seconds = self.on_run_timeout_seconds

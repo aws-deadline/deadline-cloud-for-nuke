@@ -273,6 +273,11 @@ def _get_parameter_values(
         {"name": "ProxyMode", "value": "true" if settings.is_proxy_mode else "false"}
     )
 
+    # Set the ContinueOnError parameter default
+    parameter_values.append(
+        {"name": "ContinueOnError", "value": "true" if settings.continue_on_error else "false"}
+    )
+
     # Set the OCIO config path value
     if nuke_ocio.is_OCIO_enabled():
         ocio_config_path = nuke_ocio.get_ocio_config_path()
