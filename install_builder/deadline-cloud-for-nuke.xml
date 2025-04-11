@@ -50,30 +50,6 @@
                 <setInstallerVariable name="nuke_installdir" value="${installdir}/Submitters/Nuke" />
             </elseActionList>
         </if>
-        <if>
-             <conditionRuleList>
-                 <platformTest type="windows"/>
-             </conditionRuleList>
-             <actionList>
-                 <setInstallerVariable name="nuke_deps_platform" value="windows"/>
-             </actionList>
-         </if>
-         <if>
-             <conditionRuleList>
-                 <platformTest type="linux"/>
-             </conditionRuleList>
-             <actionList>
-                 <setInstallerVariable name="nuke_deps_platform" value="linux"/>
-             </actionList>
-         </if>
-         <if>
-             <conditionRuleList>
-                 <platformTest type="osx"/>
-             </conditionRuleList>
-             <actionList>
-                 <setInstallerVariable name="nuke_deps_platform" value="macos"/>
-             </actionList>
-         </if>
 	</readyToInstallActionList>
 	<parameterList>
 		<stringParameter name="deadline_cloud_for_nuke_summary" ask="0" cliOptionShow="0">
@@ -93,7 +69,7 @@
 		</fnAddPathEnvironmentVariable>
         <unzip>
             <destinationDirectory>${nuke_installdir}</destinationDirectory>
-            <zipFile>${installdir}/tmp/nuke_deps/dependency_bundle/deadline_cloud_for_nuke_submitter-deps-${nuke_deps_platform}.zip</zipFile>
+            <zipFile>${installdir}/tmp/nuke_deps/dependency_bundle/deadline_cloud_for_nuke_submitter-deps.zip</zipFile>
         </unzip>
         <deleteFile>
             <path>${installdir}/tmp/nuke_deps</path>
