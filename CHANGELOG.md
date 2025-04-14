@@ -3,7 +3,7 @@
 
 ### Features
 * **adaptor**: Update Nuke environment variable to NUKE_EXECUTABLE (#178) ([`4af4fff`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/4af4fffa61a170f1dc2e1ea364f4a75ff43d32d4))
-* Nuke individual installer setup (#206) ([`f6ce5d7`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f6ce5d7a9bbd9a05ca1dd204da70e02f62b7c033))
+* Nuke individual installer setup (#206) ([`f6ce5d7`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f6ce5d7c6882333557d41db4adc451c9283355c9))
 
 ### Bug Fixes
 * update test_installer.sh permissions to 755 (#215) ([`5bd1a70`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/5bd1a7000527c7ac080c2ac766a3892ae1e40674))
