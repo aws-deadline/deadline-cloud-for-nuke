@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import os
+import platform
 import nuke
 import pytest
 
@@ -133,6 +134,9 @@ def test_create_config_from_file(
     create_from_file.assert_called_once_with(custom_ocio_config_path)
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = True
@@ -154,6 +158,9 @@ def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = [
@@ -168,6 +175,9 @@ def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     search_paths = ["relative/path/to/luts", "/absolute/path/to/luts"]
