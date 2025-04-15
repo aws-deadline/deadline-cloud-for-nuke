@@ -1,3 +1,17 @@
+## 0.18.9 (2025-04-15)
+
+
+### Features
+* **adaptor**: Update Nuke environment variable to NUKE_EXECUTABLE (#178) ([`4af4fff`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/4af4fffa61a170f1dc2e1ea364f4a75ff43d32d4))
+
+### Bug Fixes
+* Add Windows support to GitHub Actions and skip OCIO tests on Win… (#217) ([`2296179`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/229617933bc9dc3e4ba93b249b264b145a81c5b1))
+* update test_installer.sh permissions to 755 (#215) ([`5bd1a70`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/5bd1a7000527c7ac080c2ac766a3892ae1e40674))
+* maintain backward compatibility with NUKE_ADAPTOR_NUKE_EXECUTABLE (#213) ([`eeb1390`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/eeb13906c7923dfe546196dccf2d9326c86d7def))
+* update changelog template to use correct element keys (#212) ([`561b825`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/561b825da5494135aa639a2e6068fffe963f7b60))
+* add continue on error option to submitter UI (#208) ([`0e1bdb2`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/0e1bdb267079081e643a7a96c8813235b1907d47))
+* Update UI labels to use consistent sentence case (#205) ([`8e02246`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/8e02246ec4cb573eb9bd3d3d93cc0153938e54fd))
+
 ## 0.18.9 (2025-04-14)
 
 
