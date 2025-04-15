@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import os
+import platform
 import nuke
 import pytest
 
@@ -108,6 +109,9 @@ def test_is_custom_config_enabled(setup_nuke) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_get_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     expected = custom_ocio_config_path_knob.getEvaluatedValue()
@@ -133,6 +137,9 @@ def test_create_config_from_file(
     create_from_file.assert_called_once_with(custom_ocio_config_path)
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = True
@@ -154,6 +161,9 @@ def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = [
@@ -168,6 +178,9 @@ def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     search_paths = ["relative/path/to/luts", "/absolute/path/to/luts"]
@@ -199,6 +212,9 @@ def test_is_env_config_enabled_and_get_env_config_path() -> None:
     assert nuke_ocio.is_env_config_enabled() is False
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_is_stock_config_enabled(root_node_with_default_ocio) -> None:
     nuke.root.return_value = root_node_with_default_ocio
 

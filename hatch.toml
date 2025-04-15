@@ -5,7 +5,7 @@ pre-install-commands = [
 
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
-test = "pytest {args:test/unit/*}"
+test = "pytest --cov-config pyproject.toml {args:test/unit}"
 test-installer = "pytest --no-cov {args:test/installer} -vvv"
 typing = "mypy {args:src test}"
 style = [
@@ -49,4 +49,3 @@ version = "semantic-release -v --strict version --print {args}"
 
 [envs.installer.scripts]
 build-installer = "python {root}/scripts/build_installer_cli.py --installer-source-path {root}/installer/DeadlineCloudForNuke.xml {args:}"
-
