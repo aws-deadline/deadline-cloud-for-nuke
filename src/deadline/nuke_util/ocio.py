@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import PurePath, PurePosixPath
+from pathlib import PurePath
 from typing import Optional
 
 import nuke
@@ -58,17 +58,7 @@ def create_config_from_file(ocio_config_path: str) -> OCIO.Config:
 
 def config_has_absolute_search_paths(ocio_config: OCIO.Config) -> bool:
     """True if any paths in the OCIO config's search path are absolute"""
-    # Check each path in the search paths
-    for path in ocio_config.getSearchPaths():
-        # Check if it's absolute according to the current OS
-        if PurePath(path).is_absolute():
-            return True
-
-        # Also check if it's a POSIX absolute path (for cross-platform compatibility)
-        if PurePosixPath(path).is_absolute():
-            return True
-
-    return False
+    return any(PurePath(path).is_absolute() for path in ocio_config.getSearchPaths())
 
 
 def get_config_absolute_search_paths(ocio_config: str | OCIO.Config) -> list[str]:

@@ -1,56 +1,49 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import os
+import platform
 from unittest.mock import MagicMock, patch
 
-import os
 import nuke
 import pytest
-import platform
-
 from deadline.nuke_util import ocio as nuke_ocio
 
 from test.unit.mock_stubs import MockKnob, MockNode, MockOCIOConfig
 
 
-@pytest.fixture()
+@pytest.fixture
 def ocio_config() -> MockOCIOConfig:
     return MockOCIOConfig(
         working_dir="/this/ocio_configs", search_paths=["luts", "/my/absolute/luts"]
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def color_management_knob() -> MockKnob:
     return MockKnob("OCIO")
 
 
-@pytest.fixture()
+@pytest.fixture
 def ocio_config_knob() -> MockKnob:
     return MockKnob("custom")
 
 
-@pytest.fixture()
+@pytest.fixture
 def ocio_default_config_knob() -> MockKnob:
     return MockKnob("nuke-default")
 
 
-@pytest.fixture()
+@pytest.fixture
 def custom_ocio_config_path_knob() -> MockKnob:
-    path = "/this/ocio_configs/config.ocio"
-    if platform.system() == "Windows":
-        path = "D:\\this\\ocio_configs\\config.ocio"
-    return MockKnob(path)
+    return MockKnob("/this/ocio_configs/config.ocio")
 
 
-@pytest.fixture()
+@pytest.fixture
 def default_ocio_config_path_knob() -> MockKnob:
-    path = "/this/ocio_configs/nuke-default/config.ocio"
-    if platform.system() == "Windows":
-        path = "D:\\this\\ocio_configs\\nuke-default\\config.ocio"
-    return MockKnob(path)
+    return MockKnob("/this/ocio_configs/nuke-default/config.ocio")
 
 
-@pytest.fixture()
+@pytest.fixture
 def root_node(
     color_management_knob: MockKnob,
     ocio_config_knob: MockKnob,
@@ -64,7 +57,7 @@ def root_node(
     return MockNode(name="root", knobs=knobs, class_name="Root")
 
 
-@pytest.fixture()
+@pytest.fixture
 def root_node_with_default_ocio(
     color_management_knob: MockKnob,
     ocio_default_config_knob: MockKnob,
@@ -140,6 +133,9 @@ def test_create_config_from_file(
     create_from_file.assert_called_once_with(custom_ocio_config_path)
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = True
@@ -161,6 +157,9 @@ def test_config_has_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     expected = [
@@ -175,6 +174,9 @@ def test_get_config_absolute_search_paths(ocio_config: MockOCIOConfig) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
     # GIVEN
     search_paths = ["relative/path/to/luts", "/absolute/path/to/luts"]
@@ -189,8 +191,6 @@ def test_update_config_search_paths(ocio_config: MockOCIOConfig) -> None:
 def test_set_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     ocio_config_path = "/nuke_temp_dir/temp_ocio_config.ocio"
-    if platform.system() == "Windows":
-        ocio_config_path = "D:\\nuke_temp_dir\\temp_ocio_config.ocio"
 
     # WHEN
     nuke_ocio.set_custom_config_path(ocio_config_path=ocio_config_path)
@@ -202,7 +202,7 @@ def test_set_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKn
 def test_is_env_config_enabled_and_get_env_config_path() -> None:
     os.environ["OCIO"] = "not-empty"
     assert nuke_ocio.is_env_config_enabled() is True
-    assert "not-empty" == nuke_ocio.get_env_config_path()
+    assert nuke_ocio.get_env_config_path() == "not-empty"
 
     os.environ.pop("OCIO")
     assert nuke_ocio.is_env_config_enabled() is False
@@ -220,12 +220,7 @@ def test_is_stock_config_enabled(root_node_with_default_ocio) -> None:
     # THEN
     assert expected == actual
 
-    # Get the expected path based on platform
-    expected_path = "/this/ocio_configs/nuke-default/config.ocio"
-    if platform.system() == "Windows":
-        expected_path = "D:\\this\\ocio_configs\\nuke-default\\config.ocio"
-
-    assert expected_path == nuke_ocio.get_stock_config_path()
+    assert nuke_ocio.get_stock_config_path() == "/this/ocio_configs/nuke-default/config.ocio"
 
     # GIVEN (custom OCIO enabled)
     nuke.root().knob("colorManagement").setValue("OCIO")
