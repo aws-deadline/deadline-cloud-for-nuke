@@ -6,6 +6,7 @@
 * Nuke individual installer setup (#206) ([`f6ce5d7`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f6ce5d7c6882333557d41db4adc451c9283355c9))
 
 ### Bug Fixes
+* Add Windows support to GitHub Actions and skip OCIO tests on Win… (#217) ([`2296179`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/229617933bc9dc3e4ba93b249b264b145a81c5b1))
 * update test_installer.sh permissions to 755 (#215) ([`5bd1a70`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/5bd1a7000527c7ac080c2ac766a3892ae1e40674))
 * Fix individual installer build process (#210) ([`3167647`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/31676473833a41ced78145b5ef95d94f380e616b))
 * maintain backward compatibility with NUKE_ADAPTOR_NUKE_EXECUTABLE (#213) ([`eeb1390`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/eeb13906c7923dfe546196dccf2d9326c86d7def))
