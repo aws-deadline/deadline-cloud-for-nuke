@@ -44,7 +44,7 @@ class SceneSettingsWidget(QWidget):
 
         self.write_node_box = QComboBox(self)
         self._rebuild_write_node_drop_down()
-        lyt.addWidget(QLabel("Write Nodes"), 0, 0)
+        lyt.addWidget(QLabel("Write nodes"), 0, 0)
         lyt.addWidget(self.write_node_box, 0, 1, 1, -1)
 
         self.views_box = QComboBox(self)
@@ -52,32 +52,38 @@ class SceneSettingsWidget(QWidget):
         lyt.addWidget(QLabel("Views"), 1, 0)
         lyt.addWidget(self.views_box, 1, 1, 1, -1)
 
-        self.frame_override_chck = QCheckBox("Override Frame Range", self)
+        self.frame_override_chck = QCheckBox("Override frame range", self)
         self.frame_override_txt = QLineEdit(self)
         lyt.addWidget(self.frame_override_chck, 2, 0)
         lyt.addWidget(self.frame_override_txt, 2, 1, 1, -1)
         self.frame_override_chck.stateChanged.connect(self.activate_frame_override_changed)
 
-        self.proxy_mode_check = QCheckBox("Use Proxy Mode", self)
+        self.proxy_mode_check = QCheckBox("Use proxy mode", self)
         lyt.addWidget(self.proxy_mode_check, 3, 0)
 
-        self.timeout_checkbox = QCheckBox("Use Timeouts", self)
+        self.continue_on_error_check = QCheckBox("Continue on error", self)
+        self.continue_on_error_check.setToolTip(
+            "Allow Nuke to continue rendering when it encounters non-fatal errors in the graph"
+        )
+        lyt.addWidget(self.continue_on_error_check, 4, 0)
+
+        self.timeout_checkbox = QCheckBox("Use timeouts", self)
         self.timeout_checkbox.setChecked(True)
         self.timeout_checkbox.clicked.connect(self.activate_timeout_changed)
         self.timeout_checkbox.setToolTip(
             "Set a maximum duration for actions from this job. See AWS Deadline Cloud documentation to learn more"
         )
-        lyt.addWidget(self.timeout_checkbox, 4, 0)
+        lyt.addWidget(self.timeout_checkbox, 5, 0)
         self.timeouts_subtext = QLabel("Set a maximum duration for actions from this job")
         self.timeouts_subtext.setStyleSheet("font-style: italic")
-        lyt.addWidget(self.timeouts_subtext, 4, 1, 1, -1)
+        lyt.addWidget(self.timeouts_subtext, 5, 1, 1, -1)
 
         self.timeouts_box = QGroupBox()
         timeouts_lyt = QGridLayout(self.timeouts_box)
-        lyt.addWidget(self.timeouts_box, 5, 0, 1, -1)
+        lyt.addWidget(self.timeouts_box, 6, 0, 1, -1)
 
-        self.gizmos_checkbox = QCheckBox("Include Gizmos In Job Bundle", self)
-        lyt.addWidget(self.gizmos_checkbox, 6, 0)
+        self.gizmos_checkbox = QCheckBox("Include gizmos in job bundle", self)
+        lyt.addWidget(self.gizmos_checkbox, 7, 0)
 
         def create_timeout_row(label, tooltip, row):
             qlabel = QLabel(label)
@@ -106,21 +112,21 @@ class SceneSettingsWidget(QWidget):
                 timeout_box.valueChanged.connect(indicate_is_valid_callback)
 
         self.on_run_timeouts = create_timeout_row(
-            label="Render Task Timeout",
+            label="Render task timeout",
             tooltip="Maximum duration of each action which performs a render. Default is 6 days.",
             row=0,
         )
         hookup_zero_callback(self.on_run_timeouts)
 
         self.on_enter_timeouts = create_timeout_row(
-            label="Setup Timeout",
+            label="Setup timeout",
             tooltip="Maximum duration of each action which sets up the job for rendering, such as scene load. Default is 1 day.",
             row=1,
         )
         hookup_zero_callback(self.on_enter_timeouts)
 
         self.on_exit_timeouts = create_timeout_row(
-            label="Teardown Timeout",
+            label="Teardown timeout",
             tooltip="Maximum duration of action which tears down the setup required for rendering. Default is 1 hour.",
             row=2,
         )
@@ -128,11 +134,11 @@ class SceneSettingsWidget(QWidget):
 
         if self.developer_options:
             self.include_adaptor_wheels = QCheckBox(
-                "Developer Option: Include Adaptor Wheels", self
+                "Developer option: Include adaptor wheels", self
             )
-            lyt.addWidget(self.include_adaptor_wheels, 7, 0, 1, 2)
+            lyt.addWidget(self.include_adaptor_wheels, 8, 0, 1, 2)
 
-        lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 7, 0)
+        lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 9, 0)
 
     def indicate_if_valid(self, timeout_boxes: tuple[QLabel, QSpinBox, QSpinBox, QSpinBox]):
         if (
@@ -178,7 +184,7 @@ class SceneSettingsWidget(QWidget):
 
     def _rebuild_write_node_drop_down(self) -> None:
         self.write_node_box.clear()
-        self.write_node_box.addItem("All Write Nodes", None)
+        self.write_node_box.addItem("All write nodes", None)
         for write_node in sorted(
             find_all_write_nodes(), key=lambda write_node: write_node.fullName()
         ):
@@ -187,7 +193,7 @@ class SceneSettingsWidget(QWidget):
 
     def _rebuild_views_drop_down(self) -> None:
         self.views_box.clear()
-        self.views_box.addItem("All Views", "")
+        self.views_box.addItem("All views", "")
         for view in sorted(nuke.views()):
             self.views_box.addItem(view, view)
 
@@ -223,6 +229,7 @@ class SceneSettingsWidget(QWidget):
             self.views_box.setCurrentIndex(0)
 
         self.proxy_mode_check.setChecked(settings.is_proxy_mode)
+        self.continue_on_error_check.setChecked(settings.continue_on_error)
 
         self.timeout_checkbox.setChecked(settings.timeouts_enabled)
 
@@ -255,6 +262,7 @@ class SceneSettingsWidget(QWidget):
         settings.write_node_selection = self.write_node_box.currentData()
         settings.view_selection = self.views_box.currentData()
         settings.is_proxy_mode = self.proxy_mode_check.isChecked()
+        settings.continue_on_error = self.continue_on_error_check.isChecked()
 
         settings.timeouts_enabled = self.timeout_checkbox.isChecked()
         settings.on_run_timeout_seconds = self.on_run_timeout_seconds
