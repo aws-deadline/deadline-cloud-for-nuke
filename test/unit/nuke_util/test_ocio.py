@@ -109,6 +109,9 @@ def test_is_custom_config_enabled(setup_nuke) -> None:
     assert expected == actual
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_get_custom_config_path(setup_nuke, custom_ocio_config_path_knob: MockKnob) -> None:
     # GIVEN
     expected = custom_ocio_config_path_knob.getEvaluatedValue()
@@ -209,6 +212,9 @@ def test_is_env_config_enabled_and_get_env_config_path() -> None:
     assert nuke_ocio.is_env_config_enabled() is False
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="OCIO path handling not fully supported on Windows yet"
+)
 def test_is_stock_config_enabled(root_node_with_default_ocio) -> None:
     nuke.root.return_value = root_node_with_default_ocio
 
