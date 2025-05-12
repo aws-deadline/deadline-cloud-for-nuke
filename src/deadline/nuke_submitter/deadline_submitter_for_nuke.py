@@ -25,22 +25,13 @@ try:
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
 except ImportError:
-    try:
-        # For Nuke 13-15
-        from PySide2.QtCore import Qt  # pylint: disable=import-error
-        from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
-            QApplication,
-            QMainWindow,
-            QMessageBox,
-        )
-    except ImportError:
-        # Fallback for older versions
-        from PySide.QtCore import Qt  # pylint: disable=import-error
-        from PySide.QtGui import (
-            QApplication,
-            QMainWindow,
-            QMessageBox,
-        )  # pylint: disable=import-error
+    # For Nuke 13-15
+    from PySide2.QtCore import Qt  # pylint: disable=import-error
+    from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
+        QApplication,
+        QMainWindow,
+        QMessageBox,
+    )
 
 from ._version import version, version_tuple as adaptor_version_tuple
 from .assets import (

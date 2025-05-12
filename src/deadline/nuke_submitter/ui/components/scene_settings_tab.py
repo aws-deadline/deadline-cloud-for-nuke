@@ -24,38 +24,21 @@ try:
         QSpinBox,
     )
 except ImportError:
-    try:
-        # For Nuke 13-15
-        from PySide2.QtCore import Qt  # type: ignore
-        from PySide2.QtWidgets import (  # type: ignore
-            QCheckBox,
-            QComboBox,
-            QGridLayout,
-            QGroupBox,
-            QLabel,
-            QLineEdit,
-            QMessageBox,
-            QSizePolicy,
-            QSpacerItem,
-            QWidget,
-            QSpinBox,
-        )
-    except ImportError:
-        # Fallback for older versions
-        from PySide.QtCore import Qt  # type: ignore
-        from PySide.QtGui import (  # type: ignore
-            QCheckBox,
-            QComboBox,
-            QGridLayout,
-            QGroupBox,
-            QLabel,
-            QLineEdit,
-            QMessageBox,
-            QSizePolicy,
-            QSpacerItem,
-            QWidget,
-            QSpinBox,
-        )
+    # For Nuke 13-15
+    from PySide2.QtCore import Qt  # type: ignore
+    from PySide2.QtWidgets import (  # type: ignore
+        QCheckBox,
+        QComboBox,
+        QGridLayout,
+        QGroupBox,
+        QLabel,
+        QLineEdit,
+        QMessageBox,
+        QSizePolicy,
+        QSpacerItem,
+        QWidget,
+        QSpinBox,
+    )
 
 from ...assets import find_all_write_nodes
 from ...data_classes import RenderSubmitterUISettings
