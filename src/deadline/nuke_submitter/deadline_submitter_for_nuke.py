@@ -18,12 +18,20 @@ from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: 
 )
 from deadline.nuke_util import ocio as nuke_ocio
 from nuke import Node
-from PySide2.QtCore import Qt  # pylint: disable=import-error
-from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
-    QApplication,
-    QMainWindow,
-    QMessageBox,
-)
+
+# Handle different Qt imports for different Nuke versions
+try:
+    # For Nuke 16+
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
+except ImportError:
+    # For Nuke 13-15
+    from PySide2.QtCore import Qt  # pylint: disable=import-error
+    from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
+        QApplication,
+        QMainWindow,
+        QMessageBox,
+    )
 
 from ._version import version, version_tuple as adaptor_version_tuple
 from .assets import (

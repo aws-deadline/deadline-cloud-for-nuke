@@ -31,11 +31,22 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 import nuke
-from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
-    QApplication,
-    QFileDialog,
-    QMainWindow,
-)
+
+# Handle different Qt imports for different Nuke versions
+try:
+    # For Nuke 16+
+    from PySide6.QtWidgets import (
+        QApplication,
+        QFileDialog,
+        QMainWindow,
+    )
+except ImportError:
+    # For Nuke 13-15
+    from PySide2.QtWidgets import (  # pylint: disable=import-error; type: ignore
+        QApplication,
+        QFileDialog,
+        QMainWindow,
+    )
 
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs import submit_job_to_deadline_dialog
