@@ -1,3 +1,10 @@
+## 0.18.10 (2025-05-17)
+
+
+### Features
+* Add support for Nuke 16 (#219) ([`f1fc0a1`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f1fc0a12bea583688064aff301a1400ab1bb965f))
+
+
 ## 0.18.9 (2025-04-14)
 
 
