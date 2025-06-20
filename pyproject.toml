@@ -99,7 +99,12 @@ module = [
   "PyOpenColorIO.*",
   "qtpy.*",
   "test.squish.*",
-  "shared.scripts.*"
+  "shared.scripts.*",
+  "squish",
+  "names",
+  "config",
+  "PIL.*",
+  "botocore.*"
 ]
 ignore_missing_imports = true
 
