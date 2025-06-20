@@ -4,7 +4,7 @@ import os
 
 home_dir = str(Path.home())
 
-profile_name = os.environ.get('AWS_PROFILE', '(default)')
+profile_name = os.environ.get("AWS_PROFILE", "(default)")
 
 farm_name = "Nuke Submitter Squish Farm"
 farm_desc = "Squish Automation Test Framework"

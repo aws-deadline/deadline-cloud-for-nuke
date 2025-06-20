@@ -7,38 +7,46 @@ from deadline.job_attachments.download import OutputDownloader
 from deadline.job_attachments.models import JobAttachmentS3Settings
 import time
 
+
 def get_farm_id_by_name():
     """Get farm ID by name from config"""
-    
+
     farms = list_farms()
     print(farms)
-    farm_id = next((farm['farmId'] for farm in farms["farms"] if farm['displayName'] == config.farm_name), None)
-    
+    farm_id = next(
+        (farm["farmId"] for farm in farms["farms"] if farm["displayName"] == config.farm_name), None
+    )
+
     return farm_id
+
 
 def get_queue_id_by_name(farm_id=None):
     """Get queue ID by name from config"""
 
     queues = list_queues(farmId=farm_id)
     print(queues)
-    queue_id = next((queue['queueId'] for queue in queues["queues"] if queue['displayName'] == config.queue_name), None)
+    queue_id = next(
+        (
+            queue["queueId"]
+            for queue in queues["queues"]
+            if queue["displayName"] == config.queue_name
+        ),
+        None,
+    )
 
     return queue_id
+
 
 def get_latest_job_id(farm_id=None, queue_id=None):
     """Get latest job from queue"""
     jobs = list_jobs(farmId=farm_id, queueId=queue_id)
     if not jobs["jobs"]:
         return None
-        
+
     # Sort jobs by createdAt in descending order (newest first)
-    sorted_jobs = sorted(
-        jobs["jobs"], 
-        key=lambda x: x["createdAt"],
-        reverse=True
-    )
+    sorted_jobs = sorted(jobs["jobs"], key=lambda x: x["createdAt"], reverse=True)
     latest_job_id = sorted_jobs[0]["jobId"]
-    
+
     print("\n=== Latest Job ID Information ===")
     print(latest_job_id)
     return latest_job_id
@@ -50,30 +58,30 @@ def get_latest_job(farm_id=None, queue_id=None, job_id=None):
         deadline = get_boto3_client("deadline")
         job = deadline.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
 
-        storage_profile_id = job.get('storageProfileId')
+        storage_profile_id = job.get("storageProfileId")
 
         storage_profile = deadline.get_storage_profile(
-            farmId=farm_id,
-            storageProfileId=storage_profile_id
+            farmId=farm_id, storageProfileId=storage_profile_id
         )
-        
+
         # Assert it's the macOS profile
-        print(storage_profile['osFamily'])
-        assert storage_profile['osFamily'] == 'MACOS', "Storage profile is not macOS"
+        print(storage_profile["osFamily"])
+        assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
         print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
 
         print("Verified that default farm/queue/storage is selected")
-        
+
         print("\n=== Latest Job Information ===")
         print(job)
         return job
     except ClientError as e:
-        error_code = e.response['Error']['Code']
-        if error_code == 'ResourceNotFoundException':
+        error_code = e.response["Error"]["Code"]
+        if error_code == "ResourceNotFoundException":
             print(f"Job not found with ID: {job_id}")
         else:
             print(f"Error getting job: {e}")
         return None
+
 
 def verify_job_in_queue(farm_id=None, queue_id=None, job_id=None):
     latest_job_id = get_latest_job_id(farm_id=farm_id, queue_id=queue_id)
@@ -81,40 +89,44 @@ def verify_job_in_queue(farm_id=None, queue_id=None, job_id=None):
         return True
     else:
         return False
-    
-def wait_for_job_completion(farm_id=None, queue_id=None, job_id=None, timeout_seconds=600, poll_interval=10):
+
+
+def wait_for_job_completion(
+    farm_id=None, queue_id=None, job_id=None, timeout_seconds=600, poll_interval=10
+):
     """
     Wait for a job to complete (succeed or fail) with timeout and a poll interval (seconds).
-    
+
     Returns:
         tuple: (success, final_status)
         - success: True if job completed (either succeeded or failed), False if timed out
         - final_status: Final job status ('SUCCEEDED', 'FAILED', etc.)
     """
     start_time = time.time()
-    
+
     while True:
         # Check if we've exceeded timeout
         if time.time() - start_time > timeout_seconds:
             print(f"Timeout waiting for job {job_id} to complete")
             return False, "TIMEOUT"
-            
+
         # Get current job status
         job = get_latest_job(farm_id, queue_id, job_id)
         if not job:
             print(f"Could not get job status for {job_id}")
             return False, "ERROR"
-            
-        status = job.get('taskRunStatus')
+
+        status = job.get("taskRunStatus")
         print(f"Current job status: {status}")
-        
+
         # Check if job has reached a terminal state
-        if status in ['SUCCEEDED', 'FAILED', 'CANCELED']:
+        if status in ["SUCCEEDED", "FAILED", "CANCELED"]:
             print(f"Job {job_id} completed with status: {status}")
             return True, status
-            
+
         # Wait before checking again
         time.sleep(poll_interval)
+
 
 def download_output(farm_id=None, queue_id=None, job_id=None):
     """Download job outputs after verifying job completion."""
@@ -123,7 +135,7 @@ def download_output(farm_id=None, queue_id=None, job_id=None):
         job_complete, job_status = wait_for_job_completion(farm_id, queue_id, job_id)
         if not job_complete or job_status != "SUCCEEDED":
             return False, f"Job did not complete successfully: {job_status}"
-        
+
         # Get queue info
         deadline = get_boto3_client("deadline")
         queue = deadline.get_queue(farmId=farm_id, queueId=queue_id)
@@ -133,10 +145,7 @@ def download_output(farm_id=None, queue_id=None, job_id=None):
 
         # Create downloader
         downloader = OutputDownloader(
-            s3_settings=s3_settings,
-            farm_id=farm_id,
-            queue_id=queue_id,
-            job_id=job_id
+            s3_settings=s3_settings, farm_id=farm_id, queue_id=queue_id, job_id=job_id
         )
 
         # Get output paths
@@ -146,7 +155,9 @@ def download_output(farm_id=None, queue_id=None, job_id=None):
         if output_paths:
             # Download output files
             download_summary = downloader.download_job_output()
-            print(f"Downloaded {download_summary.processed_files} files totaling {download_summary.processed_bytes} bytes")
+            print(
+                f"Downloaded {download_summary.processed_files} files totaling {download_summary.processed_bytes} bytes"
+            )
 
     except Exception as e:
         error_msg = f"Error downloading outputs: {str(e)}"

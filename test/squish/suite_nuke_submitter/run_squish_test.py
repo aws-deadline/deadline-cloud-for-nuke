@@ -2,16 +2,17 @@ import os
 import subprocess
 from shared.scripts import api_helpers, verification_helpers, cleanup_helpers
 
+
 def run_squish_command(command):
     """
     Execute a Squish test runner command and extract job ID from output.
-        
+
     Returns:
         tuple: (success, job_id)
             - success (bool): True if command executed successfully (return code 0)
-            - job_id (str or None): Extracted job ID from output if found, None otherwise      
+            - job_id (str or None): Extracted job ID from output if found, None otherwise
     """
-    
+
     try:
         result = subprocess.run(
             command,
@@ -19,7 +20,7 @@ def run_squish_command(command):
             check=False,  # Don't raise exception on non-zero exit
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         )
 
         # Captures and displays both stdout and stderr from the command.
@@ -32,7 +33,7 @@ def run_squish_command(command):
 
         # Parse output to find job ID from test.log messages
         job_id = None
-        lines = result.stdout.split('\n')
+        lines = result.stdout.split("\n")
         for line in lines:
             if "Found job ID:" in line:
                 # Extract job ID from the log message
@@ -43,7 +44,8 @@ def run_squish_command(command):
     except Exception as e:
         print(f"Error running squish command: {e}")
         return False
-    
+
+
 def test_basic_workflow():
     deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH")
     squish_command = f"/Applications/Squish\\ for\\ Qt\\ 8.1.0/bin/squishrunner --testsuite {deadline_nuke_path}/test/squish/suite_nuke_submitter --testcase basic_workflow_gui --local"
@@ -51,15 +53,15 @@ def test_basic_workflow():
     # Exit early if the Squish test failed
     if success is False:
         assert success, "Squish command failed"
-    
+
     # Get the farm ID from configuration
     farm_id = api_helpers.get_farm_id_by_name()
     assert farm_id is not None, "Farm ID not found"
-    
+
     # Get the queue ID from configuration
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
     assert queue_id is not None, "Queue ID not found"
-    
+
     # Get the most recent job ID from the queue
     latest_job_id = api_helpers.get_latest_job_id(farm_id, queue_id)
 
@@ -83,14 +85,17 @@ def test_basic_workflow():
 
     # Verify the rendered image sequence matches expected output
     verification_helpers.verify_image_sequence_rgb_matches(
-        expected_dir=os.environ.get("NUKE_ASSET_ROOT", "")+ "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected",
-        output_dir=os.environ.get("NUKE_ASSET_ROOT", "") + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        start_frame=101,  
-        end_frame=120,   
-        rgb_diff_tolerance=0.1
+        expected_dir=os.environ.get("NUKE_ASSET_ROOT", "")
+        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected",
+        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
+        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
+        start_frame=101,
+        end_frame=120,
+        rgb_diff_tolerance=0.1,
     )
 
     cleanup_helpers.cleanup_output_images(
-        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")+ "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        end_frame=120
+        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
+        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
+        end_frame=120,
     )

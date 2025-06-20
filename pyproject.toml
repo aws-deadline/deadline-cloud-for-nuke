@@ -97,7 +97,9 @@ module = [
   "PySide2.*",
   "PySide6.*",
   "PyOpenColorIO.*",
-  "qtpy.*"
+  "qtpy.*",
+  "test.squish.*",
+  "shared.scripts.*"
 ]
 ignore_missing_imports = true
 
