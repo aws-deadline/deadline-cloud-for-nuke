@@ -73,7 +73,7 @@ def test_basic_workflow():
     job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, latest_job_id)
     latest_job = api_helpers.get_latest_job(farm_id, queue_id, latest_job_id)
 
-    assert job_in_queue == True
+    assert job_in_queue
 
     print("\n=== Latest Job Information ===")
     print(f"Job Info: {latest_job}")
