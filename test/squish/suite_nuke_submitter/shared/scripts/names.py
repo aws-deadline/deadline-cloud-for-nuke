@@ -1,7 +1,59 @@
 # encoding: UTF-8
 
 # from objectmaphelper import *
-
+submit_to_AWS_Deadline_Cloud_SubmitJobToDeadlineDialog = {
+    "type": "SubmitJobToDeadlineDialog",
+    "unnamed": 1,
+    "visible": 1,
+    "windowTitle": "Submit to AWS Deadline Cloud",
+}
+submit_to_AWS_Deadline_Cloud_qt_tabwidget_stackedwidget_QStackedWidget = {
+    "name": "qt_tabwidget_stackedwidget",
+    "type": "QStackedWidget",
+    "visible": 1,
+    "window": submit_to_AWS_Deadline_Cloud_SubmitJobToDeadlineDialog,
+}
+qt_tabwidget_stackedwidget_QScrollArea = {
+    "container": submit_to_AWS_Deadline_Cloud_qt_tabwidget_stackedwidget_QStackedWidget,
+    "type": "QScrollArea",
+    "unnamed": 1,
+    "visible": 1,
+}
+job_Properties_SharedJobPropertiesWidget = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "title": "Job Properties",
+    "type": "SharedJobPropertiesWidget",
+    "unnamed": 1,
+    "visible": 1,
+}
+job_Properties_Name_QLabel = {
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "text": "Name",
+    "type": "QLabel",
+    "unnamed": 1,
+    "visible": 1,
+}
+name_QLineEdit = {
+    "buddy": job_Properties_Name_QLabel,
+    "type": "QLineEdit",
+    "unnamed": 1,
+    "visible": 1,
+}
+job_Properties_Description_QLabel = {
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "text": "Description",
+    "type": "QLabel",
+    "unnamed": 1,
+    "visible": 1,
+}
+job_Properties_Description_QLineEdit = {
+    "aboveWidget": name_QLineEdit,
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "leftWidget": job_Properties_Description_QLabel,
+    "type": "QLineEdit",
+    "unnamed": 1,
+    "visible": 1,
+}
 nukeMainWindow_Foundry_UI_DockMainWindow = {
     "name": "NukeMainWindow",
     "type": "Foundry::UI::DockMainWindow",
@@ -309,6 +361,32 @@ farm_settings_QComboBox_2 = {
     "container": aWS_Deadline_Cloud_workstation_configuration_Farm_settings_QGroupBox,
     "occurrence": 2,
     "type": "QComboBox",
+    "unnamed": 1,
+    "visible": 1,
+}
+open_Recent_Comp_Foundry_UI_Menu = {
+    "title": "Open Recent Comp",
+    "type": "Foundry::UI::Menu",
+    "unnamed": 1,
+    "visible": 1,
+}
+queue_Environment_Conda_JobTemplateGroupLayout = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "name": "Queue Environment: Conda",
+    "type": "_JobTemplateGroupLayout",
+    "visible": 1,
+}
+queue_Environment_Conda_Conda_Packages_QLabel = {
+    "container": queue_Environment_Conda_JobTemplateGroupLayout,
+    "text": "Conda Packages",
+    "type": "QLabel",
+    "unnamed": 1,
+    "visible": 1,
+}
+queue_Environment_Conda_Conda_Packages_QLineEdit = {
+    "container": queue_Environment_Conda_JobTemplateGroupLayout,
+    "leftWidget": queue_Environment_Conda_Conda_Packages_QLabel,
+    "type": "QLineEdit",
     "unnamed": 1,
     "visible": 1,
 }

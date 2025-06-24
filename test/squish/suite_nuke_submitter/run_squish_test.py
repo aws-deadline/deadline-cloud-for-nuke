@@ -3,15 +3,32 @@ import subprocess
 from shared.scripts import api_helpers, verification_helpers, cleanup_helpers
 
 
-def run_squish_command(command):
+def run_squish_command(testcase_name, local=True):
     """
     Execute a Squish test runner command and extract job ID from output.
+
+    Args:
+        testcase_name (str): Name of the test case to run (e.g., "basic_workflow_gui")
+        local (bool): Whether to run the test locally (default: True)
 
     Returns:
         tuple: (success, job_id)
             - success (bool): True if command executed successfully (return code 0)
             - job_id (str or None): Extracted job ID from output if found, None otherwise
     """
+
+    deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH")
+    if not deadline_nuke_path:
+        print("DEADLINE_NUKE_PATH environment variable not set")
+        return False, None
+
+    squish_runner = "/Applications/Squish\\ for\\ Qt\\ 8.1.0/bin/squishrunner"
+    testsuite_path = f"{deadline_nuke_path}/test/squish/suite_nuke_submitter"
+    local_flag = "--local" if local else ""
+
+    command = (
+        f"{squish_runner} --testsuite {testsuite_path} --testcase {testcase_name} {local_flag}"
+    )
 
     try:
         result = subprocess.run(
@@ -31,25 +48,41 @@ def run_squish_command(command):
             print("=== Squish Command Errors ===")
             print(result.stderr)
 
-        # Parse output to find job ID from test.log messages
-        job_id = None
-        lines = result.stdout.split("\n")
-        for line in lines:
-            if "Found job ID:" in line:
-                # Extract job ID from the log message
-                job_id = line.split("Found job ID:")[1].strip()
-                break
+        if result.returncode != 0:
+            print(f"Squish command failed with return code {result.returncode}")
+            return False, None
 
-        return result.returncode == 0, job_id
+        # Check for Squish test failures in the output
+        has_squish_failure = False
+        failure_message = ""
+        lines = result.stdout.split("\n")
+
+        for line in lines:
+            # Look for job ID
+            if "Found job ID:" in line:
+                job_id = line.split("Found job ID:")[1].strip()
+
+            # Check for FAIL or FATAL in the output
+            if "\tFAIL\t" in line or "FAIL " in line:
+                has_squish_failure = True
+                failure_message = line.strip()
+            elif "\tFATAL\t" in line or "FATAL " in line:
+                has_squish_failure = True
+                failure_message = line.strip()
+
+        if has_squish_failure:
+            print(f"Squish test failed: {failure_message}")
+            return False, None
+
+        # Parse output to find job ID from test.log messages
+        return True, job_id
     except Exception as e:
         print(f"Error running squish command: {e}")
         return False
 
 
 def test_basic_workflow():
-    deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH")
-    squish_command = f"/Applications/Squish\\ for\\ Qt\\ 8.1.0/bin/squishrunner --testsuite {deadline_nuke_path}/test/squish/suite_nuke_submitter --testcase basic_workflow_gui --local"
-    success, job_id = run_squish_command(squish_command)
+    success, job_id = run_squish_command("basic_workflow_gui")
     # Exit early if the Squish test failed
     if success is False:
         assert success, "Squish command failed"
@@ -80,8 +113,9 @@ def test_basic_workflow():
     print("\n=== Latest Job Information ===")
     print(f"Job Info: {latest_job}")
 
-    # Download the job's output files
-    api_helpers.download_output(farm_id, queue_id, latest_job_id)
+    # Download the job's output files and assert success
+    download_success = api_helpers.download_output(farm_id, queue_id, latest_job_id)
+    assert download_success, "Failed to download job output files"
 
     # Verify the rendered image sequence matches expected output
     verification_helpers.verify_image_sequence_rgb_matches(
@@ -94,8 +128,9 @@ def test_basic_workflow():
         rgb_diff_tolerance=0.1,
     )
 
-    cleanup_helpers.cleanup_output_images(
+    cleanup_success, cleanup_message = cleanup_helpers.cleanup_output_images(
         output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
         + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        end_frame=120,
     )
+
+    assert cleanup_success, f"Failed to clean up output images: {cleanup_message}"

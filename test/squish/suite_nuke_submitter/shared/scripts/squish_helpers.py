@@ -11,6 +11,20 @@ def launch_nuke():
     test.log("Launched Nuke with Deadline Submitter")
 
 
+def set_job_name(name: str):
+    name_edit = squish.waitForObject(names.name_QLineEdit)
+    name_edit.selectAll()
+    squish.type(name_edit, name)
+    test.log(f"Job name set to {name}")
+
+
+def set_job_description(description: str):
+    description_edit = squish.waitForObject(names.job_Properties_Description_QLineEdit)
+    description_edit.selectAll()
+    squish.type(description_edit, description)
+    test.log(f"Job description set to {description}")
+
+
 def submit_job():
     test.log("Starting job submission")
 
@@ -108,6 +122,15 @@ def configure_aws_profile():
         squish.Qt.LeftButton,
     )
 
+    squish.clickButton(
+        squish.waitForObject(names.aWS_Deadline_Cloud_workstation_configuration_OK_QPushButton)
+    )
+
+
+def configure_storage_profile():
+    squish.clickButton(
+        squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_Settings_QPushButton)
+    )
     squish.mouseClick(
         squish.waitForObject(names.farm_settings_QComboBox_2),
         78,
@@ -122,7 +145,6 @@ def configure_aws_profile():
         squish.Qt.NoModifier,
         squish.Qt.LeftButton,
     )
-
     squish.clickButton(
         squish.waitForObject(names.aWS_Deadline_Cloud_workstation_configuration_OK_QPushButton)
     )

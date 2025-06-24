@@ -20,7 +20,7 @@ def get_farm_id_by_name():
     return farm_id
 
 
-def get_queue_id_by_name(farm_id=None):
+def get_queue_id_by_name(farm_id):
     """Get queue ID by name from config"""
 
     queues = list_queues(farmId=farm_id)
@@ -37,7 +37,7 @@ def get_queue_id_by_name(farm_id=None):
     return queue_id
 
 
-def get_latest_job_id(farm_id=None, queue_id=None):
+def get_latest_job_id(farm_id, queue_id):
     """Get latest job from queue"""
     jobs = list_jobs(farmId=farm_id, queueId=queue_id)
     if not jobs["jobs"]:
@@ -52,7 +52,7 @@ def get_latest_job_id(farm_id=None, queue_id=None):
     return latest_job_id
 
 
-def get_latest_job(farm_id=None, queue_id=None, job_id=None):
+def get_latest_job(farm_id, queue_id, job_id):
     # Returns the job details if found, None otherwise
     try:
         deadline = get_boto3_client("deadline")
@@ -83,7 +83,7 @@ def get_latest_job(farm_id=None, queue_id=None, job_id=None):
         return None
 
 
-def verify_job_in_queue(farm_id=None, queue_id=None, job_id=None):
+def verify_job_in_queue(farm_id, queue_id, job_id):
     latest_job_id = get_latest_job_id(farm_id=farm_id, queue_id=queue_id)
     if latest_job_id == job_id:
         return True
@@ -91,9 +91,7 @@ def verify_job_in_queue(farm_id=None, queue_id=None, job_id=None):
         return False
 
 
-def wait_for_job_completion(
-    farm_id=None, queue_id=None, job_id=None, timeout_seconds=600, poll_interval=10
-):
+def wait_for_job_completion(farm_id, queue_id, job_id, timeout_seconds=600, poll_interval=10):
     """
     Wait for a job to complete (succeed or fail) with timeout and a poll interval (seconds).
 
@@ -128,13 +126,14 @@ def wait_for_job_completion(
         time.sleep(poll_interval)
 
 
-def download_output(farm_id=None, queue_id=None, job_id=None):
+def download_output(farm_id, queue_id, job_id):
     """Download job outputs after verifying job completion."""
     try:
         # Wait for job completion
         job_complete, job_status = wait_for_job_completion(farm_id, queue_id, job_id)
         if not job_complete or job_status != "SUCCEEDED":
-            return False, f"Job did not complete successfully: {job_status}"
+            print(f"Job did not complete successfully: {job_status}")
+            return False
 
         # Get queue info
         deadline = get_boto3_client("deadline")
@@ -158,8 +157,9 @@ def download_output(farm_id=None, queue_id=None, job_id=None):
             print(
                 f"Downloaded {download_summary.processed_files} files totaling {download_summary.processed_bytes} bytes"
             )
+        return True
 
     except Exception as e:
         error_msg = f"Error downloading outputs: {str(e)}"
         print(error_msg)
-        return False, error_msg
+        return False
