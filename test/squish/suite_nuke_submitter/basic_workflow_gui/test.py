@@ -34,11 +34,8 @@ def main():
         test.fatal("NUKE_ASSET_ROOT environment variable not set")
         return
 
-    script_path = os.path.join(
-        nuke_asset_path,
-        "nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/scripts/nukeSubmitter_v02_nuke_default_one_write_node.nk",
-    )
-    test.log(f"Using script path: {script_path}")
+    NUKE_TEST_SCRIPT_PATH = "nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/scripts/nukeSubmitter_v02_nuke_default_one_write_node.nk"
+    script_path = os.path.join(nuke_asset_path, NUKE_TEST_SCRIPT_PATH)
 
     squish.setFocus(file_path_edit)
     squish.type(file_path_edit, script_path)
