@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from shared.scripts import api_helpers, verification_helpers, cleanup_helpers
 
 
@@ -16,7 +17,6 @@ def run_squish_command(testcase_name, local=True):
             - success (bool): True if command executed successfully (return code 0)
             - job_id (str or None): Extracted job ID from output if found, None otherwise
     """
-
     deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH")
     if not deadline_nuke_path:
         print("DEADLINE_NUKE_PATH environment variable not set")
@@ -82,6 +82,10 @@ def run_squish_command(testcase_name, local=True):
 
 
 def test_basic_workflow():
+    assert (
+        sys.platform == "darwin"
+    ), "Deadline Nuke Squish Tests are only supported on macOS currently."
+
     success, job_id = run_squish_command("basic_workflow_gui")
     # Exit early if the Squish test failed
     if success is False:

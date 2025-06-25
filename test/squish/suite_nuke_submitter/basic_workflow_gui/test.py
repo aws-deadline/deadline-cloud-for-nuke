@@ -29,6 +29,7 @@ def main():
     squish.activateItem(squish.waitForObjectItem(names.file_Foundry_UI_Menu, "Open Comp..."))
 
     file_path_edit = squish.waitForObject(names.script_to_open_FilePathEdit)
+    file_path_edit.selectAll()
     nuke_asset_path = os.environ.get("NUKE_ASSET_ROOT")
     if not nuke_asset_path:
         test.fatal("NUKE_ASSET_ROOT environment variable not set")

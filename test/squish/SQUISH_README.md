@@ -30,7 +30,7 @@ NUKE_PATH=/Users/user/DeadlineCloudForNukeSubmitter
 ### Set Required Environment Variables
 The following environment variables are required for running the tests:
 ```sh
-export AWS_PROFILE=<ada profile name>
+export AWS_PROFILE=<profile name>
 export DEADLINE_NUKE_PATH=/path/to/deadline-cloud-for-nuke
 export NUKE_ASSET_ROOT=/path/to/nuke/assets
 ```
@@ -53,9 +53,29 @@ The following Deadline Cloud resources are needed in order to run `tst_verify_se
 
 ## Available Tests
 ### Basic Workflow Test
-The `basic_workflow` test provides comprehensive end-to-end validation of the basic Nuke submitter workflow. This test consists of two main parts: First, the basic_workflow_gui Squish test automates the UI interaction by launching Nuke, opening a pre-configured script file with a write node, configuring AWS profile and resources, submitting a job to Deadline Cloud, and closing Nuke. Second, the test performs backend validation by verifying the job was successfully submitted to the correct queue, monitoring job completion, downloading the rendered output files, comparing them against reference images to ensure visual accuracy, and handling the cleanup of resourcse.
+The `basic_workflow` test provides comprehensive end-to-end validation of the basic Nuke submitter workflow. This test consists of two main parts: First, the basic_workflow_gui Squish test automates the UI interaction by launching Nuke, opening a pre-configured script file with a write node, configuring AWS profile and resources, submitting a job to Deadline Cloud, and closing Nuke. Second, the test performs backend validation by verifying the job was successfully submitted to the correct queue, monitoring job completion, downloading the rendered output files, comparing them against reference images to ensure visual accuracy, and handling the cleanup of resource.
+
 
 ## Running Tests
 ```sh
 hatch run squish:test
 ```
+
+## Test Results Interpretation
+### Successful vs. Unsuccessful Tests
+A successful test will be indicated by pytest's green message saying that the test has passed.
+
+An unsuccessful test will show:
+- FAIL or FATAL messages in the Squish output
+- Error messages like "Job ID from Squish execution does not match the latest job ID"
+- Assertion failures for squish commands, job submission, download, or job verification steps
+
+### Image Verification Failures
+When image verification fails, you can check the output images located at `$NUKE_ASSET_ROOT/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output` 
+
+These output images can be compared with the expected reference images at:
+`$NUKE_ASSET_ROOT/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected`.
+
+The test compares RGB values across the frames and calculates an average difference. A difference exceeding the tolerance (default: 0.1) will cause the test to fail.
+
+In the case changes are made to the Nuke script, such as adding color correction nodes, applying visual effects, or modifying render settings, the output images will likely differ from the reference images. When these changes are intentional, you should update the reference images to reflect the new expected output.
