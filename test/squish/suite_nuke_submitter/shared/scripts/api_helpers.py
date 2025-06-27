@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 from shared.scripts import config
 from deadline.client.api import get_boto3_client, list_farms, list_queues, list_jobs

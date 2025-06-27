@@ -1,4 +1,4 @@
-# encoding: UTF-8
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 # from objectmaphelper import *
 submit_to_AWS_Deadline_Cloud_SubmitJobToDeadlineDialog = {

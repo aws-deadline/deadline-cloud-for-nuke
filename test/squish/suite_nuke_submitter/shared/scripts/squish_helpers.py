@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # mypy: disable-error-code="attr-defined"
 import squish
 import test
