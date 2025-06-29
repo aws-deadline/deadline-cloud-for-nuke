@@ -171,7 +171,19 @@
                         <compareText logic="equals" text="${installscope}" value="user"/>
                     </conditionRuleList>
                     <actionList>
-                        <setInstallerVariable name="installdirprefix" value="${user_home_directory}"/>
+                        <if>
+                            <conditionRuleList>
+                                <platformTest type="osx"/>
+                            </conditionRuleList>
+                            <actionList>
+                                <!-- macOS: Install to user's .nuke directory -->
+                                <setInstallerVariable name="installdir" value="${user_home_directory}/.nuke"/>
+                            </actionList>
+                            <elseActionList>
+                                <!-- Windows/Linux: Use standard user path -->
+                                <setInstallerVariable name="installdirprefix" value="${user_home_directory}"/>
+                            </elseActionList>
+                        </if>
                     </actionList>
                     <elseActionList>
                         <setInstallerVariable name="installdirprefix" value="${platform_install_prefix}"/>
