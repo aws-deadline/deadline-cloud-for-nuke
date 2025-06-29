@@ -39,6 +39,10 @@ test = "pytest --no-cov {args:test/*/integ}"
 [envs.e2e.scripts]
 test = "pytest --no-cov {args:test/*/e2e}"
 
+[envs.squish.scripts]
+deps = "pip install numpy"
+test = "pytest run_squish_test.py::test_basic_workflow"
+
 [envs.release]
 detached = true
 
