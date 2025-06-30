@@ -4,6 +4,7 @@ import squish
 import test
 import names
 import config
+import os
 
 
 def launch_nuke():
@@ -11,18 +12,29 @@ def launch_nuke():
     test.log("Launched Nuke with Deadline Submitter")
 
 
-def set_job_name(name: str):
-    name_edit = squish.waitForObject(names.name_QLineEdit)
-    name_edit.selectAll()
-    squish.type(name_edit, name)
-    test.log(f"Job name set to {name}")
+def open_nuke_script(test_sample_name: str, script_name: str):
+    squish.activateItem(squish.waitForObjectItem(names.o_QMenuBar, "File"))
+    squish.activateItem(squish.waitForObjectItem(names.file_Foundry_UI_Menu, "Open Comp..."))
 
+    file_path_edit = squish.waitForObject(names.script_to_open_FilePathEdit)
+    file_path_edit.selectAll()
+    nuke_asset_path = os.environ.get("NUKE_ASSET_ROOT")
+    if not nuke_asset_path:
+        test.fatal("NUKE_ASSET_ROOT environment variable not set")
+        return
 
-def set_job_description(description: str):
-    description_edit = squish.waitForObject(names.job_Properties_Description_QLineEdit)
-    description_edit.selectAll()
-    squish.type(description_edit, description)
-    test.log(f"Job description set to {description}")
+    script_path = os.path.join(
+        nuke_asset_path, "nuke_test_samples", test_sample_name, "scripts", script_name
+    )
+    test.log(f"Using script path: {script_path}")
+
+    squish.setFocus(file_path_edit)
+    squish.type(file_path_edit, script_path)
+    squish.type(file_path_edit, "<Backspace>")
+    squish.type(file_path_edit, "k")
+
+    # Opens the nuke script file
+    squish.clickButton(squish.waitForObject(names.script_to_open_Open_QPushButton))
 
 
 def submit_job():
@@ -55,6 +67,54 @@ def open_nuke_submitter_gui():
         squish.waitForObjectItem(names.aWS_Deadline_Foundry_UI_Menu, "Submit to Deadline Cloud")
     )
     test.log("Opened the Nuke Submitter Console")
+
+
+def set_job_name(name: str):
+    name_edit = squish.waitForObject(names.name_QLineEdit)
+    name_edit.selectAll()
+    squish.type(name_edit, name)
+    test.log(f"Job name set to {name}")
+
+
+def set_job_description(description: str):
+    description_edit = squish.waitForObject(names.job_Properties_Description_QLineEdit)
+    description_edit.selectAll()
+    squish.type(description_edit, description)
+    test.log(f"Job description set to {description}")
+
+
+def set_max_retries(retries: int):
+    max_retries_edit = squish.waitForObject(names.job_Properties_qt_spinbox_lineedit_QLineEdit_3)
+    max_retries_edit.selectAll()
+    squish.type(max_retries_edit, str(retries))
+    test.log(f"Replaced max retries with {retries}")
+
+
+def set_max_failed_tasks(failed_tasks: int):
+    max_failed_tasks_edit = squish.waitForObject(
+        names.job_Properties_qt_spinbox_lineedit_QLineEdit_2
+    )
+    max_failed_tasks_edit.selectAll()
+    squish.type(max_failed_tasks_edit, str(failed_tasks))
+    test.log(f"Replaced max failed tasks with {failed_tasks}")
+
+
+def set_priority(priority: int):
+    priority_edit = squish.waitForObject(names.job_Properties_qt_spinbox_lineedit_QLineEdit)
+    priority_edit.selectAll()
+    squish.type(priority_edit, str(priority))
+    test.log(f"Replaced priority with {priority}")
+
+
+def set_continue_on_error():
+    squish.clickTab(
+        squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
+    )
+    if squish.waitForObjectExists(names.continue_on_error_QCheckBox).checked:
+        test.log("Continue on error is already enabled")
+    else:
+        squish.clickButton(squish.waitForObject(names.continue_on_error_QCheckBox))
+        test.log("Enabled continue on error")
 
 
 def configure_aws_profile():
@@ -168,6 +228,19 @@ def check_submission_success():
                 return True, job_id
     else:
         return False, None
+
+
+def check_missing_conda_packages():
+    conda_package_text = str(
+        squish.waitForObject(names.queue_Environment_Conda_Conda_Packages_QLineEdit).text
+    )
+    if conda_package_text != "nuke=16.* nuke-openjd=0.18.*":
+        test.fail("Conda packages are not configured correctly")
+    conda_channel_text = str(
+        squish.waitForObject(names.queue_Environment_Conda_Conda_Channels_QLineEdit).text
+    )
+    if conda_channel_text != "deadline-cloud":
+        test.fail("Conda channels are not configured correctly")
 
 
 def close_nuke():

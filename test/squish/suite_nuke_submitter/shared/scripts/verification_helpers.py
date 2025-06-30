@@ -6,6 +6,7 @@ from PIL import Image
 def verify_image_sequence_rgb_matches(
     expected_dir: str,
     output_dir: str,
+    base_name: str,
     start_frame: int = 101,
     end_frame: int = 120,
     rgb_diff_tolerance: float = 0.1,
@@ -28,7 +29,7 @@ def verify_image_sequence_rgb_matches(
     # Process each frame
     for frame in range(start_frame, end_frame + 1):
         frame_str = f"{frame:04d}"  # e.g. 0101
-        filename = f"nukeTest_output_OCIO_v01.{frame_str}.png"
+        filename = f"{base_name}.{frame_str}.png"
 
         # Open images
         reference_img = Image.open(f"{expected_dir}/{filename}")

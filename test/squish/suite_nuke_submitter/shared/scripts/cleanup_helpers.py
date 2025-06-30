@@ -3,10 +3,7 @@ import glob
 from pathlib import Path
 
 
-def cleanup_output_images(
-    output_dir: str,
-    base_name: str = "nukeTest_output_OCIO_v01",
-) -> tuple[bool, str]:
+def cleanup_output_images(output_dir: str, base_name: str) -> tuple[bool, str]:
     """
     Delete all output images in the specified directory that match the base name.
 

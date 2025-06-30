@@ -39,9 +39,13 @@ test = "pytest --no-cov {args:test/*/integ}"
 [envs.e2e.scripts]
 test = "pytest --no-cov {args:test/*/e2e}"
 
+[envs.squish]
+env-vars = { PYTHONPATH = "{env:PYTHONPATH:}:test/squish/suite_nuke_submitter" }
+
 [envs.squish.scripts]
-deps = "pip install numpy"
-test = "pytest run_squish_test.py::test_basic_workflow"
+deps = "pip install numpy pytest pytest-xdist"
+test = "pytest --override-ini addopts= {args:test/squish/suite_nuke_submitter/run_squish_test.py} -v -n 0"
+
 
 [envs.release]
 detached = true

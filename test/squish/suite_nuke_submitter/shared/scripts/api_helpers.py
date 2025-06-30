@@ -37,42 +37,21 @@ def get_queue_id_by_name(farm_id):
     return queue_id
 
 
-def get_latest_job_id(farm_id, queue_id):
-    """Get latest job from queue"""
-    jobs = list_jobs(farmId=farm_id, queueId=queue_id)
-    if not jobs["jobs"]:
-        return None
-
-    # Sort jobs by createdAt in descending order (newest first)
-    sorted_jobs = sorted(jobs["jobs"], key=lambda x: x["createdAt"], reverse=True)
-    latest_job_id = sorted_jobs[0]["jobId"]
-
-    print("\n=== Latest Job ID Information ===")
-    print(latest_job_id)
-    return latest_job_id
-
-
-def get_latest_job(farm_id, queue_id, job_id):
-    # Returns the job details if found, None otherwise
+def get_job(farm_id, queue_id, job_id, check_storage_profile=False):
+    # Returns the job details if found, None otherwise. This also servers to verify that the default farm/queue and the optional storage is selected.
     try:
         deadline = get_boto3_client("deadline")
         job = deadline.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
 
         storage_profile_id = job.get("storageProfileId")
 
-        storage_profile = deadline.get_storage_profile(
-            farmId=farm_id, storageProfileId=storage_profile_id
-        )
-
-        # Assert it's the macOS profile
-        print(storage_profile["osFamily"])
-        assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
-        print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
-
-        print("Verified that default farm/queue/storage is selected")
-
-        print("\n=== Latest Job Information ===")
-        print(job)
+        if check_storage_profile:
+            storage_profile = deadline.get_storage_profile(
+                farmId=farm_id, storageProfileId=storage_profile_id
+            )
+            print(storage_profile["osFamily"])
+            assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
+            print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
         return job
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
@@ -84,10 +63,38 @@ def get_latest_job(farm_id, queue_id, job_id):
 
 
 def verify_job_in_queue(farm_id, queue_id, job_id):
-    latest_job_id = get_latest_job_id(farm_id=farm_id, queue_id=queue_id)
-    if latest_job_id == job_id:
-        return True
-    else:
+    """
+    Verify if a job with the specified job_id exists in the queue.
+
+    Args:
+        farm_id (str): The ID of the farm
+        queue_id (str): The ID of the queue
+        job_id (str): The ID of the job to check
+
+    Returns:
+        bool: True if the job exists in the queue, False otherwise
+    """
+    try:
+        # Get all jobs in the queue
+        jobs = list_jobs(farmId=farm_id, queueId=queue_id)
+
+        # Check if the jobs list is empty
+        if not jobs or "jobs" not in jobs or not jobs["jobs"]:
+            print(f"No jobs found in queue {queue_id}")
+            return False
+
+        # Check if the job_id exists in the list of jobs
+        job_ids = [job["jobId"] for job in jobs["jobs"]]
+
+        if job_id in job_ids:
+            print(f"Job {job_id} found in queue {queue_id}")
+            return True
+        else:
+            print(f"Job {job_id} not found in queue {queue_id}")
+            return False
+
+    except Exception as e:
+        print(f"Error verifying job in queue: {str(e)}")
         return False
 
 
@@ -109,7 +116,7 @@ def wait_for_job_completion(farm_id, queue_id, job_id, timeout_seconds=600, poll
             return False, "TIMEOUT"
 
         # Get current job status
-        job = get_latest_job(farm_id, queue_id, job_id)
+        job = get_job(farm_id, queue_id, job_id)
         if not job:
             print(f"Could not get job status for {job_id}")
             return False, "ERROR"
