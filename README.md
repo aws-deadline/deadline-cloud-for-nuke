@@ -16,7 +16,7 @@ AWS Deadline Cloud for Nuke is a python package that allows users to create [AWS
 
 This library requires:
 
-1. Nuke 15,
+1. Nuke 15 or 16,
 1. Python 3.9 or higher; and
 1. Linux, Windows, or a macOS operating system.
 
