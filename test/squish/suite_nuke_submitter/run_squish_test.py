@@ -4,6 +4,7 @@ import subprocess
 import sys
 from shared.scripts import api_helpers, verification_helpers, cleanup_helpers
 import pathlib
+import pytest
 
 
 def run_squish_command(testcase_name, local=True):
@@ -101,6 +102,32 @@ def test_valid_environment_variables():
         print(f"✓ {var_name} is valid: {value}")
 
 
+@pytest.fixture
+def cleanup_render_outputs():
+    """Fixture that manages cleanup of rendered image outputs with manual trigger points"""
+    cleanup_queue = []
+
+    def register_cleanup(output_dir: str, base_name: str):
+        """Register a cleanup task"""
+        cleanup_queue.append((output_dir, base_name))
+
+    def execute_cleanup():
+        """Execute all registered cleanups"""
+        while cleanup_queue:
+            output_dir, base_name = cleanup_queue.pop(0)
+            try:
+                success, message = cleanup_helpers.cleanup_output_images(output_dir, base_name)
+                if not success:
+                    raise RuntimeError(f"Cleanup failed: {message}")
+            except Exception as e:
+                raise RuntimeError(f"Cleanup error: {str(e)}")
+
+    yield register_cleanup, execute_cleanup
+
+    # Final cleanup of any remaining items
+    execute_cleanup()
+
+
 def test_invalid_conda_env():
     check_platform()
     success = run_squish_command("invalid_conda_gui")
@@ -114,8 +141,21 @@ def check_platform():
     ), "Deadline Nuke Squish Tests are only supported on macOS currently."
 
 
-def test_basic_workflow():
+def test_basic_workflow(cleanup_render_outputs):
     check_platform()
+
+    NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
+    TEST_SAMPLES_DIR = (
+        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples"
+    )
+    EXPECTED_DIR = f"{TEST_SAMPLES_DIR}/images/expected"
+    OUTPUT_DIR = f"{TEST_SAMPLES_DIR}/images/output"
+    FRAME_RANGE = (101, 120)
+    RGB_TOLERANCE = 0.1
+
+    register_cleanup, _ = cleanup_render_outputs
+    register_cleanup(OUTPUT_DIR, "nukeTest_output_v01")
+
     success, job_id = run_squish_command("basic_workflow_gui")
     # Exit early if the Squish test failed
     if not success:
@@ -144,27 +184,30 @@ def test_basic_workflow():
 
     # Verify the rendered image sequence matches expected output
     verification_helpers.verify_image_sequence_rgb_matches(
-        expected_dir=os.environ.get("NUKE_ASSET_ROOT", "")
-        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected",
-        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
-        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        base_name="nukeTest_output_OCIO_v01",
-        start_frame=101,
-        end_frame=120,
-        rgb_diff_tolerance=0.1,
+        expected_dir=EXPECTED_DIR,
+        output_dir=OUTPUT_DIR,
+        base_name="nukeTest_output_v01",
+        start_frame=FRAME_RANGE[0],
+        end_frame=FRAME_RANGE[1],
+        rgb_diff_tolerance=RGB_TOLERANCE,
     )
 
-    cleanup_success, cleanup_message = cleanup_helpers.cleanup_output_images(
-        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
-        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        base_name="nukeTest_output_OCIO_v01",
-    )
 
-    assert cleanup_success, f"Failed to clean up output images: {cleanup_message}"
-
-
-def test_custom_settings_workflow():
+def test_custom_settings_workflow(cleanup_render_outputs):
     check_platform()
+
+    NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
+    TEST_SAMPLES_DIR = (
+        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples"
+    )
+    EXPECTED_DIR = f"{TEST_SAMPLES_DIR}/images/expected"
+    OUTPUT_DIR = f"{TEST_SAMPLES_DIR}/images/output"
+    FRAME_RANGE = (101, 120)
+    RGB_TOLERANCE = 0.1
+
+    register_cleanup, _ = cleanup_render_outputs
+    register_cleanup(OUTPUT_DIR, "nukeTest_output_v01")
+
     success, job_id = run_squish_command("custom_settings_gui")
     # Exit early if the Squish test failed
     if not success:
@@ -185,40 +228,30 @@ def test_custom_settings_workflow():
     job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
     assert job_in_queue
 
-    latest_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
-    assert latest_job["name"] == "Custom Setting Submission"
-    assert latest_job["description"] == "This test verifies submission with modified settings"
-    assert latest_job["priority"] == 75
-    assert latest_job["maxFailedTasksCount"] == 10
-    assert latest_job["maxRetriesPerTask"] == 3
-    assert latest_job["parameters"]["ContinueOnError"]["string"] == "true"
+    custom_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+    assert custom_job["name"] == "Custom Setting Submission"
+    assert custom_job["description"] == "This test verifies submission with modified settings"
+    assert custom_job["priority"] == 75
+    assert custom_job["maxFailedTasksCount"] == 10
+    assert custom_job["maxRetriesPerTask"] == 3
+    assert custom_job["parameters"]["ContinueOnError"]["string"] == "true"
 
     # Download the job's output files
     api_helpers.download_output(farm_id, queue_id, job_id[0])
 
     # Verify the rendered image sequence matches expected output
     verification_helpers.verify_image_sequence_rgb_matches(
-        expected_dir=os.environ.get("NUKE_ASSET_ROOT", "")
-        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected",
-        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
-        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        base_name="nukeTest_output_OCIO_v01",
-        start_frame=101,
-        end_frame=120,
-        rgb_diff_tolerance=0.1,
+        expected_dir=EXPECTED_DIR,
+        output_dir=OUTPUT_DIR,
+        base_name="nukeTest_output_v01",
+        start_frame=FRAME_RANGE[0],
+        end_frame=FRAME_RANGE[1],
+        rgb_diff_tolerance=RGB_TOLERANCE,
     )
-
-    cleanup_success, cleanup_message = cleanup_helpers.cleanup_output_images(
-        output_dir=os.environ.get("NUKE_ASSET_ROOT", "")
-        + "/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output",
-        base_name="nukeTest_output_OCIO_v01",
-    )
-
-    assert cleanup_success, f"Failed to clean up output images: {cleanup_message}"
 
 
 # Write Node Selection Test
-def test_write_node_selection():
+def test_write_node_selection(cleanup_render_outputs):
     check_platform()
 
     NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
@@ -230,6 +263,7 @@ def test_write_node_selection():
     FRAME_RANGE = (101, 120)
     RGB_TOLERANCE = 0.1
 
+    register_cleanup, execute_cleanup = cleanup_render_outputs
     success, job_ids = run_squish_command("write_node_gui")
 
     # Verify test execution was successful
@@ -256,6 +290,8 @@ def test_write_node_selection():
     download_success = api_helpers.download_output(farm_id, queue_id, single_write_node_id)
     assert download_success, "Failed to download single write node job output"
 
+    register_cleanup(OUTPUT_DIR, "nukeTest_output_v01")
+
     # Verify single write node output
     verification_helpers.verify_image_sequence_rgb_matches(
         expected_dir=EXPECTED_DIR,
@@ -266,11 +302,7 @@ def test_write_node_selection():
         rgb_diff_tolerance=RGB_TOLERANCE,
     )
 
-    # Clean up single write node output
-    cleanup_success, cleanup_message = cleanup_helpers.cleanup_output_images(
-        output_dir=OUTPUT_DIR, base_name="nukeTest_output_v01"
-    )
-    assert cleanup_success, f"Failed to clean up single write node output: {cleanup_message}"
+    execute_cleanup()
 
     # Process multiple write nodes job (most recent job)
     multiple_write_nodes_id = job_ids[1]
@@ -285,6 +317,7 @@ def test_write_node_selection():
 
     # Verify multiple write nodes outputs (two output files)
     for base_name in ["nukeTest_color_correct2", "nukeTest_output_v01"]:
+        register_cleanup(OUTPUT_DIR, base_name)
         verification_helpers.verify_image_sequence_rgb_matches(
             expected_dir=EXPECTED_DIR,
             output_dir=OUTPUT_DIR,
@@ -293,9 +326,3 @@ def test_write_node_selection():
             end_frame=FRAME_RANGE[1],
             rgb_diff_tolerance=RGB_TOLERANCE,
         )
-
-        # Clean up each output
-        cleanup_success, cleanup_message = cleanup_helpers.cleanup_output_images(
-            output_dir=OUTPUT_DIR, base_name=base_name
-        )
-        assert cleanup_success, f"Failed to clean up {base_name} output: {cleanup_message}"

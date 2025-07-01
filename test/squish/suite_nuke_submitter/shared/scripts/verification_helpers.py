@@ -18,6 +18,7 @@ def verify_image_sequence_rgb_matches(
     Args:
         expected_dir: Directory containing expected images
         output_dir: Directory containing output images
+        base_name: Base name of the image files to verify
         start_frame: First frame number
         end_frame: Last frame number
         rgb_diff_tolerance: Maximum allowed RGB difference

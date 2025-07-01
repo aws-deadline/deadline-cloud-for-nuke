@@ -79,7 +79,7 @@ def verify_job_in_queue(farm_id, queue_id, job_id):
         jobs = list_jobs(farmId=farm_id, queueId=queue_id)
 
         # Check if the jobs list is empty
-        if not jobs or "jobs" not in jobs or not jobs["jobs"]:
+        if not jobs["jobs"]:
             print(f"No jobs found in queue {queue_id}")
             return False
 

@@ -10,7 +10,7 @@ GUI test for submitting a Nuke job with custom settings to AWS Deadline Cloud.
 This test verifies that users can successfully modify and submit jobs with custom settings:
 This test configures custom job settings like the job name, job description, priority, max retries
 per task, max failed tasks, and continue on error. This test submits a job with these custom settings
-and ensures that the test ensures that all custom settings are properly applied to the submitted job
+and ensures that all custom settings are properly applied to the submitted job
 and that the job submission process works correctly with modified parameters.
 """
 
