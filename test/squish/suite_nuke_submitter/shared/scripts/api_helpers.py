@@ -38,7 +38,7 @@ def get_queue_id_by_name(farm_id):
 
 
 def get_job(farm_id, queue_id, job_id, check_storage_profile=False):
-    # Returns the job details if found, None otherwise. This also servers to verify that the default farm/queue and the optional storage is selected.
+    # Returns the job details if found, None otherwise. This also serves to verify that the default farm/queue and the optional storage is selected.
     try:
         deadline = get_boto3_client("deadline")
         job = deadline.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
@@ -84,14 +84,12 @@ def verify_job_in_queue(farm_id, queue_id, job_id):
             return False
 
         # Check if the job_id exists in the list of jobs
-        job_ids = [job["jobId"] for job in jobs["jobs"]]
-
-        if job_id in job_ids:
+        if any(job["jobId"] == job_id for job in jobs["jobs"]):
             print(f"Job {job_id} found in queue {queue_id}")
             return True
-        else:
-            print(f"Job {job_id} not found in queue {queue_id}")
-            return False
+        
+        print(f"Job {job_id} not found in queue {queue_id}")
+        return False
 
     except Exception as e:
         print(f"Error verifying job in queue: {str(e)}")

@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from shared.scripts import api_helpers, verification_helpers, cleanup_helpers
+from shared.scripts.constants import TestConstants
 import pathlib
 import pytest
 
@@ -143,18 +144,8 @@ def check_platform():
 
 def test_basic_workflow(cleanup_render_outputs):
     check_platform()
-
-    NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
-    TEST_SAMPLES_DIR = (
-        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples"
-    )
-    EXPECTED_DIR = f"{TEST_SAMPLES_DIR}/images/expected"
-    OUTPUT_DIR = f"{TEST_SAMPLES_DIR}/images/output"
-    FRAME_RANGE = (101, 120)
-    RGB_TOLERANCE = 0.1
-
     register_cleanup, _ = cleanup_render_outputs
-    register_cleanup(OUTPUT_DIR, "nukeTest_output_v01")
+    register_cleanup(TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR), "nukeTest_output_v01")
 
     success, job_id = run_squish_command("basic_workflow_gui")
     # Exit early if the Squish test failed
@@ -184,29 +175,19 @@ def test_basic_workflow(cleanup_render_outputs):
 
     # Verify the rendered image sequence matches expected output
     verification_helpers.verify_image_sequence_rgb_matches(
-        expected_dir=EXPECTED_DIR,
-        output_dir=OUTPUT_DIR,
+        expected_dir=TestConstants.get_expected_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
+        output_dir=TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
         base_name="nukeTest_output_v01",
-        start_frame=FRAME_RANGE[0],
-        end_frame=FRAME_RANGE[1],
-        rgb_diff_tolerance=RGB_TOLERANCE,
+        start_frame=TestConstants.FRAME_RANGE[0],
+        end_frame=TestConstants.FRAME_RANGE[1],
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
     )
 
 
 def test_custom_settings_workflow(cleanup_render_outputs):
     check_platform()
-
-    NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
-    TEST_SAMPLES_DIR = (
-        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples"
-    )
-    EXPECTED_DIR = f"{TEST_SAMPLES_DIR}/images/expected"
-    OUTPUT_DIR = f"{TEST_SAMPLES_DIR}/images/output"
-    FRAME_RANGE = (101, 120)
-    RGB_TOLERANCE = 0.1
-
     register_cleanup, _ = cleanup_render_outputs
-    register_cleanup(OUTPUT_DIR, "nukeTest_output_v01")
+    register_cleanup(TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR), "nukeTest_output_v01")
 
     success, job_id = run_squish_command("custom_settings_gui")
     # Exit early if the Squish test failed
@@ -241,27 +222,18 @@ def test_custom_settings_workflow(cleanup_render_outputs):
 
     # Verify the rendered image sequence matches expected output
     verification_helpers.verify_image_sequence_rgb_matches(
-        expected_dir=EXPECTED_DIR,
-        output_dir=OUTPUT_DIR,
+        expected_dir=TestConstants.get_expected_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
+        output_dir=TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
         base_name="nukeTest_output_v01",
-        start_frame=FRAME_RANGE[0],
-        end_frame=FRAME_RANGE[1],
-        rgb_diff_tolerance=RGB_TOLERANCE,
+        start_frame=TestConstants.FRAME_RANGE[0],
+        end_frame=TestConstants.FRAME_RANGE[1],
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
     )
 
 
 # Write Node Selection Test
 def test_write_node_selection(cleanup_render_outputs):
     check_platform()
-
-    NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
-    TEST_SAMPLES_DIR = (
-        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_modified_test_samples"
-    )
-    EXPECTED_DIR = f"{TEST_SAMPLES_DIR}/images/expected"
-    OUTPUT_DIR = f"{TEST_SAMPLES_DIR}/images/output"
-    FRAME_RANGE = (101, 120)
-    RGB_TOLERANCE = 0.1
 
     register_cleanup, execute_cleanup = cleanup_render_outputs
     success, job_ids = run_squish_command("write_node_gui")
@@ -290,16 +262,16 @@ def test_write_node_selection(cleanup_render_outputs):
     download_success = api_helpers.download_output(farm_id, queue_id, single_write_node_id)
     assert download_success, "Failed to download single write node job output"
 
-    register_cleanup(OUTPUT_DIR, "nukeTest_output_v01")
+    register_cleanup(TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR), "nukeTest_output_v01")
 
     # Verify single write node output
     verification_helpers.verify_image_sequence_rgb_matches(
-        expected_dir=EXPECTED_DIR,
-        output_dir=OUTPUT_DIR,
+        expected_dir=TestConstants.get_expected_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
+        output_dir=TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
         base_name="nukeTest_output_v01",
-        start_frame=FRAME_RANGE[0],
-        end_frame=FRAME_RANGE[1],
-        rgb_diff_tolerance=RGB_TOLERANCE,
+        start_frame=TestConstants.FRAME_RANGE[0],
+        end_frame=TestConstants.FRAME_RANGE[1],
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
     )
 
     execute_cleanup()
@@ -317,12 +289,12 @@ def test_write_node_selection(cleanup_render_outputs):
 
     # Verify multiple write nodes outputs (two output files)
     for base_name in ["nukeTest_color_correct2", "nukeTest_output_v01"]:
-        register_cleanup(OUTPUT_DIR, base_name)
+        register_cleanup(TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR), base_name)
         verification_helpers.verify_image_sequence_rgb_matches(
-            expected_dir=EXPECTED_DIR,
-            output_dir=OUTPUT_DIR,
+            expected_dir=TestConstants.get_expected_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
+            output_dir=TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
             base_name=base_name,
-            start_frame=FRAME_RANGE[0],
-            end_frame=FRAME_RANGE[1],
-            rgb_diff_tolerance=RGB_TOLERANCE,
+            start_frame=TestConstants.FRAME_RANGE[0],
+            end_frame=TestConstants.FRAME_RANGE[1],
+            rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
         )
