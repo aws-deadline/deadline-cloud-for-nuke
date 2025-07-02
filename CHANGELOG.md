@@ -1,3 +1,12 @@
+## 0.18.11 (2025-07-02)
+
+
+### Features
+* support macOS installer for Nuke by fixing user installation path (#228) ([`9f5f608`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/9f5f608fbd4bdef9de58b979cfcb119a7d873c0f))
+* Nuke Submitter E2E Testing: Implemented the basic workflow validation test with Squish GUI tests, API verification, and output validation (#226) ([`cb245fa`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/cb245fae6c10b1cc29cce11fa4096e182c4022e7))
+* Squish Initial Commit ([`cb245fa`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/cb245fae6c10b1cc29cce11fa4096e182c4022e7))
+
+
 ## 0.18.10 (2025-05-17)
 
 
