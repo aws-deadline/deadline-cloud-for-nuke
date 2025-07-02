@@ -248,7 +248,7 @@ def test_write_node_selection(cleanup_render_outputs):
     if not success:
         assert success, "Squish command failed"
     if len(job_ids) != 2:
-        assert len(job_ids) == 2, f"Expected exactly one job ID, but got {len(job_ids)}"
+        assert len(job_ids) == 2, f"Expected exactly two job IDs, but got {len(job_ids)}"
 
     farm_id = api_helpers.get_farm_id_by_name()
     assert farm_id is not None, "Farm ID not found"
