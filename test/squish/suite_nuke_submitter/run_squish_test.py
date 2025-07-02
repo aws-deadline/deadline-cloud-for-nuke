@@ -145,7 +145,10 @@ def check_platform():
 def test_basic_workflow(cleanup_render_outputs):
     check_platform()
     register_cleanup, _ = cleanup_render_outputs
-    register_cleanup(TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR), "nukeTest_output_v01")
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
+        "nukeTest_output_v01",
+    )
 
     success, job_id = run_squish_command("basic_workflow_gui")
     # Exit early if the Squish test failed
@@ -187,7 +190,10 @@ def test_basic_workflow(cleanup_render_outputs):
 def test_custom_settings_workflow(cleanup_render_outputs):
     check_platform()
     register_cleanup, _ = cleanup_render_outputs
-    register_cleanup(TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR), "nukeTest_output_v01")
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
+        "nukeTest_output_v01",
+    )
 
     success, job_id = run_squish_command("custom_settings_gui")
     # Exit early if the Squish test failed
@@ -262,7 +268,10 @@ def test_write_node_selection(cleanup_render_outputs):
     download_success = api_helpers.download_output(farm_id, queue_id, single_write_node_id)
     assert download_success, "Failed to download single write node job output"
 
-    register_cleanup(TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR), "nukeTest_output_v01")
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
+        "nukeTest_output_v01",
+    )
 
     # Verify single write node output
     verification_helpers.verify_image_sequence_rgb_matches(
@@ -289,9 +298,13 @@ def test_write_node_selection(cleanup_render_outputs):
 
     # Verify multiple write nodes outputs (two output files)
     for base_name in ["nukeTest_color_correct2", "nukeTest_output_v01"]:
-        register_cleanup(TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR), base_name)
+        register_cleanup(
+            TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR), base_name
+        )
         verification_helpers.verify_image_sequence_rgb_matches(
-            expected_dir=TestConstants.get_expected_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
+            expected_dir=TestConstants.get_expected_img_dir(
+                TestConstants.MODIFIED_TEST_SAMPLES_DIR
+            ),
             output_dir=TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
             base_name=base_name,
             start_frame=TestConstants.FRAME_RANGE[0],

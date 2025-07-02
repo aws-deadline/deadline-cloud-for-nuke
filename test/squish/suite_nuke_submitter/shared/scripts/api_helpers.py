@@ -87,7 +87,7 @@ def verify_job_in_queue(farm_id, queue_id, job_id):
         if any(job["jobId"] == job_id for job in jobs["jobs"]):
             print(f"Job {job_id} found in queue {queue_id}")
             return True
-        
+
         print(f"Job {job_id} not found in queue {queue_id}")
         return False
 
