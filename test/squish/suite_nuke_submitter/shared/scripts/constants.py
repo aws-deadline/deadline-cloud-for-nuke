@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import os
 
 NUKE_ASSET_ROOT = os.environ.get("NUKE_ASSET_ROOT", "")
