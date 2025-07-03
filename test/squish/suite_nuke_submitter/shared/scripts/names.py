@@ -343,3 +343,85 @@ queue_Environment_Conda_Conda_Packages_QLineEdit = {
     "unnamed": 1,
     "visible": 1,
 }
+queue_Environment_Conda_Conda_Channels_QLabel = {
+    "container": queue_Environment_Conda_JobTemplateGroupLayout,
+    "text": "Conda Channels",
+    "type": "QLabel",
+    "unnamed": 1,
+    "visible": 1,
+}
+queue_Environment_Conda_Conda_Channels_QLineEdit = {
+    "container": queue_Environment_Conda_JobTemplateGroupLayout,
+    "leftWidget": queue_Environment_Conda_Conda_Channels_QLabel,
+    "type": "QLineEdit",
+    "unnamed": 1,
+    "visible": 1,
+}
+job_Properties_qt_spinbox_lineedit_QLineEdit = {
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "name": "qt_spinbox_lineedit",
+    "type": "QLineEdit",
+    "visible": 1,
+}
+job_Properties_qt_spinbox_lineedit_QLineEdit_2 = {
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "name": "qt_spinbox_lineedit",
+    "occurrence": 2,
+    "type": "QLineEdit",
+    "visible": 1,
+}
+job_Properties_qt_spinbox_lineedit_QLineEdit_3 = {
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "name": "qt_spinbox_lineedit",
+    "occurrence": 3,
+    "type": "QLineEdit",
+    "visible": 1,
+}
+job_Properties_Priority_QLabel = {
+    "container": job_Properties_SharedJobPropertiesWidget,
+    "text": "Priority",
+    "type": "QLabel",
+    "unnamed": 1,
+    "visible": 1,
+}
+deadline_Cloud_settings_DeadlineCloudSettingsWidget = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "title": "Deadline Cloud settings",
+    "type": "DeadlineCloudSettingsWidget",
+    "unnamed": 1,
+    "visible": 1,
+}
+deadline_Cloud_settings_OpenJDParametersWidget = {
+    "aboveWidget": deadline_Cloud_settings_DeadlineCloudSettingsWidget,
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "type": "OpenJDParametersWidget",
+    "unnamed": 1,
+    "visible": 1,
+}
+submit_to_AWS_Deadline_Cloud_QTabWidget = {
+    "type": "QTabWidget",
+    "unnamed": 1,
+    "visible": 1,
+    "window": submit_to_AWS_Deadline_Cloud_SubmitJobToDeadlineDialog,
+}
+continue_on_error_QCheckBox = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "text": "Continue on error",
+    "type": "QCheckBox",
+    "unnamed": 1,
+    "visible": 1,
+}
+write_nodes_QLabel = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "text": "Write nodes",
+    "type": "QLabel",
+    "unnamed": 1,
+    "visible": 1,
+}
+write_nodes_QComboBox = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "leftWidget": write_nodes_QLabel,
+    "type": "QComboBox",
+    "unnamed": 1,
+    "visible": 1,
+}
