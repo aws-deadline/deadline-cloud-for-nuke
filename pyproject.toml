@@ -104,6 +104,7 @@ module = [
   "names",
   "config",
   "PIL.*",
+  "cv2",
   "botocore.*",
   "squish_helpers"
 ]

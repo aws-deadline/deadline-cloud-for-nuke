@@ -5,6 +5,7 @@ import test
 import names
 import config
 import os
+from pathlib import Path
 
 
 def launch_nuke():
@@ -67,6 +68,27 @@ def open_nuke_submitter_gui():
         squish.waitForObjectItem(names.aWS_Deadline_Foundry_UI_Menu, "Submit to Deadline Cloud")
     )
     test.log("Opened the Nuke Submitter Console")
+
+
+def add_input_files(input_file_path: Path):
+    squish.clickButton(squish.waitForObject(names.attach_input_files_Add_QPushButton))
+    input_file_edit = squish.waitForObject(names.fileNameEdit_QLineEdit)
+    input_file_edit.selectAll()
+    squish.setFocus(input_file_edit)
+    squish.type(input_file_edit, input_file_path)
+    squish.type(input_file_edit, "<Backspace>")
+    last_char = str(input_file_path)[-1]
+    squish.type(input_file_edit, last_char)
+    squish.clickButton(squish.waitForObject(names.open_QPushButton))
+
+
+def add_output_directory(output_dir: Path):
+    squish.clickButton(squish.waitForObject(names.specify_output_directories_Add_QPushButton))
+    output_dir_edit = squish.waitForObject(names.fileNameEdit_QLineEdit)
+    output_dir_edit.selectAll()
+    squish.setFocus(output_dir_edit)
+    squish.type(output_dir_edit, output_dir)
+    squish.clickButton(squish.waitForObject(names.choose_QPushButton))
 
 
 def set_job_name(name: str):
