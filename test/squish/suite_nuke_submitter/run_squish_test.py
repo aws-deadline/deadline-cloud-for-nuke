@@ -507,7 +507,35 @@ def test_auto_detected_attachments(cleanup_render_outputs):
 
     input_paths = api_helpers.get_job_input_paths(farm_id, queue_id, job_id[0])
 
-    verification_helpers.verify_required_files(input_paths)
+    root_path = next(iter(input_paths))
+    manifest_group = input_paths[root_path]
+    all_paths = set(manifest_group.get_all_paths())
+
+    missing_files = []
+
+    # Check all required files including sequences
+    for i in range(1, 57):
+        fire_path = f"intro_to_compositing_test_samples/images/input/fire/fire.{i:03d}.exr"
+        ember_path = f"intro_to_compositing_test_samples/images/input/Embers/embers.{i:03d}.exr"
+
+        if fire_path not in all_paths:
+            missing_files.append(fire_path)
+        if ember_path not in all_paths:
+            missing_files.append(ember_path)
+
+    # Check individual files
+    individual_files = [
+        "intro_to_compositing_test_samples/images/input/sh009_RAW_v001_1200.exr",
+        "intro_to_compositing_test_samples/images/input/sh009_STN_monster_BTY_v001_1200.exr",
+        "intro_to_compositing_test_samples/images/input/videoplayback.mov",
+        "intro_to_compositing_test_samples/scripts/Shot002.v01.001.nk",
+    ]
+
+    missing_files.extend([f for f in individual_files if f not in all_paths])
+
+    assert len(missing_files) == 0, f"Missing {len(missing_files)} required files:\n" + "\n".join(
+        f"  - {f}" for f in missing_files
+    )
 
 
 def test_manual_attachments(cleanup_render_outputs):

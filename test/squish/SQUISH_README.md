@@ -52,28 +52,35 @@ The following Deadline Cloud resources are needed in order to run `tst_verify_se
 - Fleet instance market type of On-Demand instance
 
 ## Available Tests
-### Basic Workflow Test
-The `basic_workflow` test provides comprehensive end-to-end validation of the basic Nuke submitter workflow. This test consists of two main parts: First, the basic_workflow_gui Squish test automates the UI interaction by launching Nuke, opening a pre-configured script file with a write node, configuring AWS profile and resources, submitting a job to Deadline Cloud, and closing Nuke. Second, the test performs backend validation by verifying the job was successfully submitted to the correct queue, monitoring job completion, downloading the rendered output files, comparing them against reference images to ensure visual accuracy, and handling the cleanup of resource.
 
-### Custom Settings Submission Test
-The `custom_settings` test validates the customization capabilities of the Nuke submitter interface for Deadline Cloud jobs. This test automates the UI interaction by launching Nuke, opening a pre-configured script file, and accessing the submitter interface to configure various job parameters. It sets custom values for job metadata (name and description), performance settings (priority level 75, maximum 3 retries per task, maximum 10 failed tasks), and error handling options (continue on error). After configuring these parameters, the test submits the job and verifies that all custom settings are correctly applied in the submitted job configuration. This ensures that the submitter interface reliably handles non-default parameter configurations and maintains setting integrity throughout the submission process.
+### Common Test Flow
+All tests follow a standard pattern:
+- Launch Nuke and open a pre-configured script
+- Configure AWS profile and resources
+- Submit job to Deadline Cloud
+- Verify job submission and configuration
+- Download and validate rendered outputs
+- Clean up resources
 
-### Write Node Selection Tests
-The `write_node_selection` test provides comprehensive validation of the write node selection functionality in the Nuke submitter interface. This test executes two distinct submission scenarios: first submitting a job that targets a single write node ("Write1"), and then submitting another job that processes all write nodes in the script. For each scenario, the test automates the UI interaction by launching Nuke, configuring the AWS profile, selecting the appropriate write node option, and submitting the job. After submission, the test performs backend validation by verifying the jobs were created with correct write node parameters, downloading the rendered outputs, comparing them against reference images with RGB difference tolerance checks, and cleaning up the output files. This ensures that the submitter correctly handles both individual and batch write node selections, maintaining proper job configuration and output generation in both scenarios.
+### Test Categories
 
-### Job Attachments Tests
-The job attachments tests provide validation of both automatic and manual file attachment capabilities in the Nuke submitter interface. These tests consist of two main scenarios:
+#### Basic Workflow
+Validates the basic end-to-end submission workflow using default settings. Verifies job submission, rendering, and output generation with a simple write node configuration.
 
-The `auto_detected_attachments` test verifies that the submitter correctly identifies and includes all necessary files referenced within the Nuke script. This test automates the UI interaction by launching Nuke with a pre-configured script, submitting the job with default settings, and then performs backend validation to ensure all script-referenced files are properly detected and included in the job submission.
+#### Custom Settings
+Tests job submission with modified parameters including priority, retry limits, and error handling options. Ensures all custom settings are correctly applied and preserved in the submitted job.
 
-The `manual_attachments` test validates the ability to manually add supplementary files and output directories to a job submission. This test automates the UI interaction by launching Nuke with a configured script, navigating to the job attachments tab, and manually adding specific test files (EXR, NK, and PNG) along with a custom output directory. The test then performs validation by verifying the job configuration, confirming the presence of all manually attached files in the job manifest, validating the output directory configuration, and ensuring proper cleanup of resources. This comprehensive validation ensures that users can reliably supplement automatically detected files with additional required assets, supporting workflows that require files beyond those directly referenced in the Nuke script.
+#### Write Node Selection
+Validates job submission using both single and multiple write node selections. Verifies that outputs are correctly generated for each selected write node configuration.
 
-### OCIO Color Management Test
-The `ocio` test validates the integration of OpenColorIO (OCIO) color management within the Nuke submitter workflow for Deadline Cloud jobs. This test automates the UI interaction by launching Nuke with an ACES-configured script containing multiple write nodes and submitting separate jobs for different output types. After submission, the test performs backend validation by verifying OCIO configuration settings in the submitted jobs, downloading rendered outputs for both image sequences and movie files, performing RGB difference comparisons against reference images to ensure color accuracy, and validating movie file output integrity. This comprehensive validation ensures that the submission process correctly preserves color spaces, transformations, and ACES configurations throughout the entire workflow, from job submission to final render output.
+#### Job Attachments
+Tests automatic detection of script-referenced files and manual addition of supplementary files. Verifies that both auto-detected and manually added files are properly included in the job bundle.
 
-### Frame Range Tests
-The `default_frame_range` test validates that the Nuke submitter correctly uses frame ranges specified in the Nuke script when submitting jobs to Deadline Cloud. This test automates the UI interaction by launching Nuke with a pre-configured script containing a specific frame range, submitting the job without modifying the frame range settings, and then performs backend validation by verifying the frame range parameters in the submitted job configuration. After submission, the test downloads the rendered outputs and performs RGB difference comparisons against reference images to ensure all frames are correctly rendered within the specified range. This validation ensures that the submitter reliably preserves and uses the frame ranges defined in Nuke scripts.
+#### OCIO Color Management
+Tests job submission with ACES color configurations across multiple write nodes. Validates color accuracy of rendered outputs for both image sequences and movie files.
 
+#### Frame Range
+Validates that frame ranges specified in Nuke scripts are correctly used during job submission. Ensures all frames are properly rendered within the specified range.
 
 
 ## Running Tests
