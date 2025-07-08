@@ -455,7 +455,7 @@ def test_default_frame_range(cleanup_render_outputs):
     ), f"Frame range mismatch: Expected '1-56' from Nuke script, but got '{default_frame_range_job['parameters']['Frames']['string']}'"
 
     download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
-    assert download_success, "Failed to download OCIO job output"
+    assert download_success, "Failed to download default frame range output"
 
     verification_helpers.count_files(
         TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
