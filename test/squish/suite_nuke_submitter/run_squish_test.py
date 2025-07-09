@@ -6,6 +6,8 @@ from shared.scripts import api_helpers, verification_helpers, cleanup_helpers
 from shared.scripts.constants import TestConstants
 import pathlib
 import pytest
+import json
+from typing import Optional
 
 
 def run_squish_command(testcase_name, local=True):
@@ -108,18 +110,28 @@ def cleanup_render_outputs():
     """Fixture that manages cleanup of rendered image outputs with manual trigger points"""
     cleanup_queue = []
 
-    def register_cleanup(output_dir: str, base_name: str):
+    def register_cleanup(
+        output_dir: str, base_name: str, render_settings_path: Optional[str] = None
+    ):
         """Register a cleanup task"""
-        cleanup_queue.append((output_dir, base_name))
+        cleanup_queue.append((output_dir, base_name, render_settings_path))
 
     def execute_cleanup():
         """Execute all registered cleanups"""
         while cleanup_queue:
-            output_dir, base_name = cleanup_queue.pop(0)
+            output_dir, base_name, render_settings_path = cleanup_queue.pop(0)
             try:
                 success, message = cleanup_helpers.cleanup_output_images(output_dir, base_name)
                 if not success:
                     raise RuntimeError(f"Cleanup failed: {message}")
+
+                if render_settings_path:
+                    success, message = cleanup_helpers.cleanup_render_settings_json(
+                        render_settings_path
+                    )
+                    if not success:
+                        raise RuntimeError(f"Render settings cleanup failed: {message}")
+
             except Exception as e:
                 raise RuntimeError(f"Cleanup error: {str(e)}")
 
@@ -145,9 +157,14 @@ def check_platform():
 def test_basic_workflow(cleanup_render_outputs):
     check_platform()
     register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.DEFAULT_TEST_SAMPLES_DIR,
+        "scripts/nukeSubmitter_v02_nuke_default_one_write_node.deadline_render_settings.json",
+    )
     register_cleanup(
         TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
         "nukeTest_output_v01",
+        render_settings_path,
     )
 
     success, job_id = run_squish_command("basic_workflow_gui")
@@ -190,9 +207,14 @@ def test_basic_workflow(cleanup_render_outputs):
 def test_custom_settings_workflow(cleanup_render_outputs):
     check_platform()
     register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.DEFAULT_TEST_SAMPLES_DIR,
+        "scripts/nukeSubmitter_v02_nuke_default_one_write_node.deadline_render_settings.json",
+    )
     register_cleanup(
         TestConstants.get_output_img_dir(TestConstants.DEFAULT_TEST_SAMPLES_DIR),
         "nukeTest_output_v01",
+        render_settings_path,
     )
 
     success, job_id = run_squish_command("custom_settings_gui")
@@ -242,6 +264,10 @@ def test_write_node_selection(cleanup_render_outputs):
     check_platform()
 
     register_cleanup, execute_cleanup = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.MODIFIED_TEST_SAMPLES_DIR,
+        "scripts/nukeSubmitter_v02_nuke_modified.deadline_render_settings.json",
+    )
     success, job_ids = run_squish_command("write_node_gui")
 
     # Verify test execution was successful
@@ -271,6 +297,7 @@ def test_write_node_selection(cleanup_render_outputs):
     register_cleanup(
         TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
         "nukeTest_output_v01",
+        render_settings_path,
     )
 
     # Verify single write node output
@@ -299,7 +326,9 @@ def test_write_node_selection(cleanup_render_outputs):
     # Verify multiple write nodes outputs (two output files)
     for base_name in ["nukeTest_color_correct2", "nukeTest_output_v01"]:
         register_cleanup(
-            TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR), base_name
+            TestConstants.get_output_img_dir(TestConstants.MODIFIED_TEST_SAMPLES_DIR),
+            base_name,
+            render_settings_path,
         )
         verification_helpers.verify_image_sequence_rgb_matches(
             expected_dir=TestConstants.get_expected_img_dir(
@@ -311,3 +340,253 @@ def test_write_node_selection(cleanup_render_outputs):
             end_frame=TestConstants.FRAME_RANGE[1],
             rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
         )
+
+
+def test_ocio_job(cleanup_render_outputs):
+    check_platform()
+
+    register_cleanup, execute_cleanup = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.ACES_STOCK_TEST_SAMPLES_DIR,
+        "scripts/nukeSubmitter_OCIO_v02_aces_stock.deadline_render_settings.json",
+    )
+    success, job_ids = run_squish_command("ocio_gui")
+
+    # Verify test execution was successful
+    if not success:
+        assert success, "Squish command failed"
+    if len(job_ids) != 2:
+        assert len(job_ids) == 2, f"Expected exactly one job ID, but got {len(job_ids)}"
+
+    # Get the farm ID from configuration
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id is not None, "Farm ID not found"
+
+    # Get the queue ID from configuration
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id is not None, "Queue ID not found"
+
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_ids[0])
+    assert job_in_queue
+
+    ocio_job = api_helpers.get_job(farm_id, queue_id, job_ids[0])
+    print(json.dumps(ocio_job, indent=2, default=str))
+
+    ocio_config_path = pathlib.Path(
+        "/Applications/Nuke16.0v1/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
+    )
+    api_helpers.verify_ocio_config(ocio_config_path, ocio_job)
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_ids[0])
+    assert download_success, "Failed to download OCIO job output"
+
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.ACES_STOCK_TEST_SAMPLES_DIR),
+        "nukeTest_output_OCIO_v01",
+        render_settings_path,
+    )
+
+    verification_helpers.verify_image_sequence_rgb_matches(
+        expected_dir=TestConstants.get_expected_img_dir(TestConstants.ACES_STOCK_TEST_SAMPLES_DIR),
+        output_dir=TestConstants.get_output_img_dir(TestConstants.ACES_STOCK_TEST_SAMPLES_DIR),
+        base_name="nukeTest_output_OCIO_v01",
+        start_frame=TestConstants.FRAME_RANGE[0],
+        end_frame=TestConstants.FRAME_RANGE[1],
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
+    )
+
+    execute_cleanup()
+
+    # Verify movie output
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_ids[1])
+    assert job_in_queue
+
+    ocio_job = api_helpers.get_job(farm_id, queue_id, job_ids[1])
+    print(json.dumps(ocio_job, indent=2, default=str))
+    api_helpers.verify_ocio_config(ocio_config_path, ocio_job)
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_ids[1])
+    assert download_success, "Failed to download OCIO job output"
+
+    register_cleanup(
+        TestConstants.get_output_mov_dir(TestConstants.ACES_STOCK_TEST_SAMPLES_DIR),
+        "nukeTest_OCIO_aces_stock",
+        render_settings_path,
+    )
+
+    expected_movie_path = f"{TestConstants.get_expected_mov_dir(TestConstants.ACES_STOCK_TEST_SAMPLES_DIR)}/nukeTest_OCIO_aces_stock.mov"
+    output_movie_path = f"{TestConstants.get_output_mov_dir(TestConstants.ACES_STOCK_TEST_SAMPLES_DIR)}/nukeTest_OCIO_aces_stock.mov"
+    verification_helpers.verify_video_sequence_matches(expected_movie_path, output_movie_path)
+
+
+def test_default_frame_range(cleanup_render_outputs):
+    check_platform()
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
+        "scripts/Shot002.v01.001.deadline_render_settings.json",
+    )
+
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR),
+        "Shot002_v01_001",
+        render_settings_path,
+    )
+    success, job_id = run_squish_command("default_frame_range_gui")
+
+    if not success:
+        assert success, "Squish command failed"
+    if len(job_id) != 1:
+        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id is not None, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id is not None, "Queue ID not found"
+
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
+    assert job_in_queue
+
+    default_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+
+    assert (
+        default_frame_range_job["parameters"]["Frames"]["string"] == "1-56"
+    ), f"Frame range mismatch: Expected '1-56' from Nuke script, but got '{default_frame_range_job['parameters']['Frames']['string']}'"
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
+    assert download_success, "Failed to download default frame range output"
+
+    verification_helpers.count_files(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
+    )
+
+    verification_helpers.verify_image_sequence_rgb_matches(
+        expected_dir=TestConstants.get_expected_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        output_dir=TestConstants.get_output_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        base_name="Shot002_v01_001",
+        start_frame=1,
+        end_frame=56,
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
+    )
+
+
+def test_auto_detected_attachments(cleanup_render_outputs):
+    check_platform()
+
+    success, job_id = run_squish_command("default_frame_range_gui")
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
+        "scripts/Shot002.v01.001.deadline_render_settings.json",
+    )
+
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR),
+        "Shot002_v01_001",
+        render_settings_path,
+    )
+
+    if not success:
+        assert success, "Squish command failed"
+    if len(job_id) != 1:
+        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id is not None, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id is not None, "Queue ID not found"
+
+    default_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+    print(json.dumps(default_frame_range_job, indent=2, default=str))
+
+    input_paths = api_helpers.get_job_input_paths(farm_id, queue_id, job_id[0])
+
+    root_path = next(iter(input_paths))
+    manifest_group = input_paths[root_path]
+    all_paths = set(manifest_group.get_all_paths())
+
+    missing_files = []
+
+    # Check all required files including sequences
+    for i in range(1, 57):
+        fire_path = f"intro_to_compositing_test_samples/images/input/fire/fire.{i:03d}.exr"
+        ember_path = f"intro_to_compositing_test_samples/images/input/Embers/embers.{i:03d}.exr"
+
+        if fire_path not in all_paths:
+            missing_files.append(fire_path)
+        if ember_path not in all_paths:
+            missing_files.append(ember_path)
+
+    # Check individual files
+    individual_files = [
+        "intro_to_compositing_test_samples/images/input/sh009_RAW_v001_1200.exr",
+        "intro_to_compositing_test_samples/images/input/sh009_STN_monster_BTY_v001_1200.exr",
+        "intro_to_compositing_test_samples/images/input/videoplayback.mov",
+        "intro_to_compositing_test_samples/scripts/Shot002.v01.001.nk",
+    ]
+
+    missing_files.extend([f for f in individual_files if f not in all_paths])
+
+    assert len(missing_files) == 0, f"Missing {len(missing_files)} required files:\n" + "\n".join(
+        f"  - {f}" for f in missing_files
+    )
+
+
+def test_manual_attachments(cleanup_render_outputs):
+    check_platform()
+    success, job_id = run_squish_command("manual_attachments_gui")
+
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.ACES_CUSTOM_TEST_SAMPLES_DIR,
+        "scripts/nukeSubmitter_OCIO_v02_aces_custom.deadline_render_settings.json",
+    )
+
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.ACES_CUSTOM_TEST_SAMPLES_DIR),
+        "nukeTest_output_OCIO_v01",
+        render_settings_path,
+    )
+
+    if not success:
+        assert success, "Squish command failed"
+    if len(job_id) != 1:
+        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id is not None, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id is not None, "Queue ID not found"
+
+    manual_attachment_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+
+    input_paths = api_helpers.get_job_input_paths(farm_id, queue_id, job_id[0])
+
+    root_path = next(iter(input_paths))
+    manifest_group = input_paths[root_path]
+    all_paths = set(manifest_group.get_all_paths())
+
+    base_path = os.path.join(
+        TestConstants.ACES_CUSTOM_TEST_SAMPLES_DIR,
+        "manual",
+    )[1:]
+
+    api_helpers.verify_output_directory(base_path, manual_attachment_job)
+
+    manual_files = ["manual_asset.exr", "manual_script.nk", "nukeTest_manual_frame.png"]
+    missing_files = [
+        os.path.join(base_path, f)
+        for f in manual_files
+        if os.path.join(base_path, f) not in all_paths
+    ]
+
+    assert not missing_files, f"Missing {len(missing_files)} required files:\n" + "\n".join(
+        f"  - {f}" for f in missing_files
+    )

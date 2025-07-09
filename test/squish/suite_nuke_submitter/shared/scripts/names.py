@@ -425,3 +425,57 @@ write_nodes_QComboBox = {
     "unnamed": 1,
     "visible": 1,
 }
+attach_input_files_QGroupBox = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "title": "Attach input files",
+    "type": "QGroupBox",
+    "unnamed": 1,
+    "visible": 1,
+}
+attach_input_files_Add_QPushButton = {
+    "container": attach_input_files_QGroupBox,
+    "text": "Add...",
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}
+fileNameLabel_QLabel = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "name": "fileNameLabel",
+    "type": "QLabel",
+    "visible": 1,
+}
+fileNameEdit_QLineEdit = {
+    "buddy": fileNameLabel_QLabel,
+    "name": "fileNameEdit",
+    "type": "QLineEdit",
+    "visible": 1,
+}
+open_QPushButton = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "text": "Open",
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}
+specify_output_directories_QGroupBox = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "title": "Specify output directories",
+    "type": "QGroupBox",
+    "unnamed": 1,
+    "visible": 1,
+}
+specify_output_directories_Add_QPushButton = {
+    "container": specify_output_directories_QGroupBox,
+    "text": "Add...",
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}
+choose_QPushButton = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "text": "Choose",
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}

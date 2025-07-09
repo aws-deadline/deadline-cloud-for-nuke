@@ -12,6 +12,15 @@ class TestConstants:
     MODIFIED_TEST_SAMPLES_DIR = (
         f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_modified_test_samples"
     )
+    ACES_STOCK_TEST_SAMPLES_DIR = (
+        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_aces_stock_test_samples"
+    )
+    ACES_CUSTOM_TEST_SAMPLES_DIR = (
+        f"{NUKE_ASSET_ROOT}/nuke_test_samples/nuke_submitter_v02_nuke_aces_custom_samples"
+    )
+    INTRO_COMPOSITION_TEST_SAMPLES_DIR = (
+        f"{NUKE_ASSET_ROOT}/nuke_test_samples/intro_to_compositing_test_samples"
+    )
 
     @staticmethod
     def get_expected_img_dir(test_samples_dir):

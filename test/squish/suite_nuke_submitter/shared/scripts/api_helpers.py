@@ -3,9 +3,15 @@
 from shared.scripts import config
 from deadline.client.api import get_boto3_client, list_farms, list_queues, list_jobs
 from botocore.exceptions import ClientError
-from deadline.job_attachments.download import OutputDownloader
-from deadline.job_attachments.models import JobAttachmentS3Settings
+from deadline.job_attachments.download import OutputDownloader, get_job_input_paths_by_asset_root
+from deadline.job_attachments.models import (
+    JobAttachmentS3Settings,
+    Attachments,
+    ManifestProperties,
+)
+from pathlib import Path
 import time
+from typing import Dict, Any, cast
 
 
 def get_farm_id_by_name():
@@ -96,6 +102,32 @@ def verify_job_in_queue(farm_id, queue_id, job_id):
         return False
 
 
+def verify_ocio_config(ocio_path: Path, job_info):
+    if job_info["parameters"]["OCIOConfigPath"] is None:
+        raise AssertionError("No OCIO config path found")
+
+    assert job_info["parameters"]["OCIOConfigPath"]["path"] == str(ocio_path), (
+        f"OCIO config path mismatch:\n"
+        f"Expected: {str(ocio_path)}\n"
+        f"Actual: {job_info['parameters']['OCIOConfigPath']['path']}"
+    )
+
+
+def verify_output_directory(output_dir_path: Path, job_info):
+    manifest = job_info["attachments"]["manifests"][0]
+    if not manifest.get("outputRelativeDirectories"):
+        raise AssertionError("No output directories found in manifest")
+
+    output_dir_str = str(output_dir_path)
+    assert any(
+        output_dir_str in directory for directory in manifest["outputRelativeDirectories"]
+    ), (
+        f"Output directory not found in job manifest:\n"
+        f"Expected: {output_dir_str}\n"
+        f"Available directories: {', '.join(manifest['outputRelativeDirectories'])}"
+    )
+
+
 def wait_for_job_completion(farm_id, queue_id, job_id, timeout_seconds=600, poll_interval=10):
     """
     Wait for a job to complete (succeed or fail) with timeout and a poll interval (seconds).
@@ -168,3 +200,35 @@ def download_output(farm_id, queue_id, job_id):
         error_msg = f"Error downloading outputs: {str(e)}"
         print(error_msg)
         return False
+
+
+def get_job_input_paths(farm_id, queue_id, job_id):
+    try:
+        deadline = get_boto3_client("deadline")
+        queue = deadline.get_queue(farmId=farm_id, queueId=queue_id)
+
+        s3_settings = JobAttachmentS3Settings(**queue["jobAttachmentSettings"])
+
+        job = deadline.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
+
+        attachments = Attachments(**job["attachments"])
+
+        for i in range(len(attachments.manifests)):
+            manifest_dict = cast(Dict[str, Any], attachments.manifests[i])
+            manifest = ManifestProperties(**manifest_dict)
+            if manifest.inputManifestPath is not None:
+                manifest.inputManifestPath = s3_settings.add_root_and_manifest_folder_prefix(
+                    manifest.inputManifestPath
+                )
+            attachments.manifests[i] = manifest
+
+        input_paths = get_job_input_paths_by_asset_root(
+            s3_settings=s3_settings,
+            attachments=attachments,
+        )
+
+        return input_paths
+
+    except Exception as e:
+        print(f"Error getting input paths: {str(e)}")
+        return None
