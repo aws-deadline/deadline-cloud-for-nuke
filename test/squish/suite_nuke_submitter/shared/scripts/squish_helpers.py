@@ -13,6 +13,10 @@ def launch_nuke():
     test.log("Launched Nuke with Deadline Submitter")
 
 
+def test_log(log_message: str):
+    test.log(log_message)
+
+
 def open_nuke_script(test_sample_name: str, script_name: str):
     squish.activateItem(squish.waitForObjectItem(names.o_QMenuBar, "File"))
     squish.activateItem(squish.waitForObjectItem(names.file_Foundry_UI_Menu, "Open Comp..."))

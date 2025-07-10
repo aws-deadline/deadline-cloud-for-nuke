@@ -3,7 +3,6 @@
 import names
 import squish_helpers
 import squish
-import test
 
 """
 GUI test for submitting a Nuke job with custom frame range settings to AWS Deadline Cloud.
@@ -40,12 +39,12 @@ def main():
 
     if not squish.waitForObject(names.override_frame_range_QCheckBox).isChecked():
         squish.clickButton(squish.waitForObject(names.override_frame_range_QCheckBox))
-        test.log("Clicked the override frame range checkbox")
+        squish_helpers.test_log("Clicked the override frame range checkbox")
 
     override_frame_range_edit = squish.waitForObject(names.override_frame_range_QLineEdit)
     override_frame_range_edit.selectAll()
     squish.type(override_frame_range_edit, "1-10")
-    test.log("Overrided frame range to 1-10")
+    squish_helpers.test_log("Overrided frame range to 1-10")
     squish_helpers.configure_storage_profile("<none selected>")
     squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()

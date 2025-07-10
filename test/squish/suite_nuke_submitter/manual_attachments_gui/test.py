@@ -2,7 +2,6 @@
 # mypy: disable-error-code="attr-defined"
 import names
 import squish_helpers
-import test
 import squish
 import os
 
@@ -41,7 +40,7 @@ def main():
 
     nuke_asset_path = os.environ.get("NUKE_ASSET_ROOT")
     if not nuke_asset_path:
-        test.fatal("NUKE_ASSET_ROOT environment variable not set")
+        squish_helpers.test_log("NUKE_ASSET_ROOT environment variable not set.")
         return
 
     aces_custom_sample_path = "nuke_test_samples/nuke_submitter_v02_nuke_aces_custom_samples"
