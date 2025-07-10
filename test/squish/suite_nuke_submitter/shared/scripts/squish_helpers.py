@@ -175,6 +175,7 @@ def configure_storage_profile(profile_name: str):
     squish.clickButton(
         squish.waitForObject(names.aWS_Deadline_Cloud_workstation_configuration_OK_QPushButton)
     )
+    test.log(f"Configured storage profile to {profile_name}")
 
 
 def check_submission_success():
