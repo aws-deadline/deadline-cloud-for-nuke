@@ -26,26 +26,15 @@ def main():
     )
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
-    squish_helpers.configure_storage_profile()
+    squish_helpers.configure_storage_profile("<none selected>")
 
     # Select Single Write Node
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
     )
-    squish.mouseClick(
-        squish.waitForObject(names.write_nodes_QComboBox),
-        16,
-        11,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(names.write_nodes_QComboBox, "Write1"),
-        13,
-        10,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    one_node_combo_box = squish.waitForObject(names.write_nodes_QComboBox)
+    squish.mouseClick(one_node_combo_box)
+    one_node_combo_box.setCurrentText("Write1")
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Shared job settings"
     )
@@ -57,24 +46,13 @@ def main():
 
     # Select Multiple Write Nodes
     squish_helpers.open_nuke_submitter_gui()
-    squish_helpers.configure_storage_profile()
+    squish_helpers.configure_storage_profile("<none selected>")
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
     )
-    squish.mouseClick(
-        squish.waitForObject(names.write_nodes_QComboBox),
-        16,
-        11,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(names.write_nodes_QComboBox, "All write nodes"),
-        69,
-        12,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    all_nodes_combo_box = squish.waitForObject(names.write_nodes_QComboBox)
+    squish.mouseClick(all_nodes_combo_box)
+    all_nodes_combo_box.setCurrentText("All write nodes")
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Shared job settings"
     )
@@ -83,5 +61,4 @@ def main():
     squish_helpers.set_job_description("All write nodes option selected for submission")
     squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
-
     squish_helpers.close_nuke()

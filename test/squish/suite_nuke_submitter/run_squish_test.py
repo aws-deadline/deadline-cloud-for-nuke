@@ -457,9 +457,11 @@ def test_default_frame_range(cleanup_render_outputs):
     download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
     assert download_success, "Failed to download default frame range output"
 
-    verification_helpers.count_files(
+    num_files = verification_helpers.count_files(
         TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
     )
+
+    assert num_files == 56, f"Expected 56 output files but got {num_files}"
 
     verification_helpers.verify_image_sequence_rgb_matches(
         expected_dir=TestConstants.get_expected_img_dir(
@@ -471,6 +473,121 @@ def test_default_frame_range(cleanup_render_outputs):
         base_name="Shot002_v01_001",
         start_frame=1,
         end_frame=56,
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
+    )
+
+
+def test_custom_frame_range(cleanup_render_outputs):
+    check_platform()
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
+        "scripts/Shot002.v01.001.deadline_render_settings.json",
+    )
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR),
+        "Shot002_v01_001",
+        render_settings_path,
+    )
+    success, job_id = run_squish_command("custom_frame_range_gui")
+
+    if not success:
+        assert success, "Squish command failed"
+    if len(job_id) != 1:
+        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id is not None, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id is not None, "Queue ID not found"
+
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
+    assert job_in_queue
+
+    custom_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+
+    print(json.dumps(custom_frame_range_job, indent=2, default=str))
+
+    assert (
+        custom_frame_range_job["parameters"]["Frames"]["string"] == "1-10"
+    ), f"Frame range mismatch: Expected '1-10' from the specified custom frame range, but got '{custom_frame_range_job['parameters']['Frames']['string']}'"
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
+    assert download_success, "Failed to download custom frame range output"
+
+    num_files = verification_helpers.count_files(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
+    )
+    assert num_files == 10, f"Expected 10 output files but got {num_files}"
+
+    verification_helpers.verify_image_sequence_rgb_matches(
+        expected_dir=TestConstants.get_expected_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        output_dir=TestConstants.get_output_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        base_name="Shot002_v01_001",
+        start_frame=1,
+        end_frame=10,
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
+    )
+
+
+def test_write_node_frame_range_limits(cleanup_render_outputs):
+    check_platform()
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
+        "scripts/Shot002_modified_write_frame_limits.deadline_render_settings.json",
+    )
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR),
+        "Shot002_v01_001",
+        render_settings_path,
+    )
+
+    success, job_id = run_squish_command("write_node_limit_gui")
+    if not success:
+        assert success, "Squish command failed"
+    if len(job_id) != 1:
+        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id is not None, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id is not None, "Queue ID not found"
+
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
+    assert job_in_queue
+
+    write_node_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+    print(json.dumps(write_node_frame_range_job, indent=2, default=str))
+
+    assert (
+        write_node_frame_range_job["parameters"]["Frames"]["string"] == "11-20"
+    ), f"Frame range mismatch: Expected '11-20' from the specified custom frame range, but got '{write_node_frame_range_job['parameters']['Frames']['string']}'"
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
+    assert download_success, "Failed to download custom frame range output"
+
+    num_files = verification_helpers.count_files(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
+    )
+    assert num_files == 10, f"Expected 10 output files but got {num_files}"
+
+    verification_helpers.verify_image_sequence_rgb_matches(
+        expected_dir=TestConstants.get_expected_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        output_dir=TestConstants.get_output_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        base_name="Shot002_v01_001",
+        start_frame=11,
+        end_frame=20,
         rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
     )
 
@@ -502,8 +619,8 @@ def test_auto_detected_attachments(cleanup_render_outputs):
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
     assert queue_id is not None, "Queue ID not found"
 
-    default_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
-    print(json.dumps(default_frame_range_job, indent=2, default=str))
+    auto_detected_attachments_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+    print(json.dumps(auto_detected_attachments_job, indent=2, default=str))
 
     input_paths = api_helpers.get_job_input_paths(farm_id, queue_id, job_id[0])
 

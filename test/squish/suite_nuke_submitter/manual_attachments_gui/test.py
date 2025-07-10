@@ -33,6 +33,7 @@ def main():
     squish_helpers.set_job_description(
         "Verify that additional files can be manually added as attachments"
     )
+    squish_helpers.configure_storage_profile("<none selected>")
     squish_helpers.configure_aws_profile()
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job attachments"

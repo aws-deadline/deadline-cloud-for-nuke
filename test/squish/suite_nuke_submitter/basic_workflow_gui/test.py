@@ -27,7 +27,7 @@ def main():
     )
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
-    squish_helpers.configure_storage_profile()
+    squish_helpers.configure_storage_profile("macOS Storage Profile")
     squish_helpers.set_job_name("Basic Workflow Submission Test")
     squish_helpers.set_job_description("Basic Workflow Test Description")
     squish_helpers.configure_aws_profile()
