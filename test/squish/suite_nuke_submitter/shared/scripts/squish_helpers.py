@@ -143,93 +143,39 @@ def configure_aws_profile():
     squish.clickButton(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_Settings_QPushButton)
     )
-    squish.sendEvent(
-        "QMoveEvent",
-        squish.waitForObject(
-            names.aWS_Deadline_Cloud_workstation_configuration_DeadlineConfigDialog
-        ),
-        541,
-        213,
-        810,
-        851,
-    )
 
     # Set the AWS profile to profile specified in the AWS_PROFILE environment variable
-    squish.mouseClick(
-        squish.waitForObject(names.global_settings_AWS_profile_QComboBox),
-        118,
-        19,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(names.global_settings_AWS_profile_QComboBox, config.profile_name),
-        117,
-        18,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    aws_profile_combo_box = squish.waitForObject(names.global_settings_AWS_profile_QComboBox)
+    squish.mouseClick(aws_profile_combo_box)
+    aws_profile_combo_box.setCurrentText(config.profile_name)
 
     # Set the farm to Nuke Submitter Squish Farm
-    squish.mouseClick(
-        squish.waitForObject(names.profile_settings_QComboBox),
-        54,
-        12,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(names.profile_settings_QComboBox, "Nuke Submitter Squish Farm"),
-        55,
-        10,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    farm_combo_box = squish.waitForObject(names.profile_settings_QComboBox)
+    squish.mouseClick(farm_combo_box)
+    farm_combo_box.setCurrentText("Nuke Submitter Squish Farm")
 
     # Set the farm to Nuke Submitter Squish Automation Queue
-    squish.mouseClick(
-        squish.waitForObject(names.farm_settings_QComboBox),
-        55,
-        7,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(
-            names.farm_settings_QComboBox, "Nuke Submitter Squish Automation Queue"
-        ),
-        57,
-        14,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    queue_combo_box = squish.waitForObject(names.farm_settings_QComboBox)
+    squish.mouseClick(queue_combo_box)
+    queue_combo_box.setCurrentText("Nuke Submitter Squish Automation Queue")
 
     squish.clickButton(
         squish.waitForObject(names.aWS_Deadline_Cloud_workstation_configuration_OK_QPushButton)
     )
 
 
-def configure_storage_profile():
+def configure_storage_profile(profile_name: str):
     squish.clickButton(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_Settings_QPushButton)
     )
-    squish.mouseClick(
-        squish.waitForObject(names.farm_settings_QComboBox_2),
-        78,
-        6,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(names.farm_settings_QComboBox_2, "macOS Storage Profile"),
-        82,
-        8,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    squish.snooze(3)
+    combo_box = squish.waitForObject(names.farm_settings_QComboBox_2)
+    squish.mouseClick(combo_box)
+    combo_box.setCurrentText(profile_name)
     squish.clickButton(
         squish.waitForObject(names.aWS_Deadline_Cloud_workstation_configuration_OK_QPushButton)
     )
+    test.log(f"Configured storage profile to {profile_name}")
 
 
 def check_submission_success():
