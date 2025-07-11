@@ -7,6 +7,8 @@ from shared.scripts.constants import TestConstants
 import pathlib
 import pytest
 import json
+from filelock import FileLock
+import time
 from typing import Optional
 
 
@@ -55,23 +57,34 @@ def run_squish_command(testcase_name, local=True):
             print(f"Squish command failed with return code {result.returncode}")
             return False, []
 
-        # Check for Squish test failures in the output
+        # Check for Squish test failures in both stdout and stderr
         has_squish_failure = False
         failure_message = ""
-        lines = result.stdout.split("\n")
         job_ids = []
-        for line in lines:
+
+        # Process stdout for job IDs and failures
+        for line in result.stdout.split("\n"):
             # Look for job ID
             if "Found job ID:" in line:
                 job_ids.append(line.split("Found job ID:")[1].strip())
 
-            # Check for FAIL or FATAL in the output
+            # Check for FAIL or FATAL in stdout
             if "\tFAIL\t" in line or "FAIL " in line:
                 has_squish_failure = True
                 failure_message = line.strip()
             elif "\tFATAL\t" in line or "FATAL " in line:
                 has_squish_failure = True
                 failure_message = line.strip()
+
+        # Process stderr for failures
+        if not has_squish_failure:  # Only check stderr if no failure found in stdout
+            for line in result.stderr.split("\n"):
+                if "\tFAIL\t" in line or "FAIL " in line:
+                    has_squish_failure = True
+                    failure_message = line.strip()
+                elif "\tFATAL\t" in line or "FATAL " in line:
+                    has_squish_failure = True
+                    failure_message = line.strip()
 
         if has_squish_failure:
             print(f"Squish test failed: {failure_message}")
@@ -143,9 +156,12 @@ def cleanup_render_outputs():
 
 def test_invalid_conda_env():
     check_platform()
-    success = run_squish_command("invalid_conda_gui")
-    if success is False:
-        assert success, "Squish command failed"
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, _ = run_squish_command("invalid_conda_gui")
+        time.sleep(5)
+    # Test should fail when invalid Conda settings are detected
+    assert success is False, "Expected test to fail with invalid Conda settings"
 
 
 def check_platform():
@@ -166,23 +182,23 @@ def test_basic_workflow(cleanup_render_outputs):
         "nukeTest_output_v01",
         render_settings_path,
     )
-
-    success, job_id = run_squish_command("basic_workflow_gui")
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("basic_workflow_gui")
+        time.sleep(5)
     # Exit early if the Squish test failed
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_id) != 1:
-        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
 
     print("Basic Workflow Job ID: " + job_id[0])
 
     # Get the farm ID from configuration
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
 
     # Get the queue ID from configuration
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
     job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
     assert job_in_queue
@@ -216,23 +232,23 @@ def test_custom_settings_workflow(cleanup_render_outputs):
         "nukeTest_output_v01",
         render_settings_path,
     )
-
-    success, job_id = run_squish_command("custom_settings_gui")
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("custom_settings_gui")
+        time.sleep(5)
     # Exit early if the Squish test failed
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_id) != 1:
-        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
 
     print("Custom Settings Workflow Job ID: " + job_id[0])
 
     # Get the farm ID from configuration
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
 
     # Get the queue ID from configuration
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
     job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
     assert job_in_queue
@@ -268,18 +284,19 @@ def test_write_node_selection(cleanup_render_outputs):
         TestConstants.MODIFIED_TEST_SAMPLES_DIR,
         "scripts/nukeSubmitter_v02_nuke_modified.deadline_render_settings.json",
     )
-    success, job_ids = run_squish_command("write_node_gui")
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_ids = run_squish_command("write_node_gui")
+        time.sleep(5)
 
     # Verify test execution was successful
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_ids) != 2:
-        assert len(job_ids) == 2, f"Expected exactly two job IDs, but got {len(job_ids)}"
+    assert success, "Squish command failed"
+    assert len(job_ids) == 2, f"Expected exactly two job IDs, but got {len(job_ids)}"
 
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
     # Process single write node job (second most recent job)
     single_write_node_id = job_ids[0]
@@ -288,7 +305,7 @@ def test_write_node_selection(cleanup_render_outputs):
     print("\n=== Job Information ===")
     print(single_write_job)
 
-    assert single_write_job is not None, "Failed to get single write node job"
+    assert single_write_job, "Failed to get single write node job"
     assert single_write_job["parameters"]["WriteNode"]["string"] == "Write1"
 
     download_success = api_helpers.download_output(farm_id, queue_id, single_write_node_id)
@@ -318,7 +335,7 @@ def test_write_node_selection(cleanup_render_outputs):
 
     print("\n=== Job Information ===")
     print(multiple_nodes_job)
-    assert multiple_nodes_job is not None, "Failed to get multiple node selection job"
+    assert multiple_nodes_job, "Failed to get multiple node selection job"
     assert multiple_nodes_job["parameters"]["WriteNode"]["string"] == "All Write Nodes"
     download_success = api_helpers.download_output(farm_id, queue_id, multiple_write_nodes_id)
     assert download_success, "Failed to download multiple write nodes job output"
@@ -350,21 +367,22 @@ def test_ocio_job(cleanup_render_outputs):
         TestConstants.ACES_STOCK_TEST_SAMPLES_DIR,
         "scripts/nukeSubmitter_OCIO_v02_aces_stock.deadline_render_settings.json",
     )
-    success, job_ids = run_squish_command("ocio_gui")
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_ids = run_squish_command("ocio_gui")
+        time.sleep(5)
 
     # Verify test execution was successful
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_ids) != 2:
-        assert len(job_ids) == 2, f"Expected exactly one job ID, but got {len(job_ids)}"
+    assert success, "Squish command failed"
+    assert len(job_ids) == 2, f"Expected exactly one job ID, but got {len(job_ids)}"
 
     # Get the farm ID from configuration
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
 
     # Get the queue ID from configuration
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
     job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_ids[0])
     assert job_in_queue
@@ -432,18 +450,19 @@ def test_default_frame_range(cleanup_render_outputs):
         "Shot002_v01_001",
         render_settings_path,
     )
-    success, job_id = run_squish_command("default_frame_range_gui")
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("default_frame_range_gui")
+        time.sleep(5)
 
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_id) != 1:
-        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
 
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
 
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
     job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
     assert job_in_queue
@@ -457,9 +476,11 @@ def test_default_frame_range(cleanup_render_outputs):
     download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
     assert download_success, "Failed to download default frame range output"
 
-    verification_helpers.count_files(
+    num_files = verification_helpers.count_files(
         TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
     )
+
+    assert num_files == 56, f"Expected 56 output files but got {num_files}"
 
     verification_helpers.verify_image_sequence_rgb_matches(
         expected_dir=TestConstants.get_expected_img_dir(
@@ -475,10 +496,130 @@ def test_default_frame_range(cleanup_render_outputs):
     )
 
 
+def test_custom_frame_range(cleanup_render_outputs):
+    check_platform()
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
+        "scripts/Shot002.v01.001.deadline_render_settings.json",
+    )
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR),
+        "Shot002_v01_001",
+        render_settings_path,
+    )
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("custom_frame_range_gui")
+        time.sleep(5)
+
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id, "Queue ID not found"
+
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
+    assert job_in_queue
+
+    custom_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+
+    print(json.dumps(custom_frame_range_job, indent=2, default=str))
+
+    assert (
+        custom_frame_range_job["parameters"]["Frames"]["string"] == "1-10"
+    ), f"Frame range mismatch: Expected '1-10' from the specified custom frame range, but got '{custom_frame_range_job['parameters']['Frames']['string']}'"
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
+    assert download_success, "Failed to download custom frame range output"
+
+    num_files = verification_helpers.count_files(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
+    )
+    assert num_files == 10, f"Expected 10 output files but got {num_files}"
+
+    verification_helpers.verify_image_sequence_rgb_matches(
+        expected_dir=TestConstants.get_expected_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        output_dir=TestConstants.get_output_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        base_name="Shot002_v01_001",
+        start_frame=1,
+        end_frame=10,
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
+    )
+
+
+def test_write_node_frame_range_limits(cleanup_render_outputs):
+    check_platform()
+    register_cleanup, _ = cleanup_render_outputs
+    render_settings_path = os.path.join(
+        TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
+        "scripts/Shot002_modified_write_frame_limits.deadline_render_settings.json",
+    )
+    register_cleanup(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR),
+        "Shot002_v01_001",
+        render_settings_path,
+    )
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("write_node_limit_gui")
+        time.sleep(5)
+
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+
+    farm_id = api_helpers.get_farm_id_by_name()
+    assert farm_id, "Farm ID not found"
+
+    queue_id = api_helpers.get_queue_id_by_name(farm_id)
+    assert queue_id, "Queue ID not found"
+
+    job_in_queue = api_helpers.verify_job_in_queue(farm_id, queue_id, job_id[0])
+    assert job_in_queue
+
+    write_node_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+    print(json.dumps(write_node_frame_range_job, indent=2, default=str))
+
+    assert (
+        write_node_frame_range_job["parameters"]["Frames"]["string"] == "11-20"
+    ), f"Frame range mismatch: Expected '11-20' from the specified custom frame range, but got '{write_node_frame_range_job['parameters']['Frames']['string']}'"
+
+    download_success = api_helpers.download_output(farm_id, queue_id, job_id[0])
+    assert download_success, "Failed to download custom frame range output"
+
+    num_files = verification_helpers.count_files(
+        TestConstants.get_output_img_dir(TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR)
+    )
+    assert num_files == 10, f"Expected 10 output files but got {num_files}"
+
+    verification_helpers.verify_image_sequence_rgb_matches(
+        expected_dir=TestConstants.get_expected_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        output_dir=TestConstants.get_output_img_dir(
+            TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR
+        ),
+        base_name="Shot002_v01_001",
+        start_frame=11,
+        end_frame=20,
+        rgb_diff_tolerance=TestConstants.RGB_TOLERANCE,
+    )
+
+
 def test_auto_detected_attachments(cleanup_render_outputs):
     check_platform()
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("default_frame_range_gui")
+        time.sleep(5)
 
-    success, job_id = run_squish_command("default_frame_range_gui")
     register_cleanup, _ = cleanup_render_outputs
     render_settings_path = os.path.join(
         TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
@@ -491,19 +632,17 @@ def test_auto_detected_attachments(cleanup_render_outputs):
         render_settings_path,
     )
 
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_id) != 1:
-        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
 
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
 
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
-    default_frame_range_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
-    print(json.dumps(default_frame_range_job, indent=2, default=str))
+    auto_detected_attachments_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
+    print(json.dumps(auto_detected_attachments_job, indent=2, default=str))
 
     input_paths = api_helpers.get_job_input_paths(farm_id, queue_id, job_id[0])
 
@@ -540,7 +679,10 @@ def test_auto_detected_attachments(cleanup_render_outputs):
 
 def test_manual_attachments(cleanup_render_outputs):
     check_platform()
-    success, job_id = run_squish_command("manual_attachments_gui")
+    lock = FileLock("squish_gui.lock")
+    with lock:
+        success, job_id = run_squish_command("manual_attachments_gui")
+        time.sleep(5)
 
     register_cleanup, _ = cleanup_render_outputs
     render_settings_path = os.path.join(
@@ -554,16 +696,14 @@ def test_manual_attachments(cleanup_render_outputs):
         render_settings_path,
     )
 
-    if not success:
-        assert success, "Squish command failed"
-    if len(job_id) != 1:
-        assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
+    assert success, "Squish command failed"
+    assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
 
     farm_id = api_helpers.get_farm_id_by_name()
-    assert farm_id is not None, "Farm ID not found"
+    assert farm_id, "Farm ID not found"
 
     queue_id = api_helpers.get_queue_id_by_name(farm_id)
-    assert queue_id is not None, "Queue ID not found"
+    assert queue_id, "Queue ID not found"
 
     manual_attachment_job = api_helpers.get_job(farm_id, queue_id, job_id[0])
 

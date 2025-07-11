@@ -80,7 +80,7 @@ Tests automatic detection of script-referenced files and manual addition of supp
 Tests job submission with ACES color configurations across multiple write nodes. Validates color accuracy of rendered outputs for both image sequences and movie files.
 
 #### Frame Range
-Validates that frame ranges specified in Nuke scripts are correctly used during job submission. Ensures all frames are properly rendered within the specified range.
+Validates frame range handling across multiple scenarios: using default ranges from Nuke scripts, applying user-specified custom ranges, and respecting write node frame limits. 
 
 
 ## Running Tests

@@ -479,3 +479,17 @@ choose_QPushButton = {
     "unnamed": 1,
     "visible": 1,
 }
+override_frame_range_QCheckBox = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "text": "Override frame range",
+    "type": "QCheckBox",
+    "unnamed": 1,
+    "visible": 1,
+}
+override_frame_range_QLineEdit = {
+    "container": qt_tabwidget_stackedwidget_QScrollArea,
+    "leftWidget": override_frame_range_QCheckBox,
+    "type": "QLineEdit",
+    "unnamed": 1,
+    "visible": 1,
+}

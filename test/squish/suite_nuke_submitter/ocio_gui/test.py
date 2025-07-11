@@ -28,25 +28,15 @@ def submit_ocio_job(write_node: str):
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
     )
-    squish.mouseClick(
-        squish.waitForObject(names.write_nodes_QComboBox),
-        16,
-        11,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
-    squish.mouseClick(
-        squish.waitForObjectItem(names.write_nodes_QComboBox, write_node),
-        13,
-        10,
-        squish.Qt.NoModifier,
-        squish.Qt.LeftButton,
-    )
+    combo_box = squish.waitForObject(names.write_nodes_QComboBox)
+    squish.mouseClick(combo_box)
+    combo_box.setCurrentText(write_node)
 
     # Configure shared settings
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Shared job settings"
     )
+    squish_helpers.configure_storage_profile("<none selected>")
     squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
 
