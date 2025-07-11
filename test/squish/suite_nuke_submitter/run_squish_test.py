@@ -186,7 +186,6 @@ def test_basic_workflow(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("basic_workflow_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("basic_workflow_gui")
     # Exit early if the Squish test failed
     assert success, "Squish command failed"
     assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
@@ -237,7 +236,6 @@ def test_custom_settings_workflow(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("custom_settings_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("custom_settings_gui")
     # Exit early if the Squish test failed
     assert success, "Squish command failed"
     assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
@@ -290,7 +288,6 @@ def test_write_node_selection(cleanup_render_outputs):
     with lock:
         success, job_ids = run_squish_command("write_node_gui")
         time.sleep(5)
-    # success, job_ids = run_squish_command("write_node_gui")
 
     # Verify test execution was successful
     assert success, "Squish command failed"
@@ -374,7 +371,6 @@ def test_ocio_job(cleanup_render_outputs):
     with lock:
         success, job_ids = run_squish_command("ocio_gui")
         time.sleep(5)
-    # success, job_ids = run_squish_command("ocio_gui")
 
     # Verify test execution was successful
     assert success, "Squish command failed"
@@ -458,7 +454,6 @@ def test_default_frame_range(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("default_frame_range_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("default_frame_range_gui")
 
     assert success, "Squish command failed"
     assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
@@ -517,7 +512,6 @@ def test_custom_frame_range(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("custom_frame_range_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("custom_frame_range_gui")
 
     assert success, "Squish command failed"
     assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
@@ -577,7 +571,6 @@ def test_write_node_frame_range_limits(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("write_node_limit_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("write_node_limit_gui")
 
     assert success, "Squish command failed"
     assert len(job_id) == 1, f"Expected exactly one job ID, but got {len(job_id)}"
@@ -626,7 +619,7 @@ def test_auto_detected_attachments(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("default_frame_range_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("default_frame_range_gui")
+
     register_cleanup, _ = cleanup_render_outputs
     render_settings_path = os.path.join(
         TestConstants.INTRO_COMPOSITION_TEST_SAMPLES_DIR,
@@ -690,7 +683,6 @@ def test_manual_attachments(cleanup_render_outputs):
     with lock:
         success, job_id = run_squish_command("manual_attachments_gui")
         time.sleep(5)
-    # success, job_id = run_squish_command("manual_attachments_gui")
 
     register_cleanup, _ = cleanup_render_outputs
     render_settings_path = os.path.join(
