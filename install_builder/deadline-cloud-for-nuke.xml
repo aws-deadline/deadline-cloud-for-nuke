@@ -47,7 +47,7 @@
                 <setInstallerVariable name="nuke_installdir" value="${installdir}" />
             </actionList>
             <elseActionList>
-                <setInstallerVariable name="nuke_installdir" value="${installdir}/Submitters/Nuke" />
+                <setInstallerVariable name="nuke_installdir" value="${installdir}" />
             </elseActionList>
         </if>
 	</readyToInstallActionList>
