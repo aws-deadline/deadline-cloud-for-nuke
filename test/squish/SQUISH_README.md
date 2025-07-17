@@ -15,6 +15,10 @@ Read the DEVELOPMENT.md for instructions on setting up the Nuke submitter.
 
 Install Squish 8.1.0 for Qt 6.5. If you are using any other version, be sure to select the correct version of Qt that is being used with Nuke on your machine.
 
+### Set Up Test Assets
+
+The test suite includes large media files (images, movies) that are managed using Git LFS (Large File Storage). To properly clone and set up the test assets, install [Git LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage). Then to download these files, run `git lfs pull`.
+
 ## Configure Squish Environment
 
 Register Nuke as an AUT (Application Under Test) by going to 'Edit' -> 'Server Settings' and registering under 'Mapped AUTs' (in Squish IDE). 
