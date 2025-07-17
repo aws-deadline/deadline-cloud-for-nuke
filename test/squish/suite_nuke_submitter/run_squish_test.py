@@ -36,7 +36,7 @@ def run_squish_command(testcase_name, local=True):
 
     if sys.platform == "win32":
         command = f'"{squish_runner}" --testsuite {testsuite_path} --testcase {testcase_name} {local_flag}'
-    if sys.platform == "darwin":
+    else:
         command = (
             f"{squish_runner} --testsuite {testsuite_path} --testcase {testcase_name} {local_flag}"
         )
@@ -437,7 +437,7 @@ def test_ocio_job(cleanup_render_outputs):
         ocio_config_path = pathlib.Path(
             r"C:\Program Files\Nuke16.0v1\plugins\OCIOConfigs\configs\aces_1.2\config.ocio"
         )
-    if sys.platform == "darwin":
+    else:
         ocio_config_path = pathlib.Path(
             "/Applications/Nuke16.0v1/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
         )
