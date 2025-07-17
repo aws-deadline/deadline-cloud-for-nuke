@@ -42,8 +42,6 @@ def run_squish_command(testcase_name, local=True):
         )
 
     try:
-        # if not ensure_valid_credentials():
-        #     print("Failed to ensure valid credentials, test may fail")
         env = os.environ.copy()
         env["AWS_ACCESS_KEY_ID"] = os.environ.get("AWS_ACCESS_KEY_ID", "")
         env["AWS_SECRET_ACCESS_KEY"] = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
