@@ -28,7 +28,7 @@ def run_squish_command(testcase_name, local=True):
     deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH", "")
     if sys.platform == "win32":
         squish_runner = pathlib.Path("C:/Program Files/Squish for Qt 8.1.0/bin/squishrunner.exe")
-    if sys.platform == "darwin":
+    else:
         squish_runner = pathlib.Path("/Applications/Squish\\ for\\ Qt\\ 8.1.0/bin/squishrunner")
     testsuite_path = os.path.join(deadline_nuke_path, "test", "squish", "suite_nuke_submitter")
     testsuite_path = os.path.normpath(testsuite_path)
