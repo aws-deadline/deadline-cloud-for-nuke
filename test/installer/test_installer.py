@@ -91,6 +91,7 @@ def _validate_files(installation_path: Path) -> None:
     assert "deadline" in top_level_dir
     assert "qtpy" in top_level_dir
     assert "xxhash" in top_level_dir
+    assert "psutil" in top_level_dir
 
     # Check for menu.py which is part of the Nuke integration
     assert "menu.py" in top_level_dir
