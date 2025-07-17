@@ -5,11 +5,15 @@ import test
 import names
 import config
 import os
+import sys
 from pathlib import Path
 
 
 def launch_nuke():
-    squish.startApplication("Nuke16.0v1")
+    if sys.platform == "win32":
+        squish.startApplication("Nuke16.0")
+    if sys.platform == "darwin":
+        squish.startApplication("Nuke16.0v1")
     test.log("Launched Nuke with Deadline Submitter")
 
 
@@ -23,13 +27,20 @@ def open_nuke_script(test_sample_name: str, script_name: str):
 
     file_path_edit = squish.waitForObject(names.script_to_open_FilePathEdit)
     file_path_edit.selectAll()
-    nuke_asset_path = os.environ.get("NUKE_ASSET_ROOT")
-    if not nuke_asset_path:
-        test.fatal("NUKE_ASSET_ROOT environment variable not set")
+    deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH")
+    if not deadline_nuke_path:
+        test.fatal("DEADLINE_NUKE_PATH environment variable not set")
         return
 
     script_path = os.path.join(
-        nuke_asset_path, "nuke_test_samples", test_sample_name, "scripts", script_name
+        deadline_nuke_path,
+        "test",
+        "squish",
+        "nuke-assets",
+        "nuke_test_samples",
+        test_sample_name,
+        "scripts",
+        script_name,
     )
     test.log(f"Using script path: {script_path}")
 
@@ -37,6 +48,10 @@ def open_nuke_script(test_sample_name: str, script_name: str):
     squish.type(file_path_edit, script_path)
     squish.type(file_path_edit, "<Backspace>")
     squish.type(file_path_edit, "k")
+
+    file_table = squish.waitForObject(names.script_to_open_QTreeView)
+    index = file_table.model().index(0, 0)
+    file_table.setCurrentIndex(index)
 
     # Opens the nuke script file
     squish.clickButton(squish.waitForObject(names.script_to_open_Open_QPushButton))
@@ -50,7 +65,6 @@ def submit_job():
 
     squish.setWindowState(squish.waitForObject(names.o_QMessageBox), squish.WindowState.Maximize)
     squish.clickButton(squish.waitForObject(names.oK_QPushButton))
-
     test.log("Waiting for submission completion")
     success, job_id = check_submission_success()
 
@@ -143,10 +157,39 @@ def set_continue_on_error():
         test.log("Enabled continue on error")
 
 
+def set_conda_package_channel():
+    squish.snooze(1)
+    conda_package_edit = squish.waitForObject(
+        names.queue_Environment_Conda_Conda_Packages_QLineEdit
+    )
+
+    conda_package_text = str(
+        squish.waitForObject(names.queue_Environment_Conda_Conda_Packages_QLineEdit).text
+    )
+
+    if conda_package_text != "nuke=16.* nuke-openjd=0.18.*":
+        conda_package_edit.selectAll()
+        squish.type(conda_package_edit, "<Delete>")
+        squish.type(conda_package_edit, "nuke=16.* nuke-openjd=0.18.*")
+        squish.snooze(2)
+
+    conda_channel_edit = squish.waitForObject(
+        names.queue_Environment_Conda_Conda_Channels_QLineEdit
+    )
+
+    conda_channel_text = str(
+        squish.waitForObject(names.queue_Environment_Conda_Conda_Channels_QLineEdit).text
+    )
+    if conda_channel_text != "deadline-cloud":
+        conda_channel_edit.selectAll()
+        squish.type(conda_channel_edit, "deadline-cloud")
+
+
 def configure_aws_profile():
     squish.clickButton(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_Settings_QPushButton)
     )
+    squish.snooze(3)
 
     # Set the AWS profile to profile specified in the AWS_PROFILE environment variable
     aws_profile_combo_box = squish.waitForObject(names.global_settings_AWS_profile_QComboBox)
@@ -154,11 +197,13 @@ def configure_aws_profile():
     aws_profile_combo_box.setCurrentText(config.profile_name)
 
     # Set the farm to Nuke Submitter Squish Farm
+    squish.clickButton(squish.waitForObject(names.profile_settings_QPushButton))
     farm_combo_box = squish.waitForObject(names.profile_settings_QComboBox)
     squish.mouseClick(farm_combo_box)
     farm_combo_box.setCurrentText("Nuke Submitter Squish Farm")
 
     # Set the farm to Nuke Submitter Squish Automation Queue
+    squish.clickButton(squish.waitForObject(names.farm_settings_QPushButton_2))
     queue_combo_box = squish.waitForObject(names.farm_settings_QComboBox)
     squish.mouseClick(queue_combo_box)
     queue_combo_box.setCurrentText("Nuke Submitter Squish Automation Queue")
@@ -173,6 +218,7 @@ def configure_storage_profile(profile_name: str):
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_Settings_QPushButton)
     )
     squish.snooze(3)
+    squish.clickButton(squish.waitForObject(names.farm_settings_QPushButton))
     combo_box = squish.waitForObject(names.farm_settings_QComboBox_2)
     squish.mouseClick(combo_box)
     combo_box.setCurrentText(profile_name)

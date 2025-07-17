@@ -19,6 +19,8 @@ for color space transformations and management.
 def submit_ocio_job(write_node: str):
     """Helper function to submit a job with specified write node."""
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.set_job_name("OCIO Config Job Submission")
     squish_helpers.set_job_description(
         "This test includes a render that includes the use of OCIO color management."
@@ -37,7 +39,6 @@ def submit_ocio_job(write_node: str):
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Shared job settings"
     )
     squish_helpers.configure_storage_profile("<none selected>")
-    squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
 
 

@@ -24,11 +24,12 @@ def main():
     squish.snooze(3)
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.set_job_name("Custom Frame Range Job")
     squish_helpers.set_job_description(
         "This test verifies that a custom frame range can be specified"
     )
-    squish_helpers.configure_aws_profile()
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
     )
@@ -46,6 +47,5 @@ def main():
     squish.type(override_frame_range_edit, "1-10")
     squish_helpers.test_log("Overrided frame range to 1-10")
     squish_helpers.configure_storage_profile("<none selected>")
-    squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
     squish_helpers.close_nuke()
