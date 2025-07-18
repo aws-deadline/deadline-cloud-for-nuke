@@ -413,6 +413,30 @@ class TestNukeHandler:
         # THEN
         assert nukehandler.render_kwargs["views"] == views
 
+    def test_set_views_all_views(self, views: List[str], nukehandler: NukeHandler):
+        # GIVEN
+        data = {"views": ["All Views"]}
+
+        # WHEN
+        nukehandler.set_views(data)
+
+        # THEN
+        # Should set render_kwargs["views"] to all views from the script
+        assert nukehandler.render_kwargs["views"] == views
+
+    def test_set_views_all_views_empty_script(self, nukehandler: NukeHandler):
+        # GIVEN
+        data = {"views": ["All Views"]}
+        # Mock nuke.views() to return empty list (script with no views)
+        nuke.views.return_value = []
+
+        # WHEN
+        nukehandler.set_views(data)
+
+        # THEN
+        # Should not set render_kwargs["views"] when script has no views
+        assert "views" not in nukehandler.render_kwargs
+
     missing_nodes_params = [
         (
             SortedList(["these", "do", "not", "exist"]),
