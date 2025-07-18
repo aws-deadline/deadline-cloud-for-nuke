@@ -21,7 +21,7 @@ hatch build
 ### Build the installer
 
 ```bash
-hatch run build-installer --local-dev-build --platform <PLATFORM> [--install-builder-location <LOCATION> --output-dir <DIR>]
+hatch run installer:build-installer --local-dev --platform <PLATFORM> [--install-builder-path <LOCATION> --output-dir <DIR>]
 ```
 
 Run `hatch run build-installer -h` to see the full list of arguments.
