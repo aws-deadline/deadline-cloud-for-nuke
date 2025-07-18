@@ -191,9 +191,11 @@ class NukeHandler:
         views = data.get("views", [])
         NukeHandler._validate_non_empty_list_of_str(views, "views")
 
-        # The "All Views" value means to get all of them, and we do that per write node,
-        # therefore we don't set self.render_kwargs["views"] in this case.
+        # The "All Views" value means to get all of them from the script
         if views == ["All Views"]:
+            script_views = nuke.views()
+            if script_views:
+                self.render_kwargs["views"] = script_views
             return
 
         # Validate views exist in the nuke script
