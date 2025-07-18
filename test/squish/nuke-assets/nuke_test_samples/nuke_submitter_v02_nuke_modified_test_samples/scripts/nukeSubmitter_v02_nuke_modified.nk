@@ -1,0 +1,198 @@
+#! /Applications/Nuke16.0v1/Nuke16.0v1.app/Contents/MacOS/libnuke-16.0.1.dylib -nx
+version 16.0 v1
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="0" y="38" w="1728" h="968" maximized="1" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="1065" stretch="1"/>
+            <splitter orientation="2">
+                <split size="557"/>
+                <dock id="" activePageId="Viewer.1">
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="391"/>
+                <dock id="" activePageId="DAG.1" focus="true">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+                <page id="Scenegraph.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name $DEADLINE_NUKE_PATH/test/squish/nuke-assets/nuke_test_samples/nuke_submitter_v02_nuke_modified_test_samples/scripts/nukeSubmitter_v02_nuke_modified.nk
+ frame 116
+ first_frame 101
+ last_frame 120
+ lock_range true
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement OCIO
+ defaultViewerLUT "OCIO LUTs"
+ workingSpaceLUT scene_linear
+ monitorLut "sRGB (default)"
+ monitorOutLUT "rec709 (default)"
+ int8Lut matte_paint
+ int16Lut texture_paint
+ logLut compositing_log
+ floatLut scene_linear
+}
+Read {
+ inputs 0
+ file_type png
+ file $DEADLINE_NUKE_PATH/test/squish/nuke-assets/nuke_test_samples/nuke_submitter_v02_nuke_modified_test_samples/images/input/nukeTest_v01.####.png
+ format "5760 3240 0 0 5760 3240 1 "
+ first 101
+ last 120
+ origfirst 101
+ origlast 120
+ origset true
+ colorspace color_picking
+ name Read1
+ xpos -178
+ ypos -244
+}
+set N3c4bd400 [stack 0]
+ColorCorrect {
+ saturation 0.15
+ contrast 2.04
+ gain 0.34
+ shadows.saturation 0.38
+ midtones.saturation {3.848357 4 3.62237 1}
+ midtones.saturation_panelDropped true
+ highlights.gain 0.32
+ name ColorCorrect2
+ xpos -323
+ ypos -124
+}
+set N3bf13a00 [stack 0]
+Write {
+ file $DEADLINE_NUKE_PATH/test/squish/nuke-assets/nuke_test_samples/nuke_submitter_v02_nuke_modified_test_samples/images/output/nukeTest_color_correct2.####.png
+ file_type png
+ checkHashOnRead false
+ version 4
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write2
+ xpos -405
+ ypos -46
+}
+Viewer {
+ frame_range 101-120
+ viewerProcess "sRGB (default)"
+ monitorOutNDISenderName "Nuke - nukeSubmitter_v02_nuke_modified - Viewer2"
+ name Viewer2
+ xpos -380
+ ypos 139
+}
+push $N3bf13a00
+push 0
+Roto {
+ inputs 0
+ output alpha
+ cliptype none
+ curves {{{v x3f99999a}
+  {f 0}
+  {n
+   {layer Root
+    {f 2097152}
+    {t x45340000 x44ca8000}
+    {a pt1x 0 pt1y 0 pt2x 0 pt2y 0 pt3x 0 pt3y 0 pt4x 0 pt4y 0 ptex00 0 ptex01 0 ptex02 0 ptex03 0 ptex10 0 ptex11 0 ptex12 0 ptex13 0 ptex20 0 ptex21 0 ptex22 0 ptex23 0 ptex30 0 ptex31 0 ptex32 0 ptex33 0 ptof1x 0 ptof1y 0 ptof2x 0 ptof2y 0 ptof3x 0 ptof3y 0 ptof4x 0 ptof4y 0 pterr 0 ptrefset 0 ptmot x40800000 ptref 0}
+    {curvegroup Bezier1 512 bezier
+     {{cc
+       {f 8192}
+       {px x42ca0000
+        {0 0}
+        {x4564c000 x45624000}
+        {0 0}
+        {0 0}
+        {x45e42500 x454f4400}
+        {0 0}
+        {0 0}
+        {x45b436fe xc39b5000}
+        {0 0}}}     idem}
+     {tx x42ca0000 x45ac9aab x45161aab}
+     {a opc x3ec51eb8 fx x44fa0000 fy x44fa0000 ff x4091999a osw x41200000 osf 0 str 1 spx x45340000 spy x44ca8000 sb 1 ltn x42ca0000 ltm x42ca0000 tt x40800000}}}}}}
+ toolbox {selectAll {
+  { selectAll str 1 ssx 1 ssy 1 sf 1 }
+  { createBezier str 1 ssx 1 ssy 1 sf 1 sb 1 tt 4 }
+  { createBezierCusped str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { createBSpline str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { createEllipse str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { createRectangle str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { createRectangleCusped str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { createOpenSpline str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { brush str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { eraser src 2 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { clone src 1 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { reveal src 3 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { dodge src 1 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { burn src 1 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { blur src 1 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { sharpen src 1 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+  { smear src 1 str 1 ssx 1 ssy 1 sf 1 sb 1 }
+} }
+ toolbar_brush_hardness 0.200000003
+ toolbar_source_transform_scale {1 1}
+ toolbar_source_transform_center {2880 1620}
+ colorOverlay {0 0 0 0}
+ opacity 0.385
+ lifetime_type "all frames"
+ lifetime_start 101
+ lifetime_end 101
+ motionblur_shutter_offset_type centred
+ feather 2000
+ feather_falloff 4.55
+ source_black_outside true
+ name Roto1
+ xpos -43
+ ypos -128
+}
+push $N3c4bd400
+ColorCorrect {
+ inputs 1+1
+ midtones.saturation {4 3.148152 3.962695 1}
+ midtones.saturation_panelDropped true
+ name ColorCorrect1
+ xpos -178
+ ypos -122
+}
+Write {
+ file $DEADLINE_NUKE_PATH/test/squish/nuke-assets/nuke_test_samples/nuke_submitter_v02_nuke_modified_test_samples/images/output/nukeTest_output_v01.####.png
+ file_type png
+ checkHashOnRead false
+ version 4
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write1
+ xpos -178
+ ypos -49
+}
+Viewer {
+ inputs 3
+ frame_range 101-120
+ viewerProcess "sRGB (default)"
+ monitorOutNDISenderName "Nuke - nukeSubmitter_v02_nuke_modified - Viewer1"
+ monitorOutOutputTransform "rec709 (default)"
+ name Viewer1
+ xpos -121
+ ypos 144
+}

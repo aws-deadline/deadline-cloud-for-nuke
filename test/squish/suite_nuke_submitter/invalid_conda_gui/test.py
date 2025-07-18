@@ -3,6 +3,7 @@ import names
 import squish_helpers
 import squish
 
+
 """
 GUI test for validating Conda package validation in AWS Deadline Cloud submitter.
 
@@ -23,6 +24,7 @@ def main():
     )
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.set_conda_package_channel()
     conda_package_edit = squish.waitForObject(
         names.queue_Environment_Conda_Conda_Packages_QLineEdit
     )

@@ -3,6 +3,7 @@
 import names
 import squish_helpers
 import squish
+import sys
 
 
 # This file is a Squish test script for testing the basic workflow of submitting a Nuke job to Deadline Cloud.
@@ -27,9 +28,14 @@ def main():
     )
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
-    squish_helpers.configure_storage_profile("macOS Storage Profile")
+    squish_helpers.configure_aws_profile()
+    squish.snooze(5)
+    squish_helpers.set_conda_package_channel()
+    if sys.platform == "darwin":
+        squish_helpers.configure_storage_profile("macOS Storage Profile")
+    if sys.platform == "win32":
+        squish_helpers.configure_storage_profile("Windows Storage Profile")
     squish_helpers.set_job_name("Basic Workflow Submission Test")
     squish_helpers.set_job_description("Basic Workflow Test Description")
-    squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
     squish_helpers.close_nuke()

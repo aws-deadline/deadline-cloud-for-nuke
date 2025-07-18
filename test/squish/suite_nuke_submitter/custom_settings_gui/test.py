@@ -4,6 +4,7 @@ import names
 import squish_helpers
 import squish
 
+
 """
 GUI test for submitting a Nuke job with custom settings to AWS Deadline Cloud.
 
@@ -28,13 +29,14 @@ def main():
     squish.snooze(3)
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.set_job_name("Custom Setting Submission")
     squish_helpers.set_job_description("This test verifies submission with modified settings")
     squish_helpers.set_priority(75)
     squish_helpers.set_max_retries(3)
     squish_helpers.set_max_failed_tasks(10)
     squish_helpers.configure_storage_profile("<none selected>")
-    squish_helpers.configure_aws_profile()
     squish_helpers.set_continue_on_error()
     squish_helpers.submit_job()
     squish_helpers.close_nuke()

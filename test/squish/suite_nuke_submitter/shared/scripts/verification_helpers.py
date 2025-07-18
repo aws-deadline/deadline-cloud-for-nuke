@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 import cv2
+import os
 
 
 def verify_image_sequence_rgb_matches(
@@ -35,8 +36,8 @@ def verify_image_sequence_rgb_matches(
         filename = f"{base_name}.{frame_str}.png"
 
         # Open images
-        reference_img = Image.open(f"{expected_dir}/{filename}")
-        output_img = Image.open(f"{output_dir}/{filename}")
+        reference_img = Image.open(os.path.join(expected_dir, filename))
+        output_img = Image.open(os.path.join(output_dir, filename))
 
         # Convert to numpy arrays
         ref_img_pixels = np.asarray(reference_img)
