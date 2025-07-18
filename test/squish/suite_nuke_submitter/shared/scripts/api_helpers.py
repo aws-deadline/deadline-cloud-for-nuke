@@ -3,9 +3,18 @@
 from shared.scripts import config
 from deadline.client.api import get_boto3_client, list_farms, list_queues, list_jobs
 from botocore.exceptions import ClientError
-from deadline.job_attachments.download import OutputDownloader
-from deadline.job_attachments.models import JobAttachmentS3Settings
+from deadline.job_attachments.download import OutputDownloader, get_job_input_paths_by_asset_root
+from deadline.job_attachments.models import (
+    JobAttachmentS3Settings,
+    Attachments,
+    ManifestProperties,
+)
+from pathlib import Path
 import time
+from typing import Dict, Any, cast
+import os
+import re
+import sys
 
 
 def get_farm_id_by_name():
@@ -37,42 +46,25 @@ def get_queue_id_by_name(farm_id):
     return queue_id
 
 
-def get_latest_job_id(farm_id, queue_id):
-    """Get latest job from queue"""
-    jobs = list_jobs(farmId=farm_id, queueId=queue_id)
-    if not jobs["jobs"]:
-        return None
-
-    # Sort jobs by createdAt in descending order (newest first)
-    sorted_jobs = sorted(jobs["jobs"], key=lambda x: x["createdAt"], reverse=True)
-    latest_job_id = sorted_jobs[0]["jobId"]
-
-    print("\n=== Latest Job ID Information ===")
-    print(latest_job_id)
-    return latest_job_id
-
-
-def get_latest_job(farm_id, queue_id, job_id):
-    # Returns the job details if found, None otherwise
+def get_job(farm_id, queue_id, job_id, check_storage_profile=False):
+    # Returns the job details if found, None otherwise. This also serves to verify that the default farm/queue and the optional storage is selected.
     try:
         deadline = get_boto3_client("deadline")
         job = deadline.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
 
         storage_profile_id = job.get("storageProfileId")
 
-        storage_profile = deadline.get_storage_profile(
-            farmId=farm_id, storageProfileId=storage_profile_id
-        )
-
-        # Assert it's the macOS profile
-        print(storage_profile["osFamily"])
-        assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
-        print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
-
-        print("Verified that default farm/queue/storage is selected")
-
-        print("\n=== Latest Job Information ===")
-        print(job)
+        if check_storage_profile:
+            storage_profile = deadline.get_storage_profile(
+                farmId=farm_id, storageProfileId=storage_profile_id
+            )
+            print(storage_profile["osFamily"])
+            if sys.platform == "win32":
+                assert storage_profile["osFamily"] == "WINDOWS", "Storage profile is not Windows"
+                print(f"Verified storage profile is Windows: {storage_profile['displayName']}")
+            if sys.platform == "darwin":
+                assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
+                print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
         return job
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
@@ -84,11 +76,63 @@ def get_latest_job(farm_id, queue_id, job_id):
 
 
 def verify_job_in_queue(farm_id, queue_id, job_id):
-    latest_job_id = get_latest_job_id(farm_id=farm_id, queue_id=queue_id)
-    if latest_job_id == job_id:
-        return True
-    else:
+    """
+    Verify if a job with the specified job_id exists in the queue.
+
+    Args:
+        farm_id (str): The ID of the farm
+        queue_id (str): The ID of the queue
+        job_id (str): The ID of the job to check
+
+    Returns:
+        bool: True if the job exists in the queue, False otherwise
+    """
+    try:
+        # Get all jobs in the queue
+        jobs = list_jobs(farmId=farm_id, queueId=queue_id)
+
+        # Check if the jobs list is empty
+        if not jobs["jobs"]:
+            print(f"No jobs found in queue {queue_id}")
+            return False
+
+        # Check if the job_id exists in the list of jobs
+        if any(job["jobId"] == job_id for job in jobs["jobs"]):
+            print(f"Job {job_id} found in queue {queue_id}")
+            return True
+
+        print(f"Job {job_id} not found in queue {queue_id}")
         return False
+
+    except Exception as e:
+        print(f"Error verifying job in queue: {str(e)}")
+        return False
+
+
+def verify_ocio_config(ocio_path: Path, job_info):
+    if job_info["parameters"]["OCIOConfigPath"] is None:
+        raise AssertionError("No OCIO config path found")
+
+    assert job_info["parameters"]["OCIOConfigPath"]["path"] == str(ocio_path), (
+        f"OCIO config path mismatch:\n"
+        f"Expected: {str(ocio_path)}\n"
+        f"Actual: {job_info['parameters']['OCIOConfigPath']['path']}"
+    )
+
+
+def verify_output_directory(output_dir_path: Path, job_info):
+    manifest = job_info["attachments"]["manifests"][0]
+    if not manifest.get("outputRelativeDirectories"):
+        raise AssertionError("No output directories found in manifest")
+
+    output_dir_str = str(output_dir_path)
+    assert any(
+        output_dir_str in directory for directory in manifest["outputRelativeDirectories"]
+    ), (
+        f"Output directory not found in job manifest:\n"
+        f"Expected: {output_dir_str}\n"
+        f"Available directories: {', '.join(manifest['outputRelativeDirectories'])}"
+    )
 
 
 def wait_for_job_completion(farm_id, queue_id, job_id, timeout_seconds=600, poll_interval=10):
@@ -109,7 +153,7 @@ def wait_for_job_completion(farm_id, queue_id, job_id, timeout_seconds=600, poll
             return False, "TIMEOUT"
 
         # Get current job status
-        job = get_latest_job(farm_id, queue_id, job_id)
+        job = get_job(farm_id, queue_id, job_id)
         if not job:
             print(f"Could not get job status for {job_id}")
             return False, "ERROR"
@@ -163,3 +207,57 @@ def download_output(farm_id, queue_id, job_id):
         error_msg = f"Error downloading outputs: {str(e)}"
         print(error_msg)
         return False
+
+
+def get_job_input_paths(farm_id, queue_id, job_id):
+    try:
+        deadline = get_boto3_client("deadline")
+        queue = deadline.get_queue(farmId=farm_id, queueId=queue_id)
+
+        s3_settings = JobAttachmentS3Settings(**queue["jobAttachmentSettings"])
+
+        job = deadline.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
+
+        attachments = Attachments(**job["attachments"])
+
+        for i in range(len(attachments.manifests)):
+            manifest_dict = cast(Dict[str, Any], attachments.manifests[i])
+            manifest = ManifestProperties(**manifest_dict)
+            if manifest.inputManifestPath is not None:
+                manifest.inputManifestPath = s3_settings.add_root_and_manifest_folder_prefix(
+                    manifest.inputManifestPath
+                )
+            attachments.manifests[i] = manifest
+
+        input_paths = get_job_input_paths_by_asset_root(
+            s3_settings=s3_settings,
+            attachments=attachments,
+        )
+
+        return input_paths
+
+    except Exception as e:
+        print(f"Error getting input paths: {str(e)}")
+        return None
+
+
+def convert_nuke_path_to_platform(file_path):
+    def convert_slashes(path):
+        return path.replace("\\", "/") if os.name == "nt" else path.replace("/", "\\")
+
+    pattern = re.compile(r"(file|name)\s+([^\n]+)")
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+
+    new_lines = []
+    for line in lines:
+        match = pattern.search(line)
+        if match:
+            key, path = match.groups()
+            # Convert slashes based on platform
+            converted_path = convert_slashes(path.strip())
+            line = line.replace(path, converted_path)
+        new_lines.append(line)
+
+    with open(file_path, "w") as f:
+        f.writelines(new_lines)

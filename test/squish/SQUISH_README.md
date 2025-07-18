@@ -5,7 +5,7 @@ Nuke and Squish require a license. If you have a Squish and Nuke license, please
 ## Prerequisites
 ### Install Nuke
 
-Download and install Nuke 16.0v1. The current tests have been validated on macOS 15.5. Support for Windows and Linux will be added after macOS support is established. 
+Download and install Nuke 16.0v1. The current tests have been validated on macOS 15.5 and Windows. Support for Linux will be added after macOS and Windows support is established. 
 
 ### Set up the Deadline Cloud Nuke Submitter
 
@@ -15,14 +15,35 @@ Read the DEVELOPMENT.md for instructions on setting up the Nuke submitter.
 
 Install Squish 8.1.0 for Qt 6.5. If you are using any other version, be sure to select the correct version of Qt that is being used with Nuke on your machine.
 
+### Set Up Test Assets
+
+The test suite includes large media files (images, movies) that are managed using Git LFS (Large File Storage). To properly clone and set up the test assets, install [Git LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage). Then to download these files, run `git lfs pull`.
+
 ## Configure Squish Environment
 
 Register Nuke as an AUT (Application Under Test) by going to 'Edit' -> 'Server Settings' and registering under 'Mapped AUTs' (in Squish IDE). 
 
+Import the test suite to Squish by going to 'File' -> 'Open Test Suite' and entering the test suite directory. 
+#### For Windows: 
+```C:\Users\<user>\deadline-client\deadline-cloud-for-nuke\test\squish\suite_nuke_submitter```
+
+#### For macOS:
+```/Users/<user>/deadline-clients/deadline-cloud-for-nuke/test/squish/suite_nuke_submitter```
+
+\
 Then, configure the Nuke Submitter path by going to the test suite settings in the Squish IDE and adding an AUT environment variable called NUKE_PATH. Set it to the path where your Nuke submitter is installed: 
+
+#### For Windows:
+
+```sh
+C:\path\to\DeadlineCloudForNukeSubmitter
+```
+In the suite.conf file, set AUT to ```Nuke16.0```.
+#### For macOS:
 ```sh
 /path/to/DeadlineCloudForNukeSubmitter
 ```
+
 You can also modify the envvars file:
 ```sh
 NUKE_PATH=/Users/user/DeadlineCloudForNukeSubmitter
@@ -30,10 +51,25 @@ NUKE_PATH=/Users/user/DeadlineCloudForNukeSubmitter
 ### Set Required Environment Variables
 The following environment variables are required for running the tests:
 ```sh
-export AWS_PROFILE=<profile name>
-export DEADLINE_NUKE_PATH=/path/to/deadline-cloud-for-nuke
-export NUKE_ASSET_ROOT=/path/to/nuke/assets
+AWS_PROFILE=<profile name>
+DEADLINE_NUKE_PATH=/path/to/deadline-cloud-for-nuke
 ```
+
+### Replace environment variables in Nuke Scripts
+
+The test suite includes Nuke scripts that use environment variables in their file paths. Before running the tests, you need to replace these environment variables with actual paths. A utility script is provided to handle this:
+
+```sh
+# Navigate to the scripts directory
+cd deadline-cloud-for-nuke/test/squish/suite_nuke_submitter/shared/scripts/
+
+# Replace $DEADLINE_NUKE_PATH with actual paths
+python3 replace_env_paths.py
+
+# To revert back to environment variables (if needed)
+python3 replace_env_paths.py --revert
+```
+
 
 ### AWS Authentication
 Paste your temporary AWS credentials in the terminal session where you'll run the tests. These credentials should have permissions to access the Deadline Cloud resources.
@@ -52,13 +88,54 @@ The following Deadline Cloud resources are needed in order to run `tst_verify_se
 - Fleet instance market type of On-Demand instance
 
 ## Available Tests
-### Basic Workflow Test
-The `basic_workflow` test provides comprehensive end-to-end validation of the basic Nuke submitter workflow. This test consists of two main parts: First, the basic_workflow_gui Squish test automates the UI interaction by launching Nuke, opening a pre-configured script file with a write node, configuring AWS profile and resources, submitting a job to Deadline Cloud, and closing Nuke. Second, the test performs backend validation by verifying the job was successfully submitted to the correct queue, monitoring job completion, downloading the rendered output files, comparing them against reference images to ensure visual accuracy, and handling the cleanup of resource.
+
+### Common Test Flow
+All tests follow a standard pattern:
+- Launch Nuke and open a pre-configured script
+- Configure AWS profile and resources
+- Submit job to Deadline Cloud
+- Verify job submission and configuration
+- Download and validate rendered outputs
+- Clean up resources
+
+### Test Categories
+
+#### Basic Workflow
+Validates the basic end-to-end submission workflow using default settings. Verifies job submission, rendering, and output generation with a simple write node configuration.
+
+#### Custom Settings
+Tests job submission with modified parameters including priority, retry limits, and error handling options. Ensures all custom settings are correctly applied and preserved in the submitted job.
+
+#### Write Node Selection
+Validates job submission using both single and multiple write node selections. Verifies that outputs are correctly generated for each selected write node configuration.
+
+#### Job Attachments
+Tests automatic detection of script-referenced files and manual addition of supplementary files. Verifies that both auto-detected and manually added files are properly included in the job bundle.
+
+#### OCIO Color Management
+Tests job submission with ACES color configurations across multiple write nodes. Validates color accuracy of rendered outputs for both image sequences and movie files.
+
+#### Frame Range
+Validates frame range handling across multiple scenarios: using default ranges from Nuke scripts, applying user-specified custom ranges, and respecting write node frame limits. 
 
 
 ## Running Tests
+To install necessary dependencies to run the tests, run:
+```sh
+hatch run squish:deps
+```
+Then, to run the tests:
 ```sh
 hatch run squish:test
+```
+To run a specific test:
+```sh
+# Navigate to the scripts directory
+cd deadline-cloud-for-nuke/test/squish/suite_nuke_submitter
+
+# Run the testcase
+pytest run_squish_test.py::<testcase name>
+
 ```
 
 ## Test Results Interpretation
@@ -67,7 +144,7 @@ A successful test will be indicated by pytest's green message saying that the te
 
 An unsuccessful test will show:
 - FAIL or FATAL messages in the Squish output
-- Error messages like "Job ID from Squish execution does not match the latest job ID"
+- Error messages like "Failed to download job output"
 - Assertion failures for squish commands, job submission, download, or job verification steps
 
 ### Image Verification Failures

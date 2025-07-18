@@ -2,9 +2,8 @@
 # mypy: disable-error-code="attr-defined"
 import names
 import squish_helpers
-import os
-import test
 import squish
+import sys
 
 
 # This file is a Squish test script for testing the basic workflow of submitting a Nuke job to Deadline Cloud.
@@ -23,32 +22,20 @@ def main():
         squish.waitForObject(names.nukeMainWindow_Foundry_UI_DockMainWindow),
         squish.WindowState.Maximize,
     )
-
-    # Open the nuke script file that is being tested
-    squish.activateItem(squish.waitForObjectItem(names.o_QMenuBar, "File"))
-    squish.activateItem(squish.waitForObjectItem(names.file_Foundry_UI_Menu, "Open Comp..."))
-
-    file_path_edit = squish.waitForObject(names.script_to_open_FilePathEdit)
-    file_path_edit.selectAll()
-    nuke_asset_path = os.environ.get("NUKE_ASSET_ROOT")
-    if not nuke_asset_path:
-        test.fatal("NUKE_ASSET_ROOT environment variable not set")
-        return
-
-    NUKE_TEST_SCRIPT_PATH = "nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/scripts/nukeSubmitter_v02_nuke_default_one_write_node.nk"
-    script_path = os.path.join(nuke_asset_path, NUKE_TEST_SCRIPT_PATH)
-
-    squish.setFocus(file_path_edit)
-    squish.type(file_path_edit, script_path)
-
-    # Opens the nuke script file
-    squish.clickButton(squish.waitForObject(names.script_to_open_Open_QPushButton))
-
+    squish_helpers.open_nuke_script(
+        "nuke_submitter_v02_nuke_default_test_samples",
+        "nukeSubmitter_v02_nuke_default_one_write_node.nk",
+    )
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
-    squish_helpers.configure_storage_profile()
+    squish_helpers.configure_aws_profile()
+    squish.snooze(5)
+    squish_helpers.set_conda_package_channel()
+    if sys.platform == "darwin":
+        squish_helpers.configure_storage_profile("macOS Storage Profile")
+    if sys.platform == "win32":
+        squish_helpers.configure_storage_profile("Windows Storage Profile")
     squish_helpers.set_job_name("Basic Workflow Submission Test")
     squish_helpers.set_job_description("Basic Workflow Test Description")
-    squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
     squish_helpers.close_nuke()
