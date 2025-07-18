@@ -27,12 +27,13 @@ def main():
     squish.snooze(3)
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.set_job_name("Write Node Frame Range Limits Job")
     squish_helpers.set_job_description(
         "Verify that the Write node frame range limits are respected"
     )
     squish_helpers.configure_storage_profile("<none selected>")
-    squish_helpers.configure_aws_profile()
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
     )

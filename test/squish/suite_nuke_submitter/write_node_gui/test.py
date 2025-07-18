@@ -26,6 +26,8 @@ def main():
     )
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.configure_storage_profile("<none selected>")
 
     # Select Single Write Node
@@ -41,11 +43,12 @@ def main():
 
     squish_helpers.set_job_name("Single Write Node Submission Test")
     squish_helpers.set_job_description("Selected single write node for submission")
-    squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
 
     # Select Multiple Write Nodes
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.configure_storage_profile("<none selected>")
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job-specific settings"
@@ -59,6 +62,5 @@ def main():
 
     squish_helpers.set_job_name("Multiple Write Node Submission Test")
     squish_helpers.set_job_description("All write nodes option selected for submission")
-    squish_helpers.configure_aws_profile()
     squish_helpers.submit_job()
     squish_helpers.close_nuke()

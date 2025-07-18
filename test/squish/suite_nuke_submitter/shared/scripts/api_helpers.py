@@ -12,6 +12,9 @@ from deadline.job_attachments.models import (
 from pathlib import Path
 import time
 from typing import Dict, Any, cast
+import os
+import re
+import sys
 
 
 def get_farm_id_by_name():
@@ -56,8 +59,12 @@ def get_job(farm_id, queue_id, job_id, check_storage_profile=False):
                 farmId=farm_id, storageProfileId=storage_profile_id
             )
             print(storage_profile["osFamily"])
-            assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
-            print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
+            if sys.platform == "win32":
+                assert storage_profile["osFamily"] == "WINDOWS", "Storage profile is not Windows"
+                print(f"Verified storage profile is Windows: {storage_profile['displayName']}")
+            if sys.platform == "darwin":
+                assert storage_profile["osFamily"] == "MACOS", "Storage profile is not macOS"
+                print(f"Verified storage profile is macOS: {storage_profile['displayName']}")
         return job
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
@@ -232,3 +239,25 @@ def get_job_input_paths(farm_id, queue_id, job_id):
     except Exception as e:
         print(f"Error getting input paths: {str(e)}")
         return None
+
+
+def convert_nuke_path_to_platform(file_path):
+    def convert_slashes(path):
+        return path.replace("\\", "/") if os.name == "nt" else path.replace("/", "\\")
+
+    pattern = re.compile(r"(file|name)\s+([^\n]+)")
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+
+    new_lines = []
+    for line in lines:
+        match = pattern.search(line)
+        if match:
+            key, path = match.groups()
+            # Convert slashes based on platform
+            converted_path = convert_slashes(path.strip())
+            line = line.replace(path, converted_path)
+        new_lines.append(line)
+
+    with open(file_path, "w") as f:
+        f.writelines(new_lines)

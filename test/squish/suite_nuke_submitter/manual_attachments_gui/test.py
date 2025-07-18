@@ -28,32 +28,35 @@ def main():
     squish.snooze(3)
     squish.type(squish.waitForObject(names.nukeMainWindow_DAG_DAG_Window), "<Ctrl+S>")
     squish_helpers.open_nuke_submitter_gui()
+    squish_helpers.configure_aws_profile()
+    squish_helpers.set_conda_package_channel()
     squish_helpers.set_job_name("Manual Job Attachments Test")
     squish_helpers.set_job_description(
         "Verify that additional files can be manually added as attachments"
     )
     squish_helpers.configure_storage_profile("<none selected>")
-    squish_helpers.configure_aws_profile()
     squish.clickTab(
         squish.waitForObject(names.submit_to_AWS_Deadline_Cloud_QTabWidget), "Job attachments"
     )
 
-    nuke_asset_path = os.environ.get("NUKE_ASSET_ROOT")
-    if not nuke_asset_path:
-        squish_helpers.test_log("NUKE_ASSET_ROOT environment variable not set.")
+    deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH")
+    if not deadline_nuke_path:
+        squish_helpers.test_log("DEADLINE_NUKE_PATH environment variable not set.")
         return
 
-    aces_custom_sample_path = "nuke_test_samples/nuke_submitter_v02_nuke_aces_custom_samples"
+    aces_custom_sample_path = (
+        "test/squish/nuke-assets/nuke_test_samples/nuke_submitter_v02_nuke_aces_custom_samples"
+    )
 
     manual_attachments = ["manual_asset.exr", "manual_script.nk", "nukeTest_manual_frame.png"]
     for attachment in manual_attachments:
         manual_attachment_path = os.path.join(
-            nuke_asset_path, aces_custom_sample_path, "manual", attachment
+            deadline_nuke_path, aces_custom_sample_path, "manual", attachment
         )
         squish_helpers.add_input_files(manual_attachment_path)
 
     squish_helpers.add_output_directory(
-        os.path.join(nuke_asset_path, aces_custom_sample_path, "manual")
+        os.path.join(deadline_nuke_path, aces_custom_sample_path, "manual")
     )
 
     squish_helpers.submit_job()

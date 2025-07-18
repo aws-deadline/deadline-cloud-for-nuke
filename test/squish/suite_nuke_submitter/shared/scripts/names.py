@@ -493,3 +493,23 @@ override_frame_range_QLineEdit = {
     "unnamed": 1,
     "visible": 1,
 }
+farm_settings_QPushButton = {
+    "container": aWS_Deadline_Cloud_workstation_configuration_Farm_settings_QGroupBox,
+    "occurrence": 2,
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}
+profile_settings_QPushButton = {
+    "container": aWS_Deadline_Cloud_workstation_configuration_Profile_settings_QGroupBox,
+    "occurrence": 2,
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}
+farm_settings_QPushButton_2 = {
+    "container": aWS_Deadline_Cloud_workstation_configuration_Farm_settings_QGroupBox,
+    "type": "QPushButton",
+    "unnamed": 1,
+    "visible": 1,
+}

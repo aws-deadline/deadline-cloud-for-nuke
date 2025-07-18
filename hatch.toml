@@ -43,9 +43,8 @@ test = "pytest --no-cov {args:test/*/e2e}"
 env-vars = { PYTHONPATH = "{env:PYTHONPATH:}:test/squish/suite_nuke_submitter" }
 
 [envs.squish.scripts]
-deps = "pip install numpy pytest pytest-xdist opencv-python filelock"
+deps = "pip install numpy pytest pytest-xdist opencv-python filelock pillow"
 test = "pytest --override-ini addopts= {args:test/squish/suite_nuke_submitter/run_squish_test.py} -v -n 4"
-
 
 [envs.release]
 detached = true
