@@ -3,10 +3,23 @@
 Nuke and Squish require a license. If you have a Squish and Nuke license, please follow the guide below to run the tests. The current tests have been validated on macOS 15.5, Windows, and Linux.
 
 ## Prerequisites
+### Install Python
+
+Install Python 3.x on your system. This is required for running the test framework and managing dependencies.
+
 ### Install Nuke
 
 Download and install Nuke 16.0v1. 
 
+### Install Required Libraries
+Clone the required repositories:
+```sh
+# Clone the deadline-cloud repository
+git clone git@github.com:aws-deadline/deadline-cloud.git
+
+# Clone the deadline-cloud-for-nuke repository
+git clone git@github.com:aws-deadline/deadline-cloud-for-nuke.git
+```
 ### Set up the Deadline Cloud Nuke Submitter
 
 Read the DEVELOPMENT.md for instructions on setting up the Nuke submitter.
@@ -17,7 +30,9 @@ Install Squish 8.1.0 for Qt 6.5. If you are using any other version, be sure to 
 
 ### Set Up Test Assets
 
-The test suite includes large media files (images, movies) that are managed using Git LFS (Large File Storage). To properly clone and set up the test assets, install [Git LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage). Then to download these files, run `git lfs pull`.
+The test suite includes large media files (images, movies) that are managed using Git LFS (Large File Storage). To properly clone and set up the test assets:
+1. Install [Git LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage). 
+2. Run `git lfs pull` to download test assets.
 
 ## Configure Squish Environment
 
@@ -29,7 +44,7 @@ Import the test suite to Squish by going to 'File' -> 'Open Test Suite' and ente
 ```/Users/<user>/deadline-clients/deadline-cloud-for-nuke/test/squish/suite_nuke_submitter```
 
 #### For Windows: 
-```C:\Users\<user>\deadline-client\deadline-cloud-for-nuke\test\squish\suite_nuke_submitter```
+```C:\Users\<user>\deadline-clients\deadline-cloud-for-nuke\test\squish\suite_nuke_submitter```
 
 #### For Linux:
 ```/home/<user>/deadline-clients/deadline-cloud-for-nuke/test/squish/suite_nuke_submitter```
@@ -167,7 +182,7 @@ The test compares RGB values across the frames and calculates an average differe
 In the case changes are made to the Nuke script, such as adding color correction nodes, applying visual effects, or modifying render settings, the output images will likely differ from the reference images. When these changes are intentional, you should update the reference images to reflect the new expected output.
 
 ## Adding Tests
-New tests should be added to ```test/squish/suite_nuke_submitter/```. The test suite provides helper functions for common operations. Place test assets in nuke-assets/ and use Git LFS for large media files.
+New Squish GUI tests should be added to ```test/squish/suite_nuke_submitter/```. To add E2E tests that call these squish gui tests, add them to the ```run_squish_test.py``` file. The test suite provides helper functions for common operations. Place test assets in nuke-assets/ and use Git LFS for large media files.
 
 ## A Final Word on Testing
 The Deadline Cloud for Nuke test suite combines Squish UI automation with AWS infrastructure testing. Before submitting changes:
@@ -175,5 +190,12 @@ The Deadline Cloud for Nuke test suite combines Squish UI automation with AWS in
 - Run the full test suite locally
 - Ensure proper resource cleanup
 - Update documentation if adding new tests
+
+Cross-platform testing (Windows, macOS, Linux) is suggested when modifying:
+- File paths or environment variables
+- UI Interaction changes such as adding new UI elements or modifying Squish locators
+- System-specific features such as file permissions or shell commands
+
+Other changes such as job logic, documentation updates, and AWS resource handling can be tested on a single OS.
 
 For API details, consult the Squish and Deadline Cloud documentation.

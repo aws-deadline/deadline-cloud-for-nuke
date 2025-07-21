@@ -766,15 +766,11 @@ def test_manual_attachments(cleanup_render_outputs):
     nuke_folder_path = os.environ.get("NUKE_FOLDER_PATH", "")
     if sys.platform == "win32":
         nuke_folder_path = nuke_folder_path.replace("\\", "/")
-    win_path = rf"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
-    linux_path = f"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
-    mac_path = f"{nuke_folder_path}/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
-    if sys.platform == "win32":
-        new_ocio_path = win_path
+        new_ocio_path = rf"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
     elif sys.platform == "linux":
-        new_ocio_path = linux_path
+        new_ocio_path = f"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
     else:
-        new_ocio_path = mac_path
+        new_ocio_path = f"{nuke_folder_path}/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
 
     with open(nk_script_path, "r") as file:
         lines = file.readlines()
