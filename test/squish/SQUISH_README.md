@@ -1,11 +1,11 @@
 # Nuke Submitter E2E Testing with Squish
 
-Nuke and Squish require a license. If you have a Squish and Nuke license, please follow the guide below to run the tests.
+Nuke and Squish require a license. If you have a Squish and Nuke license, please follow the guide below to run the tests. The current tests have been validated on macOS 15.5, Windows, and Linux.
 
 ## Prerequisites
 ### Install Nuke
 
-Download and install Nuke 16.0v1. The current tests have been validated on macOS 15.5 and Windows. Support for Linux will be added after macOS and Windows support is established. 
+Download and install Nuke 16.0v1. 
 
 ### Set up the Deadline Cloud Nuke Submitter
 
@@ -13,7 +13,7 @@ Read the DEVELOPMENT.md for instructions on setting up the Nuke submitter.
 
 ### Install Squish Framework
 
-Install Squish 8.1.0 for Qt 6.5. If you are using any other version, be sure to select the correct version of Qt that is being used with Nuke on your machine.
+Install Squish 8.1.0 for Qt 6.5. If you are using any other version, be sure to select the correct version of Qt that is being used with Nuke on your machine. Once installed, launch Squish IDE on your machine and follow the remaining instructions below.
 
 ### Set Up Test Assets
 
@@ -23,12 +23,16 @@ The test suite includes large media files (images, movies) that are managed usin
 
 Register Nuke as an AUT (Application Under Test) by going to 'Edit' -> 'Server Settings' and registering under 'Mapped AUTs' (in Squish IDE). 
 
-Import the test suite to Squish by going to 'File' -> 'Open Test Suite' and entering the test suite directory. 
-#### For Windows: 
-```C:\Users\<user>\deadline-client\deadline-cloud-for-nuke\test\squish\suite_nuke_submitter```
+Import the test suite to Squish by going to 'File' -> 'Open Test Suite' and entering the test suite directory. Make sure that the AUT subpage of the test suite has Nuke set as the AUT. The paths to the test suite directory may look like this:
 
 #### For macOS:
 ```/Users/<user>/deadline-clients/deadline-cloud-for-nuke/test/squish/suite_nuke_submitter```
+
+#### For Windows: 
+```C:\Users\<user>\deadline-client\deadline-cloud-for-nuke\test\squish\suite_nuke_submitter```
+
+#### For Linux:
+```/home/<user>/deadline-clients/deadline-cloud-for-nuke/test/squish/suite_nuke_submitter```
 
 \
 Then, configure the Nuke Submitter path by going to the test suite settings in the Squish IDE and adding an AUT environment variable called NUKE_PATH. Set it to the path where your Nuke submitter is installed: 
@@ -39,7 +43,7 @@ Then, configure the Nuke Submitter path by going to the test suite settings in t
 C:\path\to\DeadlineCloudForNukeSubmitter
 ```
 In the suite.conf file, set AUT to ```Nuke16.0```.
-#### For macOS:
+#### For macOS and Linux:
 ```sh
 /path/to/DeadlineCloudForNukeSubmitter
 ```
@@ -53,6 +57,8 @@ The following environment variables are required for running the tests:
 ```sh
 AWS_PROFILE=<profile name>
 DEADLINE_NUKE_PATH=/path/to/deadline-cloud-for-nuke
+SQUISH_FOLDER_PATH='/path/to/Squish for Qt 8.1.0'
+NUKE_FOLDER_PATH=/path/to/Nuke16.0v1
 ```
 
 ### Replace environment variables in Nuke Scripts
@@ -64,7 +70,10 @@ The test suite includes Nuke scripts that use environment variables in their fil
 cd deadline-cloud-for-nuke/test/squish/suite_nuke_submitter/shared/scripts/
 
 # Replace $DEADLINE_NUKE_PATH with actual paths
+# For MacOS/Linux:
 python3 replace_env_paths.py
+# For Windows:
+python replace_env_paths.py
 
 # To revert back to environment variables (if needed)
 python3 replace_env_paths.py --revert
@@ -85,7 +94,8 @@ The following Deadline Cloud resources are needed in order to run `tst_verify_se
 - A farm named "Nuke Submitter Squish Farm"
 - A queue named "Nuke Submitter Squish Automation Queue"
 - Three storage profiles named "Linux Storage Profile", "Windows Storage Profile", and "macOS Storage Profile"
-- Fleet instance market type of On-Demand instance
+- Fleet instance market type of On-Demand instance 
+- Fleet max auto scaling capacity of 10
 
 ## Available Tests
 
@@ -124,18 +134,17 @@ To install necessary dependencies to run the tests, run:
 ```sh
 hatch run squish:deps
 ```
+
 Then, to run the tests:
 ```sh
+# For Linux, connect to the squishserver in the background:
+/home/<user>/squish-for-qt-8.1.0/bin/squishserver
+
 hatch run squish:test
 ```
 To run a specific test:
 ```sh
-# Navigate to the scripts directory
-cd deadline-cloud-for-nuke/test/squish/suite_nuke_submitter
-
-# Run the testcase
-pytest run_squish_test.py::<testcase name>
-
+hatch run squish:test test/squish/suite_nuke_submitter/run_squish_test.py::<testcase>
 ```
 
 ## Test Results Interpretation
@@ -156,3 +165,15 @@ These output images can be compared with the expected reference images at:
 The test compares RGB values across the frames and calculates an average difference. A difference exceeding the tolerance (default: 0.1) will cause the test to fail.
 
 In the case changes are made to the Nuke script, such as adding color correction nodes, applying visual effects, or modifying render settings, the output images will likely differ from the reference images. When these changes are intentional, you should update the reference images to reflect the new expected output.
+
+## Adding Tests
+New tests should be added to ```test/squish/suite_nuke_submitter/```. The test suite provides helper functions for common operations. Place test assets in nuke-assets/ and use Git LFS for large media files.
+
+## A Final Word on Testing
+The Deadline Cloud for Nuke test suite combines Squish UI automation with AWS infrastructure testing. Before submitting changes:
+
+- Run the full test suite locally
+- Ensure proper resource cleanup
+- Update documentation if adding new tests
+
+For API details, consult the Squish and Deadline Cloud documentation.

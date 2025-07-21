@@ -26,10 +26,13 @@ def run_squish_command(testcase_name, local=True):
             - job_id (str or None): Extracted job ID from output if found, None otherwise
     """
     deadline_nuke_path = os.environ.get("DEADLINE_NUKE_PATH", "")
+    squish_folder_path = os.environ.get("SQUISH_FOLDER_PATH", "")
     if sys.platform == "win32":
-        squish_runner = pathlib.Path("C:/Program Files/Squish for Qt 8.1.0/bin/squishrunner.exe")
+        squish_runner = pathlib.Path(f"{squish_folder_path}/bin/squishrunner.exe")
+    elif sys.platform == "linux":
+        squish_runner = pathlib.Path(f"{squish_folder_path}/bin/squishrunner")
     else:
-        squish_runner = pathlib.Path("/Applications/Squish\\ for\\ Qt\\ 8.1.0/bin/squishrunner")
+        squish_runner = pathlib.Path(f"'{squish_folder_path}'/bin/squishrunner")
     testsuite_path = os.path.join(deadline_nuke_path, "test", "squish", "suite_nuke_submitter")
     testsuite_path = os.path.normpath(testsuite_path)
     local_flag = "--local" if local else ""
@@ -113,6 +116,8 @@ def test_valid_environment_variables():
     env_vars = {
         "AWS_PROFILE": {"check_path": False},
         "DEADLINE_NUKE_PATH": {"check_path": True},
+        "NUKE_FOLDER_PATH": {"check_path": True},
+        "SQUISH_FOLDER_PATH": {"check_path": True},
     }
 
     for var_name, var_spec in env_vars.items():
@@ -194,7 +199,8 @@ def check_platform():
     assert sys.platform in [
         "darwin",
         "win32",
-    ], "Deadline Nuke Squish Tests are only supported on macOS and Windows currently."
+        "linux",
+    ], "Deadline Nuke Squish Tests are only supported on macOS, Windows, and Linux."
 
 
 def test_basic_workflow(cleanup_render_outputs):
@@ -433,13 +439,19 @@ def test_ocio_job(cleanup_render_outputs):
     ocio_job = api_helpers.get_job(farm_id, queue_id, job_ids[0])
     print(json.dumps(ocio_job, indent=2, default=str))
 
+    nuke_folder_path = os.environ.get("NUKE_FOLDER_PATH", "")
     if sys.platform == "win32":
+        nuke_folder_path = nuke_folder_path.replace("/", "\\")
         ocio_config_path = pathlib.Path(
-            r"C:\Program Files\Nuke16.0v1\plugins\OCIOConfigs\configs\aces_1.2\config.ocio"
+            rf"{nuke_folder_path}\plugins\OCIOConfigs\configs\aces_1.2\config.ocio"
+        )
+    elif sys.platform == "linux":
+        ocio_config_path = pathlib.Path(
+            f"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
         )
     else:
         ocio_config_path = pathlib.Path(
-            "/Applications/Nuke16.0v1/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
+            f"{nuke_folder_path}/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
         )
     api_helpers.verify_ocio_config(ocio_config_path, ocio_job)
 
@@ -751,11 +763,18 @@ def test_manual_attachments(cleanup_render_outputs):
         "nukeTest_output_OCIO_v01",
         render_settings_path,
     )
-
-    win_path = r"C:/Program Files/Nuke16.0v1/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
-
-    mac_path = "/Applications/Nuke16.0v1/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
-    new_ocio_path = win_path if sys.platform == "win32" else mac_path
+    nuke_folder_path = os.environ.get("NUKE_FOLDER_PATH", "")
+    if sys.platform == "win32":
+        nuke_folder_path = nuke_folder_path.replace("\\", "/")
+    win_path = rf"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
+    linux_path = f"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
+    mac_path = f"{nuke_folder_path}/Nuke16.0v1.app/Contents/Resources/OCIOConfigs/configs/aces_1.2/config.ocio"
+    if sys.platform == "win32":
+        new_ocio_path = win_path
+    elif sys.platform == "linux":
+        new_ocio_path = linux_path
+    else:
+        new_ocio_path = mac_path
 
     with open(nk_script_path, "r") as file:
         lines = file.readlines()
