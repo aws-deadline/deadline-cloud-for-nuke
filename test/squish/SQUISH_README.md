@@ -172,10 +172,10 @@ An unsuccessful test will show:
 - Assertion failures for squish commands, job submission, download, or job verification steps
 
 ### Image Verification Failures
-When image verification fails, you can check the output images located at `$NUKE_ASSET_ROOT/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output` 
+When image verification fails, you can check the output images located at `$DEADLINE_NUKE_PATH/test/squish/suite_nuke_submitter/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/output`.
 
 These output images can be compared with the expected reference images at:
-`$NUKE_ASSET_ROOT/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected`.
+`$DEADLINE_NUKE_PATH/test/squish/suite_nuke_submitter/nuke_test_samples/nuke_submitter_v02_nuke_default_test_samples/images/expected`.
 
 The test compares RGB values across the frames and calculates an average difference. A difference exceeding the tolerance (default: 0.1) will cause the test to fail.
 
