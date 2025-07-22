@@ -3,20 +3,17 @@
 Nuke and Squish require a license. If you have a Squish and Nuke license, please follow the guide below to run the tests. The current tests have been validated on macOS 15.5, Windows, and Linux.
 
 ## Prerequisites
-### Install Python
+### Install Python and Deadline CLI
 
-Install Python 3.x on your system. This is required for running the test framework and managing dependencies.
+Install Python 3.x and the Deadline CLI on your system. This is required for running the test framework, submitting jobs, and managing dependencies.
 
 ### Install Nuke
 
 Download and install Nuke 16.0v1. 
 
-### Install Required Libraries
-Clone the required repositories:
+### Install Required Library
+Clone the required repository:
 ```sh
-# Clone the deadline-cloud repository
-git clone git@github.com:aws-deadline/deadline-cloud.git
-
 # Clone the deadline-cloud-for-nuke repository
 git clone git@github.com:aws-deadline/deadline-cloud-for-nuke.git
 ```

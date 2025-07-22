@@ -766,7 +766,7 @@ def test_manual_attachments(cleanup_render_outputs):
     nuke_folder_path = os.environ.get("NUKE_FOLDER_PATH", "")
     if sys.platform == "win32":
         nuke_folder_path = nuke_folder_path.replace("\\", "/")
-        new_ocio_path = rf"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
+        new_ocio_path = f"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
     elif sys.platform == "linux":
         new_ocio_path = f"{nuke_folder_path}/plugins/OCIOConfigs/configs/aces_1.2/config.ocio"
     else:
