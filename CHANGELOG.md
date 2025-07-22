@@ -1,3 +1,22 @@
+## 0.18.12 (2025-07-19)
+
+
+### Features
+* Added Windows E2E test support and uploaded test assets (#243) ([`1c95deb`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/1c95deba1d6dcf299f9f021f22f5afb7fc1723c6))
+* Added Windows E2E test support and uploaded test assets ([`1c95deb`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/1c95deba1d6dcf299f9f021f22f5afb7fc1723c6))
+* Add frame range tests, rewrote QCombobox interactions (#238) ([`660379e`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/660379e42607bb50878a57fa9d0c4403a675ac35))
+* Add frame range tests, rewrote QCombobox interactions ([`660379e`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/660379e42607bb50878a57fa9d0c4403a675ac35))
+* Add OCIO, job attachment tests, and default frame range integration tests (#235) ([`97cd39a`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/97cd39add6f3e78af032781bca4a319beab9637d))
+* Added OCIO, job attachment tests, and default frame range integration test ([`97cd39a`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/97cd39add6f3e78af032781bca4a319beab9637d))
+* Fixed typo in test_default_frame_range error message ([`97cd39a`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/97cd39add6f3e78af032781bca4a319beab9637d))
+* Add Custom Settings and Write Node E2E tests (#229) ([`806da24`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/806da245a8dd833837619444b194ba79c602c05f))
+* Add Custom Settings and Write Node E2E tests ([`806da24`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/806da245a8dd833837619444b194ba79c602c05f))
+
+### Bug Fixes
+* Correct the build installer command for Nuke in development readme (#245) ([`f60ce1c`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f60ce1c23fc0ab4d09af1ebcaeef4e0c2fc3e2ca))
+* All Views rendering bug to properly render multiple views instead of repeating first view (#244) ([`37c3377`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/37c33773f25b41863147661d5eca84190f650040))
+* update override frame range function to correctly trigger frame override text box status (#236) ([`5289d57`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/5289d57da21475dddf91f134cf2340eb73472b18))
+
 ## 0.18.11 (2025-07-02)
 
 
