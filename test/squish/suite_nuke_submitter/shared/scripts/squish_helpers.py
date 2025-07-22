@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def launch_nuke():
-    if sys.platform == "win32":
+    if sys.platform in ["win32", "linux"]:
         squish.startApplication("Nuke16.0")
     if sys.platform == "darwin":
         squish.startApplication("Nuke16.0v1")
