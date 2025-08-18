@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from unittest.mock import MagicMock, Mock, patch
 
 import nuke
@@ -11,8 +10,9 @@ import pytest
 from deadline.client.exceptions import DeadlineOperationError
 from deadline.nuke_submitter.assets import (
     find_all_write_nodes,
-    get_node_file_knob_paths,
-    get_node_filenames,
+    get_input_paths_for_filenode,
+    get_output_paths_for_filenode,
+    IOPath,
     get_scene_asset_references,
 )
 
@@ -30,11 +30,14 @@ def _activated_reading_write_node_knobs(knob_name: str):
     return knobs[knob_name]
 
 
-@patch("os.path.isfile", return_value=True)
+@patch("deadline.nuke_submitter.assets.isfile", return_value=True)
 @patch("deadline.nuke_submitter.assets.get_nuke_script_file", return_value="/this/scriptfile.nk")
 @patch(
-    "deadline.nuke_submitter.assets.get_node_filenames",
-    return_value=["/one/asset.png", "/two/asset.png"],
+    "deadline.nuke_submitter.assets.get_input_paths_for_filenode",
+    return_value=[
+        IOPath(path="/one/asset.png", is_file=True),
+        IOPath(path="/two/asset.png", is_file=True),
+    ],
 )
 @patch("deadline.nuke_util.ocio.is_custom_config_enabled", return_value=False)
 @patch("deadline.nuke_util.ocio.is_stock_config_enabled", return_value=False)
@@ -58,7 +61,7 @@ def test_get_scene_asset_references(
     mock_path_isfile: Mock,
 ):
     # GIVEN
-    expected_assets = mock_get_node_filenames.return_value
+    expected_assets = [result.path for result in mock_get_node_filenames.return_value]
     expected_script_file = mock_get_nuke_script_file.return_value
     nuke.allNodes.return_value = []
 
@@ -175,97 +178,156 @@ def test_find_all_write_nodes():
 @pytest.mark.parametrize(
     "asset_path,formatted_paths",
     [
-        ("/path/to/file_with_no_frames.png", {"/path/to/file_with_no_frames.png"}),
         (
-            "/path/to/file.####.hash",
+            "path/to/file_with_no_frames.png",
+            {IOPath(path="/project_path/path/to/file_with_no_frames.png", is_file=True)},
+        ),
+        (
+            "path/to/file.####.hash",
             {
-                "/path/to/file.0000.hash",
-                "/path/to/file.0001.hash",
-                "/path/to/file.0002.hash",
-                "/path/to/file.0100.hash",
+                IOPath(path="/project_path/path/to/file.0001.hash", is_file=True),
+                IOPath(path="/project_path/path/to/file.0002.hash", is_file=True),
+                IOPath(path="/project_path/path/to/file.0003.hash", is_file=True),
             },
         ),
         (
-            "/path/to/file.#.hash",
+            "/path/to/frame.####/frame.png",
             {
-                "/path/to/file.0.hash",
-                "/path/to/file.1.hash",
-                "/path/to/file.2.hash",
-                "/path/to/file.100.hash",
+                IOPath(path="/path/to/frame.0001/frame.png", is_file=True),
+                IOPath(path="/path/to/frame.0002/frame.png", is_file=True),
+                IOPath(path="/path/to/frame.0003/frame.png", is_file=True),
             },
         ),
         (
-            r"/path/to/file.%04d.formatting",
+            "[some_tcl_expression of [stuff]]/path/to/frame.####/frame.png",
             {
-                "/path/to/file.0000.formatting",
-                "/path/to/file.0001.formatting",
-                "/path/to/file.0002.formatting",
-                "/path/to/file.0100.formatting",
-            },
-        ),
-        (
-            r"/path/to/file.%d.formatting",
-            {
-                "/path/to/file.0.formatting",
-                "/path/to/file.1.formatting",
-                "/path/to/file.2.formatting",
-                "/path/to/file.100.formatting",
+                IOPath(path="/tcl_returned_path/path/to/frame.0001/frame.png", is_file=True),
+                IOPath(path="/tcl_returned_path/path/to/frame.0002/frame.png", is_file=True),
+                IOPath(path="/tcl_returned_path/path/to/frame.0003/frame.png", is_file=True),
             },
         ),
     ],
 )
-@patch("deadline.nuke_submitter.assets.get_node_file_knob_paths")
-def test_get_node_filenames(mock_get_node_file_knob_paths: Mock, asset_path, formatted_paths):
+@patch("deadline.nuke_submitter.assets.nuke")
+@patch("deadline.nuke_submitter.assets.get_project_path")
+def test_get_input_paths_for_filenode(
+    mock_get_project_path: Mock, mock_nuke: Mock, asset_path, formatted_paths
+):
     # GIVEN
-    node_filepaths = [asset_path]
-    mock_get_node_file_knob_paths.side_effect = lambda node: (path for path in node_filepaths)
+    mock_get_project_path.return_value = "/project_path"
+
+    output_context = MagicMock()
+
+    def update_frame(frame):
+        output_context.frame = frame
+
+    output_context.setFrame.side_effect = update_frame
+
+    mock_nuke.OutputContext.return_value = output_context
+    mock_nuke.views.return_value = "main"
+
     node = MagicMock()
-    node.frameRange.return_value = [0, 1, 2, 100]
+    node.frameRange.return_value = [1, 2, 3]
+    mock_path_knob = MagicMock()
+    mock_path_knob.Class.return_value = "File_Knob"
+
+    def evaluate_path(context):
+        tcl_subbed = asset_path.replace("[some_tcl_expression of [stuff]]", "/tcl_returned_path")
+        return tcl_subbed.replace("####", str(context.frame).zfill(4))
+
+    mock_path_knob.getEvaluatedValue.side_effect = evaluate_path
+    node.allKnobs.return_value = [mock_path_knob]
 
     # WHEN
-    results = get_node_filenames(node)
+    results = get_input_paths_for_filenode(node)
+
+    results = {
+        # fix windows pathing
+        IOPath(path=result.path.replace("\\", "/"), is_file=result.is_file)
+        for result in results
+    }
 
     # THEN
     assert results == formatted_paths
 
 
+@pytest.mark.parametrize(
+    "asset_path,formatted_paths",
+    [
+        (
+            "path/to/file_with_no_frames.png",
+            {IOPath(path="/project_path/path/to/file_with_no_frames.png", is_file=True)},
+        ),
+        (
+            "path/to/file.####.hash",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+        (
+            "path/to/frame.##/frame.png",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+        (
+            "./path/to/frame.##/frame.png",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+        (
+            "path/views/%v/to/frame.##/frame.png",
+            {IOPath(path="/project_path/path/views", is_file=False)},
+        ),
+        (
+            "path/views/%V/to/frame.##/frame.png",
+            {IOPath(path="/project_path/path/views", is_file=False)},
+        ),
+        (
+            "path/to/frame_%05d/views/%v/frame.png",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+        (
+            "[some_tcl_expression of [stuff]]/path/to/frame.##/frame.png",
+            {IOPath(path="/tcl_returned_path/path/to", is_file=False)},
+        ),
+        (
+            "path/to/frame.##/frame.png",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+        (
+            r"path/to/file.%04d.formatting",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+        (
+            r"path/to/file.%d.formatting",
+            {IOPath(path="/project_path/path/to", is_file=False)},
+        ),
+    ],
+)
+@patch("deadline.nuke_submitter.assets.nuke")
 @patch("deadline.nuke_submitter.assets.get_project_path")
-def test_get_node_file_knob_paths(mock_project_path: Mock):
+def test_get_output_paths_for_filenode(
+    mock_get_project_path: Mock, mock_nuke: Mock, asset_path, formatted_paths
+):
     # GIVEN
-    mock_project_path.return_value = os.path.join("project", "path")
-    mock_other_knob = MagicMock()
-    mock_other_knob.Class.return_value = "NotAFileKnob"
+    mock_get_project_path.return_value = "/project_path"
 
-    mock_tcl_file_knob = MagicMock()
-    mock_tcl_file_knob.Class.return_value = "File_Knob"
-    mock_tcl_file_knob.value.return_value = "[this is a tcl expression]"
-    mock_tcl_file_knob.getEvaluatedValue.return_value = os.path.join("evaluated", "tcl", "path")
+    mock_tcl = MagicMock()
+    mock_tcl.return_value = "/tcl_returned_path"
+    mock_nuke.tcl.return_value = mock_tcl()
 
-    mock_file_knob = MagicMock()
-    mock_file_knob.Class.return_value = "File_Knob"
-    mock_file_knob.value.return_value = os.path.join("this", "is", "a", "path")
-    mock_node = MagicMock()
-    mock_node.allKnobs.return_value = []
+    def sub_hashes(path):
+        # mimicking that node.value() will replace hashes with equivalent %0nd syntax for frame subs
+        return path.replace("####", "%04d").replace("##", "%02d")
+
+    node = MagicMock()
+    mock_path_knob = MagicMock()
+    mock_path_knob.Class.return_value = "File_Knob"
+    mock_path_knob.value.return_value = sub_hashes(asset_path)
+    node.allKnobs.return_value = [mock_path_knob]
 
     # WHEN
-    results = get_node_file_knob_paths(mock_node)
-    # THEN
-    with pytest.raises(StopIteration):
-        next(results)
+    results = get_output_paths_for_filenode(node)
 
-    # GIVEN
-    mock_node.allKnobs.return_value = [
-        mock_other_knob,
-        mock_tcl_file_knob,
-        mock_file_knob,
-    ]
-    mock_node.reset_mock()
-
-    # WHEN
-    results = get_node_file_knob_paths(mock_node)
+    results = {
+        IOPath(path=result.path.replace("\\", "/"), is_file=result.is_file) for result in results
+    }  # fix windows pathing
 
     # THEN
-    assert next(results) == os.path.join(
-        mock_project_path(), mock_tcl_file_knob.getEvaluatedValue()
-    )
-    assert next(results) == os.path.join(mock_project_path(), mock_file_knob.value())
+    assert results == formatted_paths

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import re
-from collections.abc import Generator
-from os.path import commonpath, dirname, join, normpath, samefile
+import os
+from os.path import commonpath, dirname, join, normpath, samefile, isfile
+from dataclasses import dataclass
 from sys import platform
 import nuke
 
@@ -13,10 +13,18 @@ from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
 from deadline.nuke_util import ocio as nuke_ocio
 
-FRAME_REGEX = re.compile(r"(#+)|%(\d*)d", re.IGNORECASE)
+FRAME_VIEW_EXPRESSION_REGEX = re.compile(r"(%(\d*)d)|(%[vV])", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
 NUKE_WRITE_NODE_CLASSES: set[str] = {"Write", "DeepWrite", "WriteGeo"}
-JOB_ID_REGEX = re.compile(r"^job-[0-9a-z]{32}$")
+
+
+@dataclass
+class IOPath:
+    path: str
+    is_file: bool
+
+    def __hash__(self):
+        return self.path.__hash__()
 
 
 def get_nuke_script_file() -> str:
@@ -40,7 +48,7 @@ def get_scene_asset_references() -> AssetReferences:
     nuke.tprint("Walking node graph to auto-detect input/output asset references...")
     asset_references = AssetReferences()
     script_file = get_nuke_script_file()
-    if not os.path.isfile(script_file):
+    if not isfile(script_file):
         raise DeadlineOperationError(
             "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
         )
@@ -57,7 +65,7 @@ def get_scene_asset_references() -> AssetReferences:
             is_read_node = read_knob.value()
 
         if is_read_node or node.Class() not in NUKE_WRITE_NODE_CLASSES:
-            for filename in get_node_filenames(node):
+            for iopath in get_input_paths_for_filenode(node):
                 # if the filename is in the install dir, ignore it.
                 if node is nuke.root():
                     # Windows / Linux
@@ -67,25 +75,31 @@ def get_scene_asset_references() -> AssetReferences:
                         # INSTALL_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app
                         install_path = dirname(dirname(dirname(nuke.EXE_PATH)))
                     try:
-                        common_file_path = commonpath((filename, install_path))
+                        common_file_path = commonpath((iopath.path, install_path))
                     except ValueError:
                         # Occurs if different drives, or mix of absolute + relative paths
                         pass
                     else:
                         if samefile(install_path, common_file_path):
                             continue
-                if not os.path.isdir(filename):
-                    asset_references.input_filenames.add(filename)
+
+                if iopath.is_file:
+                    asset_references.input_filenames.add(iopath.path)
+                else:
+                    asset_references.input_directories.add(iopath.path)
         else:
-            for filename in get_node_filenames(node):
-                asset_references.output_directories.add(dirname(filename))
+            for iopath in get_output_paths_for_filenode(node):
+                if iopath.is_file:
+                    asset_references.output_directories.add(dirname(iopath.path))
+                else:
+                    asset_references.output_directories.add(iopath.path)
 
     if nuke_ocio.is_OCIO_enabled():
         # Determine and add the config file and associated search directories
         ocio_config_path = nuke_ocio.get_ocio_config_path()
         # Add the references
         if ocio_config_path is not None:
-            if os.path.isfile(ocio_config_path):
+            if isfile(ocio_config_path):
                 asset_references.input_filenames.add(ocio_config_path)
 
                 ocio_config_search_paths = nuke_ocio.get_config_absolute_search_paths(
@@ -121,42 +135,103 @@ def find_all_write_nodes() -> set:
     return write_nodes
 
 
-def get_node_filenames(node) -> set[str]:
-    """Searches through all of a node's file knobs for potential filenames.
+def get_input_paths_for_filenode(node) -> set[IOPath]:
+    """Get all the file we will use as input for this node"""
 
-    Handles '%04d' or '####' style padding
-    """
-    filenames: set[str] = set()
-    for path in get_node_file_knob_paths(node):
-        found_frame_pattern = FRAME_REGEX.search(path)
-        if not found_frame_pattern:
-            filenames.add(path)
+    out = set()
+    for knob in node.allKnobs():
+        if knob.Class() != FILE_KNOB_CLASS or not knob.value():
             continue
 
-        # frame token pattern exists in filename
-        if found_frame_pattern.group(1):  # (#+)
-            padding_length = len(found_frame_pattern.group(1))  # type: int
-        else:  # %(\d*)d
-            # If no integer is provided, use 1 for the padding
-            padding_length = 1
-            if found_frame_pattern.group(2):
-                padding_length = int(found_frame_pattern.group(2))
+        context = nuke.OutputContext()
+        views = nuke.views()
+        project_path = get_project_path()
 
         for frame in node.frameRange():
-            evaluated_frame_string = str(frame).zfill(padding_length)
-            evaluated_filename = FRAME_REGEX.sub(evaluated_frame_string, path)  # type: str
-            filenames.add(evaluated_filename)
+            for view in views:
+                context.setFrame(frame)
+                context.setView(context.viewFromName(view))
+                out.add(
+                    IOPath(
+                        path=normpath(join(project_path, knob.getEvaluatedValue(context))),
+                        is_file=True,
+                    )
+                )
 
-    return filenames
+    return out
 
 
-def get_node_file_knob_paths(node) -> Generator[str, None, None]:
-    """Gets all file paths associated with a node"""
-    project_path = get_project_path()
+def get_output_paths_for_filenode(node) -> set[IOPath]:
+    """Get the directores or files we will pass to job attachments to capture all files consumed as input / produced as output for this node"""
+
+    out = set()
     for knob in node.allKnobs():
-        if knob.Class() == FILE_KNOB_CLASS and knob.value():
-            # If the knob value starts with a tcl expression, we evaluate it
-            if knob.value().startswith("["):
-                yield normpath(join(project_path, knob.getEvaluatedValue()))
+        if knob.Class() != FILE_KNOB_CLASS or not knob.value():
+            continue
+
+        # gets the file path, still containing %04d, %v or TCL expressions.
+        # note #### syntax for frames will be converted to %04d
+        # note backslashes for windows paths are converted to forward slashes
+        filepath = knob.value()
+        # evaluate any tcl expressions in the path
+        filepath = evaluate_tcl_subexpressions(filepath)
+
+        expression_match = FRAME_VIEW_EXPRESSION_REGEX.search(filepath)
+        path_is_file = True
+        if expression_match:
+            # in the case of an expression for frames / views, we will used the parent directory
+            # of the filenode containing the first expression
+
+            pos = expression_match.start()
+            # walk back to the nearest /
+            while pos >= 0 and filepath[pos] != "/":
+                pos -= 1
+
+            if pos == -1:
+                filepath = "./"
             else:
-                yield normpath(join(project_path, knob.value()))
+                filepath = filepath[: pos + 1]
+
+            path_is_file = False
+
+        project_path = get_project_path()
+        full_path = normpath(join(project_path, filepath))
+        out.add(IOPath(path=full_path, is_file=path_is_file))
+
+    return out
+
+
+def evaluate_tcl_subexpressions(string: str) -> str:
+    """Walk through a string, finding any tcl expressions (which are wrapped by []),
+    and replace them with their evaluation"""
+
+    # using list, then combining with join for efficiency
+    evaluated_string = []
+    bracket_nest_count = 0
+    current_tcl_expression = []
+
+    for c in string:
+        if c == "[":
+            # need to keep the [] for subexpressions
+            if bracket_nest_count > 0:
+                current_tcl_expression.append(c)
+
+            bracket_nest_count += 1
+
+        elif c == "]":
+            bracket_nest_count -= 1
+            if bracket_nest_count == 0:
+                # end tcl expression
+                evaluated_string.append(nuke.tcl("".join(current_tcl_expression)))
+                current_tcl_expression = []  # reset for any subsequent expressions
+            else:
+                # need to keep the [] for subexpressions
+                current_tcl_expression.append(c)
+
+        elif bracket_nest_count > 0:
+            # we are in an expression
+            current_tcl_expression.append(c)
+        else:
+            evaluated_string.append(c)
+
+    return "".join(evaluated_string)
