@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Optional
 import yaml  # type: ignore[import]
 
 import nuke
@@ -16,7 +16,6 @@ from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: 
     SubmitJobToDeadlineDialog,
     JobBundlePurpose,
 )
-from deadline.job_bundle.parameters import JobParameter
 from deadline.nuke_util import ocio as nuke_ocio
 from nuke import Node
 
@@ -394,9 +393,9 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
         widget: SubmitJobToDeadlineDialog,
         job_bundle_dir: str,
         settings: RenderSubmitterUISettings,
-        queue_parameters: list[JobParameter],
+        queue_parameters: list[dict[str, Any]],
         asset_references: AssetReferences,
-        host_requirements: Optional[Dict[str, Any]] = None,
+        host_requirements: Optional[dict[str, Any]] = None,
         purpose: JobBundlePurpose = JobBundlePurpose.SUBMISSION,
     ) -> None:
         # if submitting, warn if the current scene has been modified
@@ -482,7 +481,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             },
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
-            on_create_job_bundle_callback=on_create_job_bundle_callback,
+            on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
             parent=parent,
             f=f,
             show_host_requirements_tab=True,
