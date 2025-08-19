@@ -481,7 +481,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
             },
             auto_detected_attachments=auto_detected_attachments,
             attachments=attachments,
-            on_create_job_bundle_callback=on_create_job_bundle_callback,
+            on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
             parent=parent,
             f=f,
             show_host_requirements_tab=True,
