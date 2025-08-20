@@ -13,7 +13,14 @@ from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
 from deadline.nuke_util import ocio as nuke_ocio
 
-FRAME_VIEW_EXPRESSION_REGEX = re.compile(r"(%(\d*)d)|(%[vV])", re.IGNORECASE)
+# Nuke allows the use of printf style expressions in path names to be evaluated to the current frame number
+# and view being rendered. For example %04d would be the current frame number zero padded to be at least 4 digits.
+# %v or %V will be evaluated to the first character, or full name of the current view. 
+# 
+# Note Nuke also allows the use of '####' to describe a frame number as well, but we do not need to match
+# this since the knob.value() translates it to an equivalent printf style expression.
+# E.g. frame_####.exr becomes frame_%04d.exr.
+FRAME_VIEW_EXPRESSION_REGEX = re.compile(r"(%(\d*)d)|(%v)", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
 NUKE_WRITE_NODE_CLASSES: set[str] = {"Write", "DeepWrite", "WriteGeo"}
 
@@ -83,10 +90,9 @@ def get_scene_asset_references() -> AssetReferences:
                         if samefile(install_path, common_file_path):
                             continue
 
-                if iopath.is_file:
-                    asset_references.input_filenames.add(iopath.path)
-                else:
-                    asset_references.input_directories.add(iopath.path)
+                # get_input_paths always returns filepaths, not directories.
+                asset_references.input_filenames.add(iopath.path)
+
         else:
             for iopath in get_output_paths_for_filenode(node):
                 if iopath.is_file:
@@ -181,6 +187,7 @@ def get_output_paths_for_filenode(node) -> set[IOPath]:
         if expression_match:
             # in the case of an expression for frames / views, we will used the parent directory
             # of the filenode containing the first expression
+            nuke.tprint(f"found printf style expression {expression_match.group(1)} starting at index {expression_match.start()} in path {filepath}")
 
             pos = expression_match.start()
             # walk back to the nearest /
@@ -188,6 +195,7 @@ def get_output_paths_for_filenode(node) -> set[IOPath]:
                 pos -= 1
 
             if pos == -1:
+                nuke.tprint("Did not find a written directory above the filenode where the expression appears. Using ./ as the output path.")
                 filepath = "./"
             else:
                 filepath = filepath[: pos + 1]
@@ -222,7 +230,12 @@ def evaluate_tcl_subexpressions(string: str) -> str:
             bracket_nest_count -= 1
             if bracket_nest_count == 0:
                 # end tcl expression
-                evaluated_string.append(nuke.tcl("".join(current_tcl_expression)))
+                expression = "".join(current_tcl_expression)
+                expression_evaluation = nuke.tcl(expression)
+                
+                nuke.tprint(f"Parsed expression [{expression}] in string {string}, which evaluated to {expression_evaluation}")
+
+                evaluated_string.append(expression_evaluation)
                 current_tcl_expression = []  # reset for any subsequent expressions
             else:
                 # need to keep the [] for subexpressions
