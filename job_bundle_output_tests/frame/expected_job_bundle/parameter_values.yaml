@@ -7,6 +7,8 @@ parameterValues:
   value: Write1
 - name: ProxyMode
   value: 'false'
+- name: ContinueOnError
+  value: 'false'
 - name: deadline:targetTaskRunStatus
   value: READY
 - name: deadline:maxFailedTasksCount
