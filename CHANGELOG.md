@@ -1,3 +1,14 @@
+## 0.18.13 (2025-08-25)
+
+
+### Features
+* Add Linux E2E testing support (#247) ([`9f4db5a`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/9f4db5aaacc6ad0b11cb6c8d65398db265dedad1))
+* Add Linux E2E testing support ([`9f4db5a`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/9f4db5aaacc6ad0b11cb6c8d65398db265dedad1))
+
+### Bug Fixes
+* fix behavior of automatic input / output path detection (#254) ([`11fd53b`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/11fd53b2a2e388502d5f224b8a02e9d84fc37af2))
+* fix behavior of automatic input / output path detection ([`11fd53b`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/11fd53b2a2e388502d5f224b8a02e9d84fc37af2))
+
 ## 0.18.12 (2025-07-19)
 
 
