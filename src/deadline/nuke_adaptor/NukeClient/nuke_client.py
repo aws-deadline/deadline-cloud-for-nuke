@@ -37,6 +37,10 @@ except ImportError:
     from deadline.nuke_util import ocio as nuke_ocio
 
 
+# Maximum size for LRU caches to prevent unbounded memory growth
+_LRU_CACHE_MAX_SIZE = 512
+
+
 class NukeClient(_ClientInterface):
     """
     Client for that runs in Nuke for the Nuke Adaptor
@@ -74,7 +78,7 @@ class NukeClient(_ClientInterface):
         nuke.scriptClose()
         nuke.scriptExit()
 
-    @lru_cache(maxsize=None)
+    @lru_cache(maxsize=_LRU_CACHE_MAX_SIZE)
     def map_path(self, path: str) -> str:
         """
         Override of the base map_path implementation to return the mapped path without back slashes.
