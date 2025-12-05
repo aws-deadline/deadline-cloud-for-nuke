@@ -7,6 +7,7 @@ import os
 from os.path import commonpath, dirname, join, normpath, samefile, isfile
 from dataclasses import dataclass
 from sys import platform
+from typing import Tuple, List
 import nuke
 
 from deadline.client.job_bundle.submission import AssetReferences
@@ -50,76 +51,98 @@ def get_project_path() -> str:
     return project_path
 
 
-def get_scene_asset_references() -> AssetReferences:
+@dataclass
+class AssetReferencesParsingOutcome:
+    asset_references: AssetReferences
+    failed_to_parse_nodes: Dict[str, Exception]
+    high_level_exception: Optional[Exception]
+
+    def encountered_exception(self) -> bool:
+        return self.high_level_exception is not None or len(self.failed_to_parse_nodes) > 0
+
+
+def get_scene_asset_references() -> AssetReferencesParsingOutcome:
     """Traverses all nodes to determine both input and output asset references"""
-    nuke.tprint("Walking node graph to auto-detect input/output asset references...")
-    asset_references = AssetReferences()
-    script_file = get_nuke_script_file()
-    if not isfile(script_file):
-        raise DeadlineOperationError(
-            "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
-        )
-    asset_references.input_filenames.add(script_file)
-    for node in nuke.allNodes(recurseGroups=True):
-        # do not need assets for disabled nodes
-        if node.knob("disable") and node.knob("disable").value():
-            continue
 
-        # write nodes can be turned into read nodes to avoid recomputation
-        is_read_node = False
-        read_knob = node.knob("reading")
-        if read_knob:
-            is_read_node = read_knob.value()
+    outcome = AssetReferencesParsingOutcome(
+        asset_references = AssetReferences(),
+        failed_to_parse_nodes = {},
+        high_level_exception = None
+    )
 
-        if is_read_node or node.Class() not in NUKE_WRITE_NODE_CLASSES:
-            for iopath in get_input_paths_for_filenode(node):
-                # if the filename is in the install dir, ignore it.
-                if node is nuke.root():
-                    # Windows / Linux
-                    install_path = dirname(nuke.EXE_PATH)
-                    if platform.startswith("darwin"):
-                        # EXE_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app/Contents/MacOS/Nuke15.0
-                        # INSTALL_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app
-                        install_path = dirname(dirname(dirname(nuke.EXE_PATH)))
-                    try:
-                        common_file_path = commonpath((iopath.path, install_path))
-                    except ValueError:
-                        # Occurs if different drives, or mix of absolute + relative paths
-                        pass
-                    else:
-                        if samefile(install_path, common_file_path):
-                            continue
+    try:
+        nuke.tprint("Walking node graph to auto-detect input/output asset references...")
+        script_file = get_nuke_script_file()
+        if not isfile(script_file):
+            raise DeadlineOperationError(
+                "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
+            )
+        outcome.asset_references.input_filenames.add(script_file)
+        for node in nuke.allNodes(recurseGroups=True):
+            try:
+                # do not need assets for disabled nodes
+                if node.knob("disable") and node.knob("disable").value():
+                    continue
 
-                # get_input_paths always returns filepaths, not directories.
-                asset_references.input_filenames.add(iopath.path)
+                # write nodes can be turned into read nodes to avoid recomputation
+                is_read_node = False
+                read_knob = node.knob("reading")
+                if read_knob:
+                    is_read_node = read_knob.value()
 
-        else:
-            for iopath in get_output_paths_for_filenode(node):
-                if iopath.is_file:
-                    asset_references.output_directories.add(dirname(iopath.path))
+                if is_read_node or node.Class() not in NUKE_WRITE_NODE_CLASSES:
+                    for iopath in get_input_paths_for_filenode(node):
+                        # if the filename is in the install dir, ignore it.
+                        if node is nuke.root():
+                            # Windows / Linux
+                            install_path = dirname(nuke.EXE_PATH)
+                            if platform.startswith("darwin"):
+                                # EXE_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app/Contents/MacOS/Nuke15.0
+                                # INSTALL_PATH: /Applications/Nuke15.0v2/Nuke15.0v2.app
+                                install_path = dirname(dirname(dirname(nuke.EXE_PATH)))
+                            try:
+                                common_file_path = commonpath((iopath.path, install_path))
+                            except ValueError:
+                                # Occurs if different drives, or mix of absolute + relative paths
+                                pass
+                            else:
+                                if samefile(install_path, common_file_path):
+                                    continue
+
+                        # get_input_paths always returns filepaths, not directories.
+                        outcome.asset_references.input_filenames.add(iopath.path)
+
                 else:
-                    asset_references.output_directories.add(iopath.path)
+                    for iopath in get_output_paths_for_filenode(node):
+                        if iopath.is_file:
+                            outcome.asset_references.output_directories.add(dirname(iopath.path))
+                        else:
+                            outcome.asset_references.output_directories.add(iopath.path)
+            except Exception as e:
+                outcome.failed_to_parse_nodes[node.name()] = e
 
-    if nuke_ocio.is_OCIO_enabled():
-        # Determine and add the config file and associated search directories
-        ocio_config_path = nuke_ocio.get_ocio_config_path()
-        # Add the references
-        if ocio_config_path is not None:
-            if isfile(ocio_config_path):
-                asset_references.input_filenames.add(ocio_config_path)
+        if nuke_ocio.is_OCIO_enabled():
+            # Determine and add the config file and associated search directories
+            ocio_config_path = nuke_ocio.get_ocio_config_path()
+            # Add the references
+            if ocio_config_path is not None:
+                if isfile(ocio_config_path):
+                    outcome.asset_references.input_filenames.add(ocio_config_path)
 
-                ocio_config_search_paths = nuke_ocio.get_config_absolute_search_paths(
-                    ocio_config_path
-                )
-                for search_path in ocio_config_search_paths:
-                    asset_references.input_directories.add(search_path)
-            else:
-                raise DeadlineOperationError(
-                    "OCIO config file specified(%s) is not an existing file. Please check and update the config file before proceeding."
-                    % ocio_config_path
-                )
+                    ocio_config_search_paths = nuke_ocio.get_config_absolute_search_paths(
+                        ocio_config_path
+                    )
+                    for search_path in ocio_config_search_paths:
+                        outcome.asset_references.input_directories.add(search_path)
+                else:
+                    raise DeadlineOperationError(
+                        "OCIO config file specified(%s) is not an existing file. Please check and update the config file before proceeding."
+                        % ocio_config_path
+                    )
+    except Exception as e:
+        outcome.high_level_exception = e
 
-    return asset_references
+    return outcome
 
 
 def find_all_write_nodes() -> set:
@@ -179,8 +202,8 @@ def get_output_paths_for_filenode(node) -> set[IOPath]:
         # note #### syntax for frames will be converted to %04d
         # note backslashes for windows paths are converted to forward slashes
         filepath = knob.value()
-        # evaluate any tcl expressions in the path
-        filepath = evaluate_tcl_subexpressions(filepath)
+        # evaluate any tcl / python expressions in the path, while leaving view / frame number expressions intact
+        filepath = nuke.filename(node)
 
         expression_match = FRAME_VIEW_EXPRESSION_REGEX.search(filepath)
         path_is_file = True
@@ -211,46 +234,3 @@ def get_output_paths_for_filenode(node) -> set[IOPath]:
         out.add(IOPath(path=full_path, is_file=path_is_file))
 
     return out
-
-
-def evaluate_tcl_subexpressions(string: str) -> str:
-    """Walk through a string, finding any tcl expressions (which are wrapped by []),
-    and replace them with their evaluation"""
-
-    # using list, then combining with join for efficiency
-    evaluated_string = []
-    bracket_nest_count = 0
-    current_tcl_expression = []
-
-    for c in string:
-        if c == "[":
-            # need to keep the [] for subexpressions
-            if bracket_nest_count > 0:
-                current_tcl_expression.append(c)
-
-            bracket_nest_count += 1
-
-        elif c == "]":
-            bracket_nest_count -= 1
-            if bracket_nest_count == 0:
-                # end tcl expression
-                expression = "".join(current_tcl_expression)
-                expression_evaluation = nuke.tcl(expression)
-
-                nuke.tprint(
-                    f"Parsed expression [{expression}] in string {string}, which evaluated to {expression_evaluation}"
-                )
-
-                evaluated_string.append(expression_evaluation)
-                current_tcl_expression = []  # reset for any subsequent expressions
-            else:
-                # need to keep the [] for subexpressions
-                current_tcl_expression.append(c)
-
-        elif bracket_nest_count > 0:
-            # we are in an expression
-            current_tcl_expression.append(c)
-        else:
-            evaluated_string.append(c)
-
-    return "".join(evaluated_string)

@@ -41,11 +41,11 @@ from .assets import (
 )
 from .data_classes import RenderSubmitterUISettings
 from .ui.components.scene_settings_tab import SceneSettingsWidget
+from .ui.components.output_scan_warning_dialog import OutputScanWarningDialog
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
 
 g_submitter_dialog = None
-
 
 def show_nuke_render_submitter_noargs() -> "SubmitJobToDeadlineDialog":
     with gui_error_handler("Error opening AWS Deadline Cloud Submitter", None):
@@ -454,7 +454,19 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
 
         settings.save_sticky_settings(get_nuke_script_file())
 
-    auto_detected_attachments = get_scene_asset_references()
+    # Try to scan scene asset references
+    asset_references_parsing_outcome = get_scene_asset_references()
+    
+    # If there was an error scanning for assets, show warning dialog
+    if asset_references_parsing_outcome.encountered_exception():
+        dialog = OutputScanWarningDialog(asset_references_parsing_outcome, parent)
+        dialog.exec_()
+        result = dialog.get_result()
+        
+        if not result.continue_submission:
+            # User chose to cancel submission
+            raise DeadlineOperationError("Submission cancelled due to asset references scan failure.")
+            
     if render_settings:
         attachments = AssetReferences(
             input_filenames=set(render_settings.input_filenames),
@@ -479,7 +491,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
                 "RezPackages": rez_packages,
                 "CondaPackages": conda_packages,
             },
-            auto_detected_attachments=auto_detected_attachments,
+            auto_detected_attachments=asset_references_parsing_outcome.asset_references,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
             parent=parent,
@@ -489,7 +501,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> "SubmitJobToDeadli
     else:
         g_submitter_dialog.refresh(
             job_settings=render_settings,
-            auto_detected_attachments=auto_detected_attachments,
+            auto_detected_attachments=asset_references_parsing_outcome.asset_references,
             attachments=attachments,
         )
 
