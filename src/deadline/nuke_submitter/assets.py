@@ -2,26 +2,23 @@
 
 from __future__ import annotations
 
-import re
 import os
-from os.path import commonpath, dirname, join, normpath, samefile, isfile
+import re
 from dataclasses import dataclass
+from typing import Dict, Optional
+from os.path import commonpath, dirname, isfile, join, normpath, samefile
 from sys import platform
-from typing import Tuple, List
-import nuke
 
-from deadline.client.job_bundle.submission import AssetReferences
+import nuke
 from deadline.client.exceptions import DeadlineOperationError
+from deadline.client.job_bundle.submission import AssetReferences
+
 from deadline.nuke_util import ocio as nuke_ocio
 
 # Nuke allows the use of printf style expressions in path names to be evaluated to the current frame number
 # and view being rendered. For example %04d would be the current frame number zero padded to be at least 4 digits.
 # %v or %V will be evaluated to the first character, or full name of the current view.
-#
-# Note Nuke also allows the use of '####' to describe a frame number as well, but we do not need to match
-# this since the knob.value() translates it to an equivalent printf style expression.
-# E.g. frame_####.exr becomes frame_%04d.exr.
-FRAME_VIEW_EXPRESSION_REGEX = re.compile(r"(%(\d*)d)|(%v)", re.IGNORECASE)
+FRAME_VIEW_EXPRESSION_REGEX = re.compile(r"(%(\d*)d)|(%v)|(#+)", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
 NUKE_WRITE_NODE_CLASSES: set[str] = {"Write", "DeepWrite", "WriteGeo"}
 
@@ -65,18 +62,17 @@ def get_scene_asset_references() -> AssetReferencesParsingOutcome:
     """Traverses all nodes to determine both input and output asset references"""
 
     outcome = AssetReferencesParsingOutcome(
-        asset_references = AssetReferences(),
-        failed_to_parse_nodes = {},
-        high_level_exception = None
+        asset_references=AssetReferences(), failed_to_parse_nodes={}, high_level_exception=None
     )
+
+    script_file = get_nuke_script_file()
+    if not isfile(script_file):
+        raise DeadlineOperationError(
+            "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
+        )
 
     try:
         nuke.tprint("Walking node graph to auto-detect input/output asset references...")
-        script_file = get_nuke_script_file()
-        if not isfile(script_file):
-            raise DeadlineOperationError(
-                "The Nuke Script is not saved to disk. Please save it before opening the submitter dialog."
-            )
         outcome.asset_references.input_filenames.add(script_file)
         for node in nuke.allNodes(recurseGroups=True):
             try:

@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 import nuke
 import pytest
-
 from deadline.client.exceptions import DeadlineOperationError
+
 from deadline.nuke_submitter.assets import (
+    IOPath,
     find_all_write_nodes,
     get_input_paths_for_filenode,
     get_output_paths_for_filenode,
-    IOPath,
     get_scene_asset_references,
 )
 
@@ -69,9 +69,10 @@ def test_get_scene_asset_references(
     results = get_scene_asset_references()
 
     # THEN
-    assert results.input_filenames == {expected_script_file}
-    assert results.input_directories == set()
-    assert results.output_directories == set()
+    assert not results.encountered_exception()
+    assert results.asset_references.input_filenames == {expected_script_file}
+    assert results.asset_references.input_directories == set()
+    assert results.asset_references.output_directories == set()
 
     # GIVEN
     deactivated_node = MagicMock()
@@ -93,8 +94,9 @@ def test_get_scene_asset_references(
     results = get_scene_asset_references()
 
     # THEN
-    assert expected_script_file in results.input_filenames
-    assert all(asset in results.input_filenames for asset in expected_assets)
+    assert not results.encountered_exception()
+    assert expected_script_file in results.asset_references.input_filenames
+    assert all(asset in results.asset_references.input_filenames for asset in expected_assets)
 
     # GIVEN
     expected_ocio_config_path = mock_get_custom_config_path.return_value
@@ -108,11 +110,12 @@ def test_get_scene_asset_references(
     # WHEN
     results = get_scene_asset_references()
     # THEN
-    assert expected_script_file in results.input_filenames
-    assert expected_ocio_config_path in results.input_filenames
+    assert not results.encountered_exception()
+    assert expected_script_file in results.asset_references.input_filenames
+    assert expected_ocio_config_path in results.asset_references.input_filenames
     assert all(
         search_path in expected_ocio_config_search_paths
-        for search_path in results.input_directories
+        for search_path in results.asset_references.input_directories
     )
 
 
@@ -283,10 +286,6 @@ def test_get_input_paths_for_filenode(
             {IOPath(path="/project_path/path/to", is_file=False)},
         ),
         (
-            "[some_tcl_expression of [stuff]]/path/to/frame.##/frame.png",
-            {IOPath(path="/tcl_returned_path/path/to", is_file=False)},
-        ),
-        (
             "path/to/frame.##/frame.png",
             {IOPath(path="/project_path/path/to", is_file=False)},
         ),
@@ -308,9 +307,7 @@ def test_get_output_paths_for_filenode(
     # GIVEN
     mock_get_project_path.return_value = "/project_path"
 
-    mock_tcl = MagicMock()
-    mock_tcl.return_value = "/tcl_returned_path"
-    mock_nuke.tcl.return_value = mock_tcl()
+    mock_nuke.filename = lambda node: asset_path
 
     def sub_hashes(path):
         # mimicking that node.value() will replace hashes with equivalent %0nd syntax for frame subs
