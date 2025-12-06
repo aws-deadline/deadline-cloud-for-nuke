@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import traceback
 from typing import NamedTuple
 
 from deadline.nuke_submitter.assets import AssetReferencesParsingOutcome
@@ -18,6 +17,7 @@ try:
         QLabel,
         QPushButton,
         QVBoxLayout,
+        QScrollArea
     )
 except ImportError:
     # For Nuke 13-15
@@ -29,6 +29,7 @@ except ImportError:
         QLabel,
         QPushButton,
         QVBoxLayout,
+        QScrollArea
     )
 
 
@@ -67,7 +68,7 @@ class OutputScanWarningDialog(QDialog):
             details_message = ""
             for failed_node, e in parsing_outcome.failed_to_parse_nodes.items():
                 details_message += f"\nexception when parsing {failed_node}\n"
-                details_message += "".join(traceback.format_exception(e))
+                details_message += e
 
         else:
             warning_message = (
@@ -75,9 +76,7 @@ class OutputScanWarningDialog(QDialog):
                 "You can continue with the submission, but input or output files may not be "
                 "properly tracked or transferred."
             )
-            details_message = "\n".join(
-                traceback.format_exception(parsing_outcome.high_level_exception)
-            )
+            details_message = parsing_outcome.high_level_exception
 
         warning_label = QLabel(warning_message)
         warning_label.setWordWrap(True)
@@ -103,17 +102,23 @@ class OutputScanWarningDialog(QDialog):
         layout.addWidget(disclosure_button, alignment=Qt.AlignLeft)
 
         details_label = QLabel(details_message)
-        details_label.setVisible(False)
         details_label.setFrameStyle(QFrame.Sunken | QFrame.Panel)
         details_label.setTextInteractionFlags(
             Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
         )
         details_label.setLineWidth(3)
-        layout.addWidget(details_label)
+
+        details_scroll_area = QScrollArea()
+        details_scroll_area.setWidget(details_label)
+        details_scroll_area.setWidgetResizable(True)
+        details_scroll_area.setVisible(False)
+
+
+        layout.addWidget(details_scroll_area)
 
         def toggle_details_visibility():
             self._show_details = not self._show_details
-            details_label.setVisible(self._show_details)
+            details_scroll_area.setVisible(self._show_details)
 
             disclosure_button.setText(
                 "▼ hide more details" if self._show_details else "▶ show more details"

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 from os.path import commonpath, dirname, isfile, join, normpath, samefile
 from sys import platform
+import traceback
 
 import nuke
 from deadline.client.exceptions import DeadlineOperationError
@@ -51,8 +52,8 @@ def get_project_path() -> str:
 @dataclass
 class AssetReferencesParsingOutcome:
     asset_references: AssetReferences
-    failed_to_parse_nodes: Dict[str, Exception]
-    high_level_exception: Optional[Exception]
+    failed_to_parse_nodes: Dict[str, str]
+    high_level_exception: Optional[str]
 
     def encountered_exception(self) -> bool:
         return self.high_level_exception is not None or len(self.failed_to_parse_nodes) > 0
@@ -115,7 +116,7 @@ def get_scene_asset_references() -> AssetReferencesParsingOutcome:
                         else:
                             outcome.asset_references.output_directories.add(iopath.path)
             except Exception as e:
-                outcome.failed_to_parse_nodes[node.name()] = e
+                outcome.failed_to_parse_nodes[node.name()] = traceback.format_exc()
 
         if nuke_ocio.is_OCIO_enabled():
             # Determine and add the config file and associated search directories
@@ -136,7 +137,7 @@ def get_scene_asset_references() -> AssetReferencesParsingOutcome:
                         % ocio_config_path
                     )
     except Exception as e:
-        outcome.high_level_exception = e
+        outcome.high_level_exception = traceback.format_exc()
 
     return outcome
 
@@ -207,7 +208,7 @@ def get_output_paths_for_filenode(node) -> set[IOPath]:
             # in the case of an expression for frames / views, we will used the parent directory
             # of the filenode containing the first expression
             nuke.tprint(
-                f"found printf style expression {expression_match.group(1)} starting at index {expression_match.start()} in path {filepath}"
+                f"found printf style expression {expression_match.group(0)} starting at index {expression_match.start()} in path {filepath}"
             )
 
             pos = expression_match.start()
