@@ -17,7 +17,7 @@ try:
         QLabel,
         QPushButton,
         QVBoxLayout,
-        QScrollArea
+        QScrollArea,
     )
 except ImportError:
     # For Nuke 13-15
@@ -29,7 +29,7 @@ except ImportError:
         QLabel,
         QPushButton,
         QVBoxLayout,
-        QScrollArea
+        QScrollArea,
     )
 
 
@@ -112,7 +112,6 @@ class AssetScanWarningDialog(QDialog):
         details_scroll_area.setWidget(details_label)
         details_scroll_area.setWidgetResizable(True)
         details_scroll_area.setVisible(False)
-
 
         layout.addWidget(details_scroll_area)
 

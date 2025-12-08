@@ -115,7 +115,7 @@ def get_scene_asset_references() -> AssetReferencesParsingOutcome:
                             outcome.asset_references.output_directories.add(dirname(iopath.path))
                         else:
                             outcome.asset_references.output_directories.add(iopath.path)
-            except Exception as e:
+            except Exception:
                 outcome.failed_to_parse_nodes[node.name()] = traceback.format_exc()
 
         if nuke_ocio.is_OCIO_enabled():
@@ -136,7 +136,7 @@ def get_scene_asset_references() -> AssetReferencesParsingOutcome:
                         "OCIO config file specified(%s) is not an existing file. Please check and update the config file before proceeding."
                         % ocio_config_path
                     )
-    except Exception as e:
+    except Exception:
         outcome.high_level_exception = traceback.format_exc()
 
     return outcome
