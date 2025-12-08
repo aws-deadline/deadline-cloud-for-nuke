@@ -45,7 +45,7 @@ from .assets import (
     get_scene_asset_references,
 )
 from .data_classes import RenderSubmitterUISettings
-from .ui.components.output_scan_warning_dialog import OutputScanWarningDialog
+from .ui.components.asset_scan_warning_dialog import AssetScanWarningDialog
 from .ui.components.scene_settings_tab import SceneSettingsWidget
 
 g_submitter_dialog = None
@@ -463,7 +463,7 @@ def show_nuke_render_submitter(parent, f=Qt.WindowFlags()) -> SubmitJobToDeadlin
 
     # If there was an error scanning for assets, show warning dialog
     if asset_references_parsing_outcome.encountered_exception():
-        dialog = OutputScanWarningDialog(asset_references_parsing_outcome, parent)
+        dialog = AssetScanWarningDialog(asset_references_parsing_outcome, parent)
         dialog.exec_()
         result = dialog.get_result()
 

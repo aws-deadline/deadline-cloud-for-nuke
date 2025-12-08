@@ -33,18 +33,18 @@ except ImportError:
     )
 
 
-class OutputScanWarningResult(NamedTuple):
-    """Result from the output scan warning dialog"""
+class AssetScanWarningResult(NamedTuple):
+    """Result from the asset scan warning dialog"""
 
     continue_submission: bool
 
 
-class OutputScanWarningDialog(QDialog):
-    """Dialog to warn user when output file scanning fails"""
+class AssetScanWarningDialog(QDialog):
+    """Dialog to warn user when asset scanning fails"""
 
     def __init__(self, parsing_outcome: AssetReferencesParsingOutcome, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Output Scan Warning")
+        self.setWindowTitle("Asset Scan Warning")
         self.setModal(True)
         self.resize(400, 200)
 
@@ -137,8 +137,8 @@ class OutputScanWarningDialog(QDialog):
         self._continue_submission = True
         self.accept()
 
-    def get_result(self) -> OutputScanWarningResult:
+    def get_result(self) -> AssetScanWarningResult:
         """Get the user's choice from the dialog"""
-        return OutputScanWarningResult(
+        return AssetScanWarningResult(
             continue_submission=self._continue_submission,
         )
