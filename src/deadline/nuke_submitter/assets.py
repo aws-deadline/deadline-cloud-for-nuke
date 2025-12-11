@@ -23,6 +23,7 @@ from deadline.nuke_util import ocio as nuke_ocio
 FRAME_VIEW_EXPRESSION_REGEX = re.compile(r"(%(\d*)d)|(%v)", re.IGNORECASE)
 FILE_KNOB_CLASS = "File_Knob"
 NUKE_WRITE_NODE_CLASSES: set[str] = {"Write", "DeepWrite", "WriteGeo"}
+COPYCAT_NODE_CLASS: str = "CopyCat"
 
 
 @dataclass
@@ -122,6 +123,10 @@ def get_scene_asset_references() -> AssetReferences:
     return asset_references
 
 
+def find_all_copycat_nodes() -> set:
+    return { node for node in nuke.allNodes() if node.Class() == COPYCAT_NODE_CLASS }
+
+
 def find_all_write_nodes() -> set:
     write_nodes = set()
 
@@ -145,6 +150,8 @@ def get_input_paths_for_filenode(node) -> set[IOPath]:
     """Get all the file we will use as input for this node"""
 
     out = set()
+    if node.Class() == COPYCAT_NODE_CLASS:
+        return out
     for knob in node.allKnobs():
         if knob.Class() != FILE_KNOB_CLASS or not knob.value():
             continue
