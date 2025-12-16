@@ -195,10 +195,6 @@ def get_output_paths_for_filenode(node) -> set[IOPath]:
         if knob.Class() != FILE_KNOB_CLASS or not knob.value():
             continue
 
-        # gets the file path, still containing %04d, %v or TCL expressions.
-        # note #### syntax for frames will be converted to %04d
-        # note backslashes for windows paths are converted to forward slashes
-        filepath = knob.value()
         # evaluate any tcl / python expressions in the path, while leaving view / frame number expressions intact
         filepath = nuke.filename(node)
 
