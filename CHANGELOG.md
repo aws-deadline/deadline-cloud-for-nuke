@@ -1,3 +1,14 @@
+## 0.18.14 (2025-12-18)
+
+
+### Features
+* add ignorable warning when asset-references parsing fails ([`ab72b21`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/ab72b2141aa373ba9d98d50497af357a1840dd27))
+
+### Bug Fixes
+* fix handling of python expressions in fileknob paths, add warning dialog to allow users to bypass asset scanning errors. (#278) ([`ab72b21`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/ab72b2141aa373ba9d98d50497af357a1840dd27))
+* Remove unbounded lru_cache (#271) ([`55451d8`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/55451d89425ef0412a9ba3945d223e6a31a87b7c))
+
+
 ## 0.18.13 (2025-08-25)
 
 
