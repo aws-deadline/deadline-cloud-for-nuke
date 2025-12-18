@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 RENDER_SUBMITTER_SETTINGS_FILE_EXT = ".deadline_render_settings.json"
@@ -70,7 +70,6 @@ class RenderSubmitterUISettings:  # pylint: disable=too-many-instance-attributes
                 print(
                     f"WARNING: Failed to load sticky settings file {sticky_settings_filename}, reverting to the default settings."
                 )
-                pass
 
     def save_sticky_settings(self, scene_filename: str):
         sticky_settings_filename = Path(scene_filename).with_suffix(
