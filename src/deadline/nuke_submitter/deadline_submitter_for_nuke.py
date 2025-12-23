@@ -49,7 +49,8 @@ from .ui.components.scene_settings_tab import SceneSettingsWidget
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.exceptions import DeadlineOperationError
 
-g_submitter_dialog = None
+g_render_submitter_dialog = None
+g_copycat_submitter_dialog = None
 
 
 def show_nuke_render_submitter(job_type: JobType) -> "SubmitJobToDeadlineDialog":
@@ -62,11 +63,13 @@ def show_nuke_render_submitter(job_type: JobType) -> "SubmitJobToDeadlineDialog"
 
 
 def _get_write_node(settings: SubmitterUISettings) -> tuple[Node, str]:
-    if settings.write_node_selection:
-        write_node = nuke.toNode(settings.write_node_selection)
+    assert(settings.get_job_type() == JobType.RENDER)
+
+    if settings.jobtype_specific_settings.write_node_selection:
+        write_node = nuke.toNode(settings.jobtype_specific_settings.write_node_selection)
     else:
         write_node = nuke.root()
-    return write_node, settings.write_node_selection
+    return write_node, settings.jobtype_specific_settings.write_node_selection
 
 
 def _set_timeouts(template: dict[str, Any], settings: SubmitterUISettings) -> None:
@@ -153,15 +156,10 @@ def _remove_ocio_path_from_job_template(job_template: dict[str, Any]) -> None:
 
 
 def _get_job_template(settings: SubmitterUISettings) -> dict[str, Any]:
-    job_type = (
-        JobType.RENDER
-        if type(settings.jobtype_specific_settings) == RenderSettings
-        else JobType.COPYCAT_TRAINING
-    )
+    job_type = settings.get_job_type()
     # Load the default Nuke job template, and then fill in scene-specific
     # values it needs.
 
-    #print(f"job_type is {job_type}")
     template_name = "default_nuke_job_template.yaml" if job_type == JobType.RENDER else "copycat_job_template.yaml"
 
     with open(Path(__file__).parent / template_name) as f:
@@ -272,11 +270,7 @@ def _get_parameter_values(
     settings: SubmitterUISettings,
     queue_parameters: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    job_type = (
-        JobType.RENDER
-        if type(settings.jobtype_specific_settings) == RenderSettings
-        else JobType.COPYCAT_TRAINING
-    )
+    job_type = settings.get_job_type()
 
     if job_type == JobType.RENDER:
         return _get_render_parameter_values(settings=settings, queue_parameters=queue_parameters)
@@ -298,6 +292,7 @@ def _get_copycat_training_parameter_values(
     parameter_values.append({"name": "NukeScriptFile", "value": get_nuke_script_file()})
     parameter_values.append({"name": "CopyCatNode", "value": copycat_settings.copycat_node})
     parameter_values.append({"name": "DataDir", "value": copycat_node.knob('dataDirectory').getEvaluatedValue()})
+    parameter_values.append({"name": "CopyCatAdapter", "value": 'C:\\Users\\npmac\\Documents\\deadline-cloud-for-nuke\\src\\deadline\\nuke_adaptor\\copycat_adapter.py'})
 
     return parameter_values
 
@@ -322,17 +317,17 @@ def _get_render_parameter_values(
         parameter_values.append({"name": "WriteNode", "value": write_node_name})
 
     # Set the View parameter value
-    if settings.view_selection:
-        parameter_values.append({"name": "View", "value": settings.view_selection})
+    if settings.jobtype_specific_settings.view_selection:
+        parameter_values.append({"name": "View", "value": settings.jobtype_specific_settings.view_selection})
 
     # Set the ProxyMode parameter default
     parameter_values.append(
-        {"name": "ProxyMode", "value": "true" if settings.is_proxy_mode else "false"}
+        {"name": "ProxyMode", "value": "true" if settings.jobtype_specific_settings.is_proxy_mode else "false"}
     )
 
     # Set the ContinueOnError parameter default
     parameter_values.append(
-        {"name": "ContinueOnError", "value": "true" if settings.continue_on_error else "false"}
+        {"name": "ContinueOnError", "value": "true" if settings.jobtype_specific_settings.continue_on_error else "false"}
     )
 
     # Set the OCIO config path value
@@ -394,9 +389,10 @@ def _get_frame_list(
     write_node: Node,
     write_node_name: Optional[str],
 ) -> str:
+    assert(settings.get_job_type() == JobType.RENDER)
     # Set the Frames parameter value
-    if settings.override_frame_range:
-        frame_list = settings.frame_list
+    if settings.jobtype_specific_settings.override_frame_range:
+        frame_list = settings.jobtype_specific_settings.frame_list
     else:
         # frame range from project setting
         frame_list = str(nuke.root().frameRange())
@@ -408,8 +404,8 @@ def _get_frame_list(
 
 
 def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
-    global g_submitter_dialog
-
+    global g_render_submitter_dialog
+    global g_copycat_submitter_dialog
     # Initialize telemetry client, opt-out is respected
     get_deadline_cloud_library_telemetry_client().update_common_details(
         {
@@ -438,8 +434,8 @@ def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -
 
     # Set the setting defaults that come from the scene
     render_settings.name = Path(script_path).name
-    render_settings.frame_list = str(nuke.root().frameRange())
-    render_settings.is_proxy_mode = nuke.root().proxy()
+    render_settings.jobtype_specific_settings.frame_list = str(nuke.root().frameRange())
+    render_settings.jobtype_specific_settings.is_proxy_mode = nuke.root().proxy()
 
     # Load the sticky settings
     render_settings.load_sticky_settings(script_path)
@@ -519,35 +515,45 @@ def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -
     else:
         attachments = AssetReferences()
 
-    # rebuilding submitter dialogue each time is a temporary hack
-    # if not g_submitter_dialog:
-    nuke_version = nuke.env["NukeVersionMajor"]
-    adaptor_version = ".".join(str(v) for v in adaptor_version_tuple[:2])
+    submitter_dialog = g_render_submitter_dialog if job_type == JobType.RENDER else g_copycat_submitter_dialog
 
-    # Need Nuke and the Nuke OpenJD application interface adaptor
-    rez_packages = f"nuke-{nuke_version} deadline_cloud_for_nuke"
-    conda_packages = f"nuke={nuke_version}.* nuke-openjd={adaptor_version}.*"
+    if not submitter_dialog:
+        nuke_version = nuke.env["NukeVersionMajor"]
+        adaptor_version = ".".join(str(v) for v in adaptor_version_tuple[:2])
 
-    g_submitter_dialog = SubmitJobToDeadlineDialog(
-        job_setup_widget_type=SceneSettingsWidget,
-        initial_job_settings=render_settings,
-        initial_shared_parameter_values={
-            "RezPackages": rez_packages,
-            "CondaPackages": conda_packages,
-        },
-        auto_detected_attachments=auto_detected_attachments,
-        attachments=attachments,
-        on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
-        parent=parent,
-        f=f,
-        show_host_requirements_tab=True,
-    )
-    # else:
-    #     g_submitter_dialog.refresh(
-    #         job_settings=render_settings,
-    #         auto_detected_attachments=auto_detected_attachments,
-    #         attachments=attachments,
-    #     )
+        # Need Nuke and the Nuke OpenJD application interface adaptor
+        rez_packages = f"nuke-{nuke_version} deadline_cloud_for_nuke"
+        conda_packages = f"nuke={nuke_version}.*"
+        if job_type == JobType.RENDER:
+            conda_packages +=  f' nuke-openjd={adaptor_version}.*'
 
-    g_submitter_dialog.show()
-    return g_submitter_dialog
+        submitter_dialog = SubmitJobToDeadlineDialog(
+            job_setup_widget_type=SceneSettingsWidget,
+            initial_job_settings=render_settings,
+            initial_shared_parameter_values={
+                "RezPackages": rez_packages,
+                "CondaPackages": conda_packages,
+            },
+            auto_detected_attachments=auto_detected_attachments,
+            attachments=attachments,
+            on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
+            parent=parent,
+            f=f,
+            show_host_requirements_tab=True,
+        )
+
+        if job_type == JobType.RENDER:
+            submitter_dialog.setWindowTitle('Submit Rendering to AWS Deadline Cloud')
+            g_render_submitter_dialog = submitter_dialog
+        else:
+            submitter_dialog.setWindowTitle('Submit CopyCat Training to AWS Deadline Cloud')
+            g_copycat_submitter_dialog = submitter_dialog
+    else:
+        submitter_dialog.refresh(
+            job_settings=render_settings,
+            auto_detected_attachments=auto_detected_attachments,
+            attachments=attachments,
+        )
+
+    submitter_dialog.show()
+    return submitter_dialog

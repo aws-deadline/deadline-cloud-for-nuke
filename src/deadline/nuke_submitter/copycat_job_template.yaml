@@ -37,6 +37,12 @@ parameterDefinitions:
     label: Data Directory
   description: The directory CopyCat data files are read from and written to.
 
+- name: CopyCatAdapter
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  default: .
+
 steps:
 
 - name: Train
@@ -56,11 +62,9 @@ steps:
 
         mkdir -p {{Param.DataDir}}
 
-        ls -l /home/job-user/datadir_mount
-
-        # hack to fix path mapping on the data directory. normal nuke render does this via the adapter.
-        # eventually we will do that as well, this is temporary until we add a copycat adapter.
-        ESCAPED_DATA_DIR=$(echo "/home/job-user/datadir_mount" | sed 's/\//\\\//g')
+        # Nukes path mapping does not work for the CopyCat data directory, so we have to
+        # directly modify the nuke script to inject the mapped path.
+        ESCAPED_DATA_DIR=$(echo "{{Param.DataDir}}" | sed 's/\//\\\//g')
         sed -i "s/dataDirectory .*/dataDirectory ${ESCAPED_DATA_DIR}/" {{Param.NukeScriptFile}}
 
-        nuke -F 1 --gpu -X {{Param.CopyCatNode}} {{Param.NukeScriptFile}}
+        python '{{Param.CopyCatAdapter}}' --nuke nuke --path-mapping-rules {{Session.PathMappingRulesFile}} --nuke-script {{Param.NukeScriptFile}} --copycat-node {{Param.CopyCatNode}}
