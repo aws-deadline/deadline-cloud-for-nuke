@@ -6,18 +6,19 @@ import os
 import re
 from pathlib import Path
 from typing import Any, Optional
-import yaml  # type: ignore[import]
 
 import nuke
+import yaml  # type: ignore[import]
 from deadline.client.api import get_deadline_cloud_library_telemetry_client
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
-    SubmitJobToDeadlineDialog,
     JobBundlePurpose,
+    SubmitJobToDeadlineDialog,
 )
-from deadline.nuke_util import ocio as nuke_ocio
 from nuke import Node
+
+from deadline.nuke_util import ocio as nuke_ocio
 
 # Handle different Qt imports for different Nuke versions
 try:
@@ -33,11 +34,15 @@ except ImportError:
         QMessageBox,
     )
 
-from ._version import version, version_tuple as adaptor_version_tuple
+from deadline.client.exceptions import DeadlineOperationError
+from deadline.client.job_bundle.submission import AssetReferences
+
+from ._version import version
+from ._version import version_tuple as adaptor_version_tuple
 from .assets import (
+    find_all_write_nodes,
     get_nuke_script_file,
     get_scene_asset_references,
-    find_all_write_nodes,
 )
 from .data_classes import (
     JobType,
@@ -45,15 +50,13 @@ from .data_classes import (
     CopyCatTrainingSettings,
     SubmitterUISettings,
 )
+from .ui.components.asset_scan_warning_dialog import AssetScanWarningDialog
 from .ui.components.scene_settings_tab import SceneSettingsWidget
-from deadline.client.job_bundle.submission import AssetReferences
-from deadline.client.exceptions import DeadlineOperationError
 
 g_render_submitter_dialog = None
 g_copycat_submitter_dialog = None
 
-
-def show_nuke_render_submitter(job_type: JobType) -> "SubmitJobToDeadlineDialog":
+def show_nuke_render_submitter(job_type: JobType) -> SubmitJobToDeadlineDialog:
     with gui_error_handler("Error opening AWS Deadline Cloud Submitter", None):
         # Get the main Nuke window so we can parent the submitter to it
         app = QApplication.instance()
@@ -352,7 +355,7 @@ def _get_render_parameter_values(
     if parameter_overlap:
         raise DeadlineOperationError(
             "The following queue parameters conflict with the Nuke job parameters:\n"
-            + f"{', '.join(parameter_overlap)}"
+            f"{', '.join(parameter_overlap)}"
         )
 
     # If we're overriding the adaptor with wheels, remove the adaptor from the Packages parameters
@@ -403,7 +406,7 @@ def _get_frame_list(
     return frame_list
 
 
-def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -> "SubmitJobToDeadlineDialog":
+def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -> SubmitJobToDeadlineDialog:
     global g_render_submitter_dialog
     global g_copycat_submitter_dialog
     # Initialize telemetry client, opt-out is respected
@@ -505,7 +508,21 @@ def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -
 
         settings.save_sticky_settings(get_nuke_script_file())
 
-    auto_detected_attachments = get_scene_asset_references()
+    # Try to scan scene asset references
+    asset_references_parsing_outcome = get_scene_asset_references()
+
+    # If there was an error scanning for assets, show warning dialog
+    if asset_references_parsing_outcome.encountered_exception():
+        dialog = AssetScanWarningDialog(asset_references_parsing_outcome, parent)
+        dialog.exec_()
+        result = dialog.get_result()
+
+        if not result.continue_submission:
+            # User chose to cancel submission
+            raise DeadlineOperationError(
+                "Submission cancelled due to asset references scan failure."
+            )
+
     if render_settings:
         attachments = AssetReferences(
             input_filenames=set(render_settings.input_filenames),
@@ -534,7 +551,7 @@ def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -
                 "RezPackages": rez_packages,
                 "CondaPackages": conda_packages,
             },
-            auto_detected_attachments=auto_detected_attachments,
+            auto_detected_attachments=asset_references_parsing_outcome.asset_references,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
             parent=parent,
@@ -551,7 +568,7 @@ def _show_nuke_render_submitter(parent, job_type: JobType, f=Qt.WindowFlags()) -
     else:
         submitter_dialog.refresh(
             job_settings=render_settings,
-            auto_detected_attachments=auto_detected_attachments,
+            auto_detected_attachments=asset_references_parsing_outcome.asset_references,
             attachments=attachments,
         )
 
