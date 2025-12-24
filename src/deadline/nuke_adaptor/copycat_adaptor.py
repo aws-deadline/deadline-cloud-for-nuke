@@ -65,6 +65,12 @@ if __name__ == "__main__":
     parser.add_argument('--path-mapping-rules', type=pathlib.Path, help='Path to path-mapping rules file.')
     parser.add_argument('--nuke-script', type=pathlib.Path, help='Path to the nuke script file.')
     parser.add_argument('--copycat-node', type=str, help='Name of the copycat node to train.')
+    parser.add_argument(
+        '--run-as-shell',
+        action='store_true',
+        default=False,
+        help='Uses shell=true when launching the passed in executable. This just exists for unit testing'
+    )
 
     args = parser.parse_args()
 
@@ -93,7 +99,7 @@ if __name__ == "__main__":
         nuke_run_copycat_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        shell=True,
+        shell=args.run_as_shell,
         text=True
     )
 

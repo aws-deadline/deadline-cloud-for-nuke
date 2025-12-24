@@ -46,6 +46,7 @@ def test_execution_with_stubbed_nuke_success():
     adaptor_args = [
         '--nuke',
         stubbed_nuke_module.__file__,
+        '--run-as-shell', # special arg so that we can pass in a python script to stub the nuke executable
         '--copycat-node',
         'node', # stubber doesnt actually use this
         '--nuke-script',
@@ -82,6 +83,7 @@ def test_execution_with_stubbed_nuke_fail():
     adaptor_args = [
         '--nuke',
         stubbed_nuke_module.__file__,
+        '--run-as-shell', # special arg so that we can pass in a python script to stub the nuke executable
         '--copycat-node',
         'node', # stubber doesnt actually use this
         '--nuke-script',
