@@ -22,6 +22,8 @@ def _report_progress(current_step, total_steps):
     if progress != _current_percent_done:
         _current_percent_done = progress
         return f"openjd_progress: {progress}"
+    else:
+        return None
 
 
 _error_encountered = False
@@ -34,8 +36,10 @@ def report_openjd_messages(line) -> Optional[str]:
         # error message is captured in group(1)
         _error_encountered = True
         return f"openjd_fail: {match.group(1)}"
-    if (match := step_complete_regex.match(line)) is not None:
+    elif (match := step_complete_regex.match(line)) is not None:
         return _report_progress(current_step=int(match.group(1)), total_steps=int(match.group(2)))
+    else:
+        return None
 
 
 def _stream_reader(stream_name, stream, logger):
