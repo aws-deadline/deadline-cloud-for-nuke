@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python3
 
 # stubbs output to stdout and stderr of nuke running copycat
 import argparse
