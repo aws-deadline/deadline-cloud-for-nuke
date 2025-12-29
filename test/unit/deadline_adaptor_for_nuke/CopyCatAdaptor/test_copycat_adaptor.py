@@ -54,7 +54,7 @@ def test_execution_with_stubbed_nuke_success():
     ]
     # run the adaptor with the stubber instead of actual nuke
     proc = subprocess.run(
-        ["python", "-u", copycat_adaptor_module.__file__] + adaptor_args,
+        f"python -u {copycat_adaptor_module.__file__} " + " ".join(adaptor_args),
         check=False,
         shell=True,
         capture_output=True,
@@ -97,7 +97,7 @@ def test_execution_with_stubbed_nuke_fail():
     ]
     # run the adaptor with the stubber instead of actual nuke
     proc = subprocess.run(
-        ["python", "-u", copycat_adaptor_module.__file__] + adaptor_args,
+        f"python -u {copycat_adaptor_module.__file__} " + " ".join(adaptor_args),
         check=False,
         shell=True,
         capture_output=True,

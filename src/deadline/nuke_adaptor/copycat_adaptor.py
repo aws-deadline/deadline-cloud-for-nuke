@@ -54,7 +54,7 @@ def _stream_reader(stream_name, stream, logger):
 
 def get_nuke_remap_string(path_mapping_rules: List[Dict[str, str]]) -> str:
     return ",".join(
-        pathlib.Path(path).as_posix()
+        path.replace('\\', '/')
         for rule in path_mapping_rules
         for path in (rule["source_path"], rule["destination_path"])
     )
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         ]
 
     nuke_process = subprocess.Popen(
-        nuke_run_copycat_args,
+        " ".join(nuke_run_copycat_args) if args.run_as_shell else nuke_run_copycat_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=args.run_as_shell,
