@@ -68,7 +68,7 @@ def test_execution_with_stubbed_nuke_success():
     stdout_lines = proc.stdout.split("\n")
     exit_code = proc.returncode
 
-    expected_open_jd_lines = [
+    expected_open_jd_messages = [
         "openjd_progress: 3.3",
         "openjd_progress: 33.3",
         "openjd_progress: 66.7",
@@ -76,8 +76,8 @@ def test_execution_with_stubbed_nuke_success():
     ]
 
     assert exit_code == 0
-    for line in expected_open_jd_lines:
-        assert any([line == stdout_line for stdout_line in stdout_lines])
+    for message in expected_open_jd_messages:
+        assert any([message == stdout_line for stdout_line in stdout_lines])
     for line in happy_case_lines:
         prefix = "STDOUT: " if line.dest == sys.stdout else "STDERR: "
         prefixed_text = f"{prefix}{line.text}"
@@ -111,13 +111,13 @@ def test_execution_with_stubbed_nuke_fail():
     stdout_lines = proc.stdout.split("\n")
     exit_code = proc.returncode
 
-    expected_open_jd_lines = [
+    expected_open_jd_messages = [
         "openjd_fail: CopyCat1: No valid or writable data directory is selected."
     ]
 
     assert exit_code == 1
-    for line in expected_open_jd_lines:
-        assert any([line == stdout_line for stdout_line in stdout_lines])
+    for message in expected_open_jd_messages:
+        assert any([message == stdout_line for stdout_line in stdout_lines])
     for line in fail_case_lines:
         prefix = "STDOUT: " if line.dest == sys.stdout else "STDERR: "
         prefixed_text = f"{prefix}{line.text}"
