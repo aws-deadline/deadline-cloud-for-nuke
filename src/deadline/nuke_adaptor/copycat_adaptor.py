@@ -26,11 +26,11 @@ _error_encountered = False
 # returning message rather than printing to make this unit testable
 def report_openjd_messages(line) -> Optional[str]:
     global _error_encountered
-    if (match := error_regex.match(line)) != None:
+    if (match := error_regex.match(line)) is not None:
         # error message is captured in group(1)
         _error_encountered = True
         return f'openjd_fail: {match.group(1)}'
-    if (match := step_complete_regex.match(line)) != None:
+    if (match := step_complete_regex.match(line)) is not None:
         return _report_progress(current_step=int(match.group(1)), total_steps=int(match.group(2)))
 
 
