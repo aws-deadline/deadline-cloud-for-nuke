@@ -1,10 +1,8 @@
-import subprocess
-import sys
-
 from deadline.nuke_adaptor.copycat_adaptor import (
     get_nuke_remap_string,
     report_openjd_messages,
 )
+
 
 def test_report_openjd_messages_progress():
     msg = report_openjd_messages("[Step:1/3] some other stuff")
