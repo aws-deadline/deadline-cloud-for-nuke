@@ -54,7 +54,7 @@ def _stream_reader(stream_name, stream, logger):
 
 def get_nuke_remap_string(path_mapping_rules: List[Dict[str, str]]) -> str:
     return ",".join(
-        path.replace('\\', '/')
+        path.replace("\\", "/")
         for rule in path_mapping_rules
         for path in (rule["source_path"], rule["destination_path"])
     )
