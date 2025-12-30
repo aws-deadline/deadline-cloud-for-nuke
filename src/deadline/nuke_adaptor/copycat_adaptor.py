@@ -160,7 +160,7 @@ def parse_args() -> argparse.Namespace:
         prog="NukeCopyCatAdaptor",
         description=(
             "Wrapper around executing CopyCat nodes in Nuke. Handle path mapping from job attachments"
-            " and emmision of OpenJD status messages to stdout"
+            " and emission of OpenJD status messages to stdout"
         ),
     )
 

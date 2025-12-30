@@ -15,28 +15,28 @@ from test.unit.deadline_adaptor_for_nuke.CopyCatAdaptor.stubbed_nuke import (
 
 
 def test_report_openjd_messages_progress():
-    msg, progress = report_openjd_messages("[Step:1/3] some other stuff", 0.0)
-    assert msg == "openjd_progress: 33.3"
-    assert progress == 33.3
+    msg, progress = report_openjd_messages("[Step:1/4] some other stuff", 0.0)
+    assert msg == "openjd_progress: 25.0"
+    assert progress == 25
 
 
 def test_report_openjd_messages_progress_same_percent_not_repeated():
-    msg, progress = report_openjd_messages("[Step:1/3] some other stuff", 33.3)
+    msg, progress = report_openjd_messages("[Step:1/4] some other stuff", 25.0)
     assert msg is None
-    assert progress == 33.3
+    assert progress == 25
 
 
 @pytest.mark.parametrize("error_flag", ["ERROR: ", "Error:", "Error :", "Eddy[ERROR]"])
 def test_report_openjd_messages_exception(error_flag):
-    msg, progress = report_openjd_messages(f"some stuff {error_flag}error message here", 0.5)
+    msg, progress = report_openjd_messages(f"some stuff {error_flag}error message here", 50.0)
     assert msg == "openjd_fail: error message here"
-    assert progress == 0.5
+    assert progress == 50
 
 
 def test_report_openjd_messages_nothing():
-    msg, progress = report_openjd_messages("some stuff not an error not progress", 0.5)
+    msg, progress = report_openjd_messages("some stuff not an error not progress", 50.0)
     assert msg is None
-    assert progress == 0.5
+    assert progress == 50
 
 
 def test_path_remapping():
