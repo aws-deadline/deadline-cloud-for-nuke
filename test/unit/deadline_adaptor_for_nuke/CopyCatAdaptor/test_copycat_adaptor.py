@@ -93,11 +93,11 @@ def test_execution_with_stubbed_nuke_success(capsys):
 
     assert exit_code == 0
     for message in expected_open_jd_messages:
-        assert message in [stdout_line for stdout_line in stdout_lines]
+        assert message in stdout_lines
     for line in happy_case_lines:
         prefix = "STDOUT: " if line.dest == DestStream.STDOUT else "STDERR: "
         prefixed_text = f"{prefix}{line.text}"
-        assert prefixed_text in [stdout_line for stdout_line in stdout_lines]
+        assert prefixed_text in stdout_lines
 
 
 def test_execution_with_stubbed_nuke_fail():
@@ -133,8 +133,8 @@ def test_execution_with_stubbed_nuke_fail():
 
     assert exit_code != 0
     for message in expected_open_jd_messages:
-        assert message in [stdout_line for stdout_line in stdout_lines]
+        assert message in stdout_lines
     for line in fail_case_lines:
         prefix = "STDOUT: " if line.dest == DestStream.STDOUT else "STDERR: "
         prefixed_text = f"{prefix}{line.text}"
-        assert prefixed_text in [stdout_line for stdout_line in stdout_lines]
+        assert prefixed_text in stdout_lines
