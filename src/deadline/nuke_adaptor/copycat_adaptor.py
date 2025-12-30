@@ -1,53 +1,73 @@
 import argparse
 import json
 import logging
-import pathlib
 import re
 import subprocess
 import sys
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TextIO, Tuple
 
-error_regex = re.compile(r".*ERROR: (.+)")
+error_regex = re.compile(r".*(ERROR: |Error ?:|Eddy\[ERROR\])(.+)")
 step_complete_regex = re.compile(r"\[Step:(\d+)/(\d+)\].*")
 
-_current_percent_done = 0
 
+def _report_progress(
+    current_step: int, total_steps: int, current_percent_done: float
+) -> Tuple[Optional[str], float]:
+    """Determines if we should write an openjd_progress message.
+    If we should, returns the openjd_progress message to print. otherwise, returns None
 
-def _report_progress(current_step, total_steps):
-    global _current_percent_done
+    Args:
+        current_step (int): the step number we have just completed.
+        total_step (int): the total number of steps in the training job
+        current_percent_done (float): the last progress percent that we have outputed.
+
+    Returns:
+        Optional[str]: If we should not print, returns None.
+                       If we should, returns the openjd_progress message to print
+        float:         Updated current percent done value
+    """
     # round progress to a single decimal point
     progress = round(current_step * 100.0 / total_steps, 1)
-    if progress != _current_percent_done:
-        _current_percent_done = progress
-        return f"openjd_progress: {progress}"
+    if progress != current_percent_done:
+        return f"openjd_progress: {progress}", progress
     else:
-        return None
+        return None, progress
 
 
-_error_encountered = False
+def report_openjd_messages(line: str, current_percent_done: float) -> Tuple[Optional[str], float]:
+    """Takes in a single line output from the Nuke executable. If we should print an openjd
+    message, e.g. a progress or error message, then returns a string of what we should print.
+    Otherwise, returns None
 
-
-# returning message rather than printing to make this unit testable
-def report_openjd_messages(line) -> Optional[str]:
-    global _error_encountered
+    Args:
+        line (str): line output from either stdout or stderr of the nuke executable
+    Returns:
+        Optional[str]: None is if there isn't anything we should print. Otherwise if there is a message
+                       to report, returns a str of the message we should print.
+        float:         Updated current_percent_done value
+    """
     if (match := error_regex.match(line)) is not None:
-        # error message is captured in group(1)
-        _error_encountered = True
-        return f"openjd_fail: {match.group(1)}"
+        # error_regex is written so that the error message in line will be stored in match.group(2)
+        return f"openjd_fail: {match.group(2)}", current_percent_done
     elif (match := step_complete_regex.match(line)) is not None:
-        return _report_progress(current_step=int(match.group(1)), total_steps=int(match.group(2)))
+        return _report_progress(
+            current_step=int(match.group(1)),
+            total_steps=int(match.group(2)),
+            current_percent_done=current_percent_done,
+        )
     else:
-        return None
+        return None, current_percent_done
 
 
-def _stream_reader(stream_name, stream, logger):
+def _stream_reader(stream_name: str, stream: TextIO, logger: logging.Logger):
+    """Handler given to a thread to process either the stdout or stderr stream from the nuke executable"""
     for line in iter(stream.readline, ""):
         line_stripped = line.rstrip()
-        if msg := report_openjd_messages(line_stripped):
-            # msg will be the str of the openjd message if there is something to print,
-            # None otherwise
+        current_percent_done = 0.0
+        msg, current_percent_done = report_openjd_messages(line_stripped, current_percent_done)
+        if msg is not None:
             logger.info(msg)
         logger.info(f"{stream_name}: {line_stripped}")
 
@@ -60,42 +80,34 @@ def get_nuke_remap_string(path_mapping_rules: List[Dict[str, str]]) -> str:
     )
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="NukeCopyCatAdaptor",
-        description=(
-            "Wrapper around executing CopyCat nodes in Nuke. Handle path mapping from job attachments"
-            " and emmision of OpenJD status messages to stdout"
-        ),
-    )
+def run_adaptor(
+    nuke_path: str,
+    path_mapping_rules_path: Optional[str],
+    nuke_script_path: str,
+    copycat_node_name: str,
+    using_stubber_for_nuke: bool,
+) -> int:
+    """Runs the nuke executable with path mapping.
+    Will write output from the nuke executable, as well as any openjd messages we should print to stdout
 
-    parser.add_argument("--nuke", type=pathlib.Path, help="Path to the Nuke exe.")
-    parser.add_argument(
-        "--path-mapping-rules", type=pathlib.Path, help="Path to path-mapping rules file."
-    )
-    parser.add_argument("--nuke-script", type=pathlib.Path, help="Path to the nuke script file.")
-    parser.add_argument("--copycat-node", type=str, help="Name of the copycat node to train.")
-    parser.add_argument(
-        "--run-as-shell",
-        action="store_true",
-        default=False,
-        help="Uses shell=true when launching the passed in executable. This just exists for unit testing",
-    )
+    arguments map 1-to-1 with the CLI arguments. see the help strings in parse_args for a description of what they do.
 
-    args = parser.parse_args()
+    Returns:
+        int: exit code for the adaptor
+    """
 
     nuke_run_copycat_args = [
-        str(args.nuke),
+        nuke_path,
         "-X",
-        args.copycat_node,
+        copycat_node_name,
         "-F",  # when running copycat we specify to execute only a single "frame"
         "1",
         "--gpu",
-        str(args.nuke_script),
+        nuke_script_path,
     ]
 
-    if args.path_mapping_rules:
-        with open(args.path_mapping_rules) as f:
+    if path_mapping_rules_path:
+        with open(path_mapping_rules_path) as f:
             path_mapping_rules = json.loads(f.read())["path_mapping_rules"]
 
         nuke_path_mapping_string = get_nuke_remap_string(path_mapping_rules)
@@ -105,11 +117,13 @@ if __name__ == "__main__":
             nuke_path_mapping_string,
         ]
 
+    if using_stubber_for_nuke:
+        nuke_run_copycat_args.insert(0, "python")
+
     nuke_process = subprocess.Popen(
-        " ".join(nuke_run_copycat_args) if args.run_as_shell else nuke_run_copycat_args,
+        nuke_run_copycat_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        shell=args.run_as_shell,
         text=True,
     )
 
@@ -137,7 +151,50 @@ if __name__ == "__main__":
     stdout_reader.join()
     stderr_reader.join()
 
-    if _error_encountered:
-        sys.exit(1)
-    else:
-        sys.exit(0)
+    return nuke_process.returncode
+
+
+def parse_args() -> argparse.Namespace:
+    """Handle CLI arguments"""
+    parser = argparse.ArgumentParser(
+        prog="NukeCopyCatAdaptor",
+        description=(
+            "Wrapper around executing CopyCat nodes in Nuke. Handle path mapping from job attachments"
+            " and emmision of OpenJD status messages to stdout"
+        ),
+    )
+
+    parser.add_argument("--nuke", type=str, help="Path to the Nuke exe.", required=True)
+    parser.add_argument("--path-mapping-rules", type=str, help="Path to path-mapping rules file.")
+    parser.add_argument(
+        "--nuke-script", type=str, help="Path to the nuke script file.", required=True
+    )
+    parser.add_argument(
+        "--copycat-node", type=str, help="Name of the copycat node to train.", required=True
+    )
+    parser.add_argument(
+        "--run-stubbed",
+        action="store_true",
+        default=False,
+        help=(
+            "informs the adaptor to expect a path to a python script as the argument to --nuke rather than "
+            "an excutable. the adaptor will use python to run this script rather than executing it directly "
+            " in this mode. this flag is just used for local testing"
+        ),
+    )
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    sys.exit(
+        run_adaptor(
+            nuke_path=args.nuke,
+            path_mapping_rules_path=args.path_mapping_rules,
+            nuke_script_path=args.nuke_script,
+            copycat_node_name=args.copycat_node,
+            using_stubber_for_nuke=args.run_stubbed,
+        )
+    )
