@@ -1,0 +1,66 @@
+specificationVersion: 'jobtemplate-2023-09'
+name: Nuke CopyCat Job Template
+parameterDefinitions:
+- name: NukeScriptFile
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  userInterface:
+    control: CHOOSE_INPUT_FILE
+    label: Nuke Script File
+    fileFilters:
+    - label: Nuke Script Files
+      patterns:
+      - '*.nk'
+    - label: All Files
+      patterns:
+      - '*'
+  description: The Nuke script file to render.
+
+- name: CopyCatNode
+  type: STRING
+  description: The name of the CopyCat node to train
+
+- name: DataDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: INOUT
+  userInterface:
+    control: CHOOSE_DIRECTORY
+    label: Data Directory
+  description: The directory CopyCat data files are read from and written to.
+
+- name: CopyCatAdaptor
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  default: .
+
+steps:
+
+- name: Train
+  script:
+    actions:
+      onRun:
+        command: bash
+        args: ['{{Task.File.Run}}']
+    embeddedFiles:
+    - name: Run
+      type: TEXT
+      data: |
+        #!/bin/env bash
+
+        set -xeuo pipefail
+
+        mkdir -p {{Param.DataDir}}
+
+        # Nukes path mapping does not work for the CopyCat data directory, so we have to
+        # directly modify the nuke script to inject the mapped path.
+        ESCAPED_DATA_DIR=$(echo "{{Param.DataDir}}" | sed 's/\//\\\//g')
+        sed -i "s/dataDirectory .*/dataDirectory ${ESCAPED_DATA_DIR}/" {{Param.NukeScriptFile}}
+
+        python '{{Param.CopyCatAdaptor}}' \
+        --nuke nuke \
+        --path-mapping-rules {{Session.PathMappingRulesFile}} \
+        --nuke-script {{Param.NukeScriptFile}} \
+        --copycat-node {{Param.CopyCatNode}}
