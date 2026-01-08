@@ -19,7 +19,7 @@ parameterDefinitions:
 
 - name: CopyCatNode
   type: STRING
-  description: Which CopyCat node to train
+  description: The name of the CopyCat node to train
 
 - name: DataDir
   type: PATH
@@ -39,7 +39,6 @@ parameterDefinitions:
 steps:
 
 - name: Train
-  parameterSpace:
   script:
     actions:
       onRun:
