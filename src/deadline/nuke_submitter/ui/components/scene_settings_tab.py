@@ -64,7 +64,7 @@ class SceneSettingsWidget(QWidget):
         )
 
         self._job_type = (
-            JobType.RENDER 
+            JobType.RENDER
             if type(initial_settings.jobtype_specific_settings) == RenderSettings
             else JobType.COPYCAT_TRAINING
         )

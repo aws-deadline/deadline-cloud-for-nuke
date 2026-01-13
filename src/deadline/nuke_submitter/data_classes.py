@@ -110,15 +110,14 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
             else COPYCAT_SUBMITTER_SETTINGS_FILE_EXT
         )
 
-        # flattening makes this more complicated, but for backwards compatibility
-        # loading expects a flat json
+        # flattening makes this more complicated, but is necessary for backwards compatibility
         def get_flat_dict_of_sticky_attributes(obj) -> Dict[str, Any]:
             output = {}
 
             for field in dataclasses.fields(obj):
                 if not field.metadata.get("sticky"):
                     continue
-                
+
                 attr = getattr(obj, field.name)
                 if is_dataclass(attr):
                     flattened = get_flat_dict_of_sticky_attributes(attr)

@@ -111,7 +111,6 @@ def run_adaptor(
             path_mapping_rules = json.loads(f.read())["path_mapping_rules"]
 
         nuke_path_mapping_string = get_nuke_remap_string(path_mapping_rules)
-        print(f"remap string is: {nuke_path_mapping_string}")
 
         nuke_run_copycat_args += [
             "--remap",
@@ -122,8 +121,6 @@ def run_adaptor(
 
     if using_stubber_for_nuke:
         nuke_run_copycat_args.insert(0, "python")
-
-    print(f"Nuke args: {nuke_run_copycat_args}")
 
     nuke_process = subprocess.Popen(
         nuke_run_copycat_args,
