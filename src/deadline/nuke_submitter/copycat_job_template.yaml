@@ -1,6 +1,9 @@
 specificationVersion: 'jobtemplate-2023-09'
 name: Nuke CopyCat Job Template
 parameterDefinitions:
+- name: CondaPackages
+  type: STRING
+  default: 'nuke=16.*'
 - name: NukeScriptFile
   type: PATH
   objectType: FILE
@@ -24,7 +27,7 @@ parameterDefinitions:
 - name: DataDir
   type: PATH
   objectType: DIRECTORY
-  dataFlow: INOUT
+  dataFlow: OUT
   userInterface:
     control: CHOOSE_DIRECTORY
     label: Data Directory
@@ -53,11 +56,6 @@ steps:
         set -xeuo pipefail
 
         mkdir -p {{Param.DataDir}}
-
-        # Nukes path mapping does not work for the CopyCat data directory, so we have to
-        # directly modify the nuke script to inject the mapped path.
-        ESCAPED_DATA_DIR=$(echo "{{Param.DataDir}}" | sed 's/\//\\\//g')
-        sed -i "s/dataDirectory .*/dataDirectory ${ESCAPED_DATA_DIR}/" {{Param.NukeScriptFile}}
 
         python '{{Param.CopyCatAdaptor}}' \
         --nuke nuke \

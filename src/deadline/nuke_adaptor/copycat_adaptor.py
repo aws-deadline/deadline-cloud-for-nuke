@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import time
+import pathlib
 from typing import Dict, List, Optional, TextIO, Tuple
 
 error_regex = re.compile(r".*(ERROR: |Error ?:|Eddy\[ERROR\])(.+)")
@@ -74,7 +75,7 @@ def _stream_reader(stream_name: str, stream: TextIO, logger: logging.Logger):
 
 def get_nuke_remap_string(path_mapping_rules: List[Dict[str, str]]) -> str:
     return ",".join(
-        path.replace("\\", "/")
+        pathlib.Path(path.replace("\\", "/")).as_posix()
         for rule in path_mapping_rules
         for path in (rule["source_path"], rule["destination_path"])
     )
@@ -103,7 +104,6 @@ def run_adaptor(
         "-F",  # when running copycat we specify to execute only a single "frame"
         "1",
         "--gpu",
-        nuke_script_path,
     ]
 
     if path_mapping_rules_path:
@@ -111,14 +111,19 @@ def run_adaptor(
             path_mapping_rules = json.loads(f.read())["path_mapping_rules"]
 
         nuke_path_mapping_string = get_nuke_remap_string(path_mapping_rules)
+        print(f"remap string is: {nuke_path_mapping_string}")
 
         nuke_run_copycat_args += [
             "--remap",
             nuke_path_mapping_string,
         ]
 
+    nuke_run_copycat_args.append(nuke_script_path) # positional argument needs to be last
+
     if using_stubber_for_nuke:
         nuke_run_copycat_args.insert(0, "python")
+
+    print(f"Nuke args: {nuke_run_copycat_args}")
 
     nuke_process = subprocess.Popen(
         nuke_run_copycat_args,
