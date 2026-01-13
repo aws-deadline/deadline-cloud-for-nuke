@@ -297,6 +297,10 @@ def _get_copycat_training_parameter_values(
     parameter_values.append({"name": "DataDir", "value": copycat_node.knob('dataDirectory').getEvaluatedValue()})
     parameter_values.append({"name": "CopyCatAdaptor", "value": 'C:\\Users\\npmac\\Documents\\deadline-cloud-for-nuke\\src\\deadline\\nuke_adaptor\\copycat_adaptor.py'})
 
+    parameter_values.extend(
+        {"name": param["name"], "value": param["value"]} for param in queue_parameters
+    )
+
     return parameter_values
 
 def _get_render_parameter_values(
