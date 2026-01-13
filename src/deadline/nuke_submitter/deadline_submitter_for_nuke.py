@@ -295,7 +295,7 @@ def _get_copycat_training_parameter_values(
     parameter_values.append({"name": "NukeScriptFile", "value": get_nuke_script_file()})
     parameter_values.append({"name": "CopyCatNode", "value": copycat_settings.copycat_node})
     parameter_values.append({"name": "DataDir", "value": copycat_node.knob('dataDirectory').getEvaluatedValue()})
-    parameter_values.append({"name": "CopyCatAdapter", "value": 'C:\\Users\\npmac\\Documents\\deadline-cloud-for-nuke\\src\\deadline\\nuke_adaptor\\copycat_adapter.py'})
+    parameter_values.append({"name": "CopyCatAdaptor", "value": 'C:\\Users\\npmac\\Documents\\deadline-cloud-for-nuke\\src\\deadline\\nuke_adaptor\\copycat_adapter.py'})
 
     return parameter_values
 

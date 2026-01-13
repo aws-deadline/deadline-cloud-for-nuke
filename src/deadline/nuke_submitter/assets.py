@@ -170,15 +170,25 @@ def get_input_paths_for_filenode(node) -> set[IOPath]:
     """Get all the file we will use as input for this node"""
 
     out = set()
+    project_path = get_project_path()
+    context = nuke.OutputContext()
+    views = nuke.views()
+
     if node.Class() == COPYCAT_NODE_CLASS:
+        # CopyCat nodes can optionally reference a .cat file as initial weights.
+        # we need to add that file to attachments if it is used.
+        initial_weights_knob = node.knob('initialWeights')
+        if initial_weights_knob.value() == 'Checkpoint':
+            out.add(
+                IOPath(
+                    path=normpath(join(project_path, node.knob('checkpointFile').getEvaluatedValue(context))),
+                    is_file=True,
+                )
+            )
         return out
     for knob in node.allKnobs():
         if knob.Class() != FILE_KNOB_CLASS or not knob.value():
             continue
-
-        context = nuke.OutputContext()
-        views = nuke.views()
-        project_path = get_project_path()
 
         for frame in node.frameRange():
             for view in views:

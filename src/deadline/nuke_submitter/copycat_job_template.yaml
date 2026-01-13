@@ -26,18 +26,18 @@ parameterDefinitions:
 
 - name: CopyCatNode
   type: STRING
-  description: Which CopyCat node to train
+  description: The name of the CopyCat node to train
 
 - name: DataDir
   type: PATH
   objectType: DIRECTORY
-  dataFlow: INOUT
+  dataFlow: OUT
   userInterface:
     control: CHOOSE_DIRECTORY
     label: Data Directory
   description: The directory CopyCat data files are read from and written to.
 
-- name: CopyCatAdapter
+- name: CopyCatAdaptor
   type: PATH
   objectType: FILE
   dataFlow: IN
@@ -46,7 +46,6 @@ parameterDefinitions:
 steps:
 
 - name: Train
-  parameterSpace:
   script:
     actions:
       onRun:
@@ -62,9 +61,8 @@ steps:
 
         mkdir -p {{Param.DataDir}}
 
-        # Nukes path mapping does not work for the CopyCat data directory, so we have to
-        # directly modify the nuke script to inject the mapped path.
-        ESCAPED_DATA_DIR=$(echo "{{Param.DataDir}}" | sed 's/\//\\\//g')
-        sed -i "s/dataDirectory .*/dataDirectory ${ESCAPED_DATA_DIR}/" {{Param.NukeScriptFile}}
-
-        python '{{Param.CopyCatAdapter}}' --nuke nuke --path-mapping-rules {{Session.PathMappingRulesFile}} --nuke-script {{Param.NukeScriptFile}} --copycat-node {{Param.CopyCatNode}}
+        python '{{Param.CopyCatAdaptor}}' \
+        --nuke nuke \
+        --path-mapping-rules {{Session.PathMappingRulesFile}} \
+        --nuke-script {{Param.NukeScriptFile}} \
+        --copycat-node {{Param.CopyCatNode}}
