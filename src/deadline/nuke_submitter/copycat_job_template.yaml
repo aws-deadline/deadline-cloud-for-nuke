@@ -1,9 +1,6 @@
 specificationVersion: 'jobtemplate-2023-09'
 name: Nuke CopyCat Job Template
 parameterDefinitions:
-- name: CondaPackages
-  type: STRING
-  default: 'nuke=16.*'
 - name: NukeScriptFile
   type: PATH
   objectType: FILE
