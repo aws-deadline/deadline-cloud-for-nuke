@@ -69,6 +69,25 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
             else JobType.COPYCAT_TRAINING
         )
 
+    def _load_sticky_settings_from_dict(self, sticky_settings: dict):
+        if isinstance(sticky_settings, dict):
+            sticky_fields = {
+                field.name: field
+                for field in dataclasses.fields(self)
+                if field.metadata.get("sticky")
+            }
+            jobtype_specific_sticky_fields = {
+                field.name: field
+                for field in dataclasses.fields(self.jobtype_specific_settings)
+                if field.metadata.get("sticky")
+            }
+            for name, value in sticky_settings.items():
+                # Only set fields that are defined in the dataclass
+                if name in sticky_fields:
+                    setattr(self, name, value)
+                if name in jobtype_specific_sticky_fields:
+                    setattr(self.jobtype_specific_settings, name, value)
+
     def load_sticky_settings(self, scene_filename: str):
         sticky_settings_filename = Path(scene_filename).with_suffix(
             RENDER_SUBMITTER_SETTINGS_FILE_EXT
@@ -79,25 +98,7 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
             try:
                 with open(sticky_settings_filename, encoding="utf8") as fh:
                     sticky_settings = json.load(fh)
-
-                if isinstance(sticky_settings, dict):
-                    sticky_fields = {
-                        field.name: field
-                        for field in dataclasses.fields(self)
-                        if field.metadata.get("sticky")
-                    }
-                    jobtype_specific_sticky_fields = {
-                        field.name: field
-                        for field in dataclasses.fields(self.jobtype_specific_settings)
-                        if field.metadata.get("sticky")
-                    }
-                    for name, value in sticky_settings.items():
-                        # Only set fields that are defined in the dataclass
-                        if name in sticky_fields:
-                            setattr(self, name, value)
-                        if name in jobtype_specific_sticky_fields:
-                            setattr(self.jobtype_specific_settings, name, value)
-
+                self._load_sticky_settings_from_dict(sticky_settings)
             except (OSError, json.JSONDecodeError):
                 # If something bad happened to the sticky settings file,
                 # just use the defaults instead of producing an error.
@@ -108,13 +109,7 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
                     f"WARNING: Failed to load sticky settings file {sticky_settings_filename}, reverting to the default settings."
                 )
 
-    def save_sticky_settings(self, scene_filename: str):
-        sticky_settings_filename = Path(scene_filename).with_suffix(
-            RENDER_SUBMITTER_SETTINGS_FILE_EXT
-            if self.get_job_type() == JobType.RENDER
-            else COPYCAT_SUBMITTER_SETTINGS_FILE_EXT
-        )
-
+    def _get_sticky_settings_dict(self) -> Dict[str, Any]:
         # flattening makes this more complicated, but is necessary for backwards compatibility
         def get_flat_dict_of_sticky_attributes(obj) -> Dict[str, Any]:
             output = {}
@@ -133,6 +128,15 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
 
             return output
 
+        return get_flat_dict_of_sticky_attributes(self)
+
+    def save_sticky_settings(self, scene_filename: str):
+        sticky_settings_filename = Path(scene_filename).with_suffix(
+            RENDER_SUBMITTER_SETTINGS_FILE_EXT
+            if self.get_job_type() == JobType.RENDER
+            else COPYCAT_SUBMITTER_SETTINGS_FILE_EXT
+        )
+
         with open(sticky_settings_filename, "w", encoding="utf8") as fh:
-            obj = get_flat_dict_of_sticky_attributes(self)
+            obj = self._get_sticky_settings_dict()
             json.dump(obj, fh, indent=1)
