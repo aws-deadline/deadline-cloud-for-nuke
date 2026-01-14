@@ -120,7 +120,9 @@ def _copy_dcc_scene_file(source_filename: str, dest_filename: str):
 
 def _show_deadline_cloud_submitter(mainwin: Any):
     """Shows the Deadline Cloud Submitter for Nuke."""
-    return show_nuke_render_submitter()
+    from deadline.nuke_submitter.data_classes import JobType
+
+    return show_nuke_render_submitter(JobType.RENDER)
 
 
 # The following functions implement the test logic.

@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-import nuke
 import dataclasses
 from dataclasses import dataclass, field, is_dataclass
 import json
 from pathlib import Path
-from typing import Union
+from typing import Union, Dict, Any
 from enum import Enum
 
 RENDER_SUBMITTER_SETTINGS_FILE_EXT = ".deadline_render_settings.json"
 COPYCAT_SUBMITTER_SETTINGS_FILE_EXT = ".deadline_copycat_settings.json"
 
+
 class JobType(Enum):
     RENDER = "render"
     COPYCAT_TRAINING = "copycat_training"
+
 
 @dataclass
 class RenderSettings:
@@ -26,9 +27,11 @@ class RenderSettings:
     is_proxy_mode: bool = field(default=False, metadata={"sticky": True})
     continue_on_error: bool = field(default=False, metadata={"sticky": True})
 
+
 @dataclass
 class CopyCatTrainingSettings:
     copycat_node: str = field(default="", metadata={"sticky": True})
+
 
 @dataclass
 class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
@@ -41,7 +44,9 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     name: str = field(default="", metadata={"sticky": True})
     description: str = field(default="", metadata={"sticky": True})
 
-    jobtype_specific_settings: Union[CopyCatTrainingSettings, RenderSettings] = field(default_factory=RenderSettings, metadata={"sticky": True})
+    jobtype_specific_settings: Union[CopyCatTrainingSettings, RenderSettings] = field(
+        default_factory=RenderSettings, metadata={"sticky": True}
+    )
 
     input_filenames: list[str] = field(default_factory=list, metadata={"sticky": True})
     input_directories: list[str] = field(default_factory=list, metadata={"sticky": True})
@@ -60,7 +65,7 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
     def get_job_type(self):
         return (
             JobType.RENDER
-            if type(self.jobtype_specific_settings) == RenderSettings
+            if type(self.jobtype_specific_settings) is RenderSettings
             else JobType.COPYCAT_TRAINING
         )
 
@@ -114,20 +119,19 @@ class SubmitterUISettings:  # pylint: disable=too-many-instance-attributes
         def get_flat_dict_of_sticky_attributes(obj) -> Dict[str, Any]:
             output = {}
 
-            for field in dataclasses.fields(obj):
-                if not field.metadata.get("sticky"):
+            for attr_field in dataclasses.fields(obj):
+                if not attr_field.metadata.get("sticky"):
                     continue
 
-                attr = getattr(obj, field.name)
+                attr = getattr(obj, attr_field.name)
                 if is_dataclass(attr):
                     flattened = get_flat_dict_of_sticky_attributes(attr)
                     for k, v in flattened.items():
                         output[k] = v
                 else:
-                    output[field.name] = attr
+                    output[attr_field.name] = attr
 
             return output
-
 
         with open(sticky_settings_filename, "w", encoding="utf8") as fh:
             obj = get_flat_dict_of_sticky_attributes(self)

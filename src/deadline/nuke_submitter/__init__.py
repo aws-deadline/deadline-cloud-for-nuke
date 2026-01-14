@@ -13,5 +13,5 @@ __all__ = [
     "logger",
     "show_nuke_render_submitter",
     "run_render_submitter_job_bundle_output_test",
-    "JobType"
+    "JobType",
 ]

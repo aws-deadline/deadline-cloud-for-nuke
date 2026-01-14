@@ -16,18 +16,20 @@ try:
     from deadline.nuke_submitter import (
         show_nuke_render_submitter,
         run_render_submitter_job_bundle_output_test,
-        JobType
+        JobType,
     )
 
     menu_bar = nuke.menu("Nuke")
     aws_deadline_menu = menu_bar.addMenu("&AWS Deadline")
-    aws_deadline_menu.addCommand("Submit to Deadline Cloud", lambda: show_nuke_render_submitter(JobType.RENDER), "")
+    aws_deadline_menu.addCommand(
+        "Submit to Deadline Cloud", lambda: show_nuke_render_submitter(JobType.RENDER), ""
+    )
     # Set the environment variable DEADLINE_ENABLE_DEVELOPER_OPTIONS to "true" to get this menu.
     if os.environ.get("DEADLINE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE":
         aws_deadline_menu.addCommand(
             "Submit CopyCat Training to Deadline Cloud",
             lambda: show_nuke_render_submitter(JobType.COPYCAT_TRAINING),
-            ""
+            "",
         )
         aws_deadline_menu.addCommand(
             "Run Nuke Submitter Job Bundle Output Tests...",

@@ -117,7 +117,7 @@ def run_adaptor(
             nuke_path_mapping_string,
         ]
 
-    nuke_run_copycat_args.append(nuke_script_path) # positional argument needs to be last
+    nuke_run_copycat_args.append(nuke_script_path)  # positional argument needs to be last
 
     if using_stubber_for_nuke:
         nuke_run_copycat_args.insert(0, "python")

@@ -51,6 +51,7 @@ from ...data_classes import (
     CopyCatTrainingSettings,
 )
 
+
 class SceneSettingsWidget(QWidget):
     """
     Widget containing all top level scene settings.
@@ -65,12 +66,11 @@ class SceneSettingsWidget(QWidget):
 
         self._job_type = (
             JobType.RENDER
-            if type(initial_settings.jobtype_specific_settings) == RenderSettings
+            if type(initial_settings.jobtype_specific_settings) is RenderSettings
             else JobType.COPYCAT_TRAINING
         )
         self._build_ui()
         self.refresh_ui(initial_settings)
-
 
     def _build_render_ui_options(self, lyt: QGridLayout):
         self.write_node_box = QComboBox(self)
@@ -227,7 +227,6 @@ class SceneSettingsWidget(QWidget):
             + timeout_boxes[3].value() * 60
         )
 
-
     def _rebuild_copycat_node_drop_down(self) -> None:
         self.copycat_node_box.clear()
         for copycat_node in sorted(
@@ -235,7 +234,6 @@ class SceneSettingsWidget(QWidget):
         ):
             # Set data value as fullName since this is the value we want to store in the settings
             self.copycat_node_box.addItem(copycat_node.fullName(), copycat_node.fullName())
-
 
     def _rebuild_write_node_drop_down(self) -> None:
         self.write_node_box.clear()
@@ -292,9 +290,9 @@ class SceneSettingsWidget(QWidget):
     def refresh_ui(self, settings: SubmitterUISettings):
 
         if self._job_type == JobType.RENDER:
-            self._refresh_render_ui(settings.jobtype_specific_settings)
+            self._refresh_render_ui(settings.jobtype_specific_settings)  # type: ignore[arg-type]
         elif self._job_type == JobType.COPYCAT_TRAINING:
-            self._refresh_copycat_ui(settings.jobtype_specific_settings)
+            self._refresh_copycat_ui(settings.jobtype_specific_settings)  # type: ignore[arg-type]
 
         self.timeout_checkbox.setChecked(settings.timeouts_enabled)
 
@@ -326,10 +324,8 @@ class SceneSettingsWidget(QWidget):
         settings.is_proxy_mode = self.proxy_mode_check.isChecked()
         settings.continue_on_error = self.continue_on_error_check.isChecked()
 
-
     def _update_copycat_training_settings(self, settings: CopyCatTrainingSettings):
         settings.copycat_node = self.copycat_node_box.currentData()
-
 
     def update_settings(self, settings: SubmitterUISettings):
         """

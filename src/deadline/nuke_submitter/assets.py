@@ -144,7 +144,7 @@ def get_scene_asset_references() -> AssetReferencesParsingOutcome:
 
 
 def find_all_copycat_nodes() -> set:
-    return { node for node in nuke.allNodes() if node.Class() == COPYCAT_NODE_CLASS }
+    return {node for node in nuke.allNodes() if node.Class() == COPYCAT_NODE_CLASS}
 
 
 def find_all_write_nodes() -> set:
@@ -177,11 +177,13 @@ def get_input_paths_for_filenode(node) -> set[IOPath]:
     if node.Class() == COPYCAT_NODE_CLASS:
         # CopyCat nodes can optionally reference a .cat file as initial weights.
         # we need to add that file to attachments if it is used.
-        initial_weights_knob = node.knob('initialWeights')
-        if initial_weights_knob.value() == 'Checkpoint':
+        initial_weights_knob = node.knob("initialWeights")
+        if initial_weights_knob.value() == "Checkpoint":
             out.add(
                 IOPath(
-                    path=normpath(join(project_path, node.knob('checkpointFile').getEvaluatedValue(context))),
+                    path=normpath(
+                        join(project_path, node.knob("checkpointFile").getEvaluatedValue(context))
+                    ),
                     is_file=True,
                 )
             )
