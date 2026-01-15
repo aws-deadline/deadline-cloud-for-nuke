@@ -40,8 +40,16 @@ except ImportError:
         QSpinBox,
     )
 
-from ...assets import find_all_write_nodes
-from ...data_classes import RenderSubmitterUISettings
+from ...assets import (
+    find_all_write_nodes,
+    find_all_copycat_nodes,
+)
+from ...data_classes import (
+    JobType,
+    SubmitterUISettings,
+    RenderSettings,
+    CopyCatTrainingSettings,
+)
 
 
 class SceneSettingsWidget(QWidget):
@@ -49,19 +57,22 @@ class SceneSettingsWidget(QWidget):
     Widget containing all top level scene settings.
     """
 
-    def __init__(self, initial_settings: RenderSubmitterUISettings, parent=None):
+    def __init__(self, initial_settings: SubmitterUISettings, parent=None):
         super().__init__(parent=parent)
 
         self.developer_options = (
             os.environ.get("DEADLINE_ENABLE_DEVELOPER_OPTIONS", "").upper() == "TRUE"
         )
 
+        self._job_type = (
+            JobType.RENDER
+            if type(initial_settings.jobtype_specific_settings) is RenderSettings
+            else JobType.COPYCAT_TRAINING
+        )
         self._build_ui()
         self.refresh_ui(initial_settings)
 
-    def _build_ui(self):
-        lyt = QGridLayout(self)
-
+    def _build_render_ui_options(self, lyt: QGridLayout):
         self.write_node_box = QComboBox(self)
         self._rebuild_write_node_drop_down()
         lyt.addWidget(QLabel("Write nodes"), 0, 0)
@@ -86,6 +97,20 @@ class SceneSettingsWidget(QWidget):
             "Allow Nuke to continue rendering when it encounters non-fatal errors in the graph"
         )
         lyt.addWidget(self.continue_on_error_check, 4, 0)
+
+    def _build_copycat_ui_options(self, lyt: QGridLayout):
+        self.copycat_node_box = QComboBox(self)
+        self._rebuild_copycat_node_drop_down()
+        lyt.addWidget(QLabel("CopyCat Node"), 0, 0)
+        lyt.addWidget(self.copycat_node_box, 0, 1, 1, -1)
+
+    def _build_ui(self):
+        lyt = QGridLayout(self)
+
+        if self._job_type == JobType.RENDER:
+            self._build_render_ui_options(lyt)
+        elif self._job_type == JobType.COPYCAT_TRAINING:
+            self._build_copycat_ui_options(lyt)
 
         self.timeout_checkbox = QCheckBox("Use timeouts", self)
         self.timeout_checkbox.setChecked(True)
@@ -202,6 +227,14 @@ class SceneSettingsWidget(QWidget):
             + timeout_boxes[3].value() * 60
         )
 
+    def _rebuild_copycat_node_drop_down(self) -> None:
+        self.copycat_node_box.clear()
+        for copycat_node in sorted(
+            find_all_copycat_nodes(), key=lambda copycat_node: copycat_node.fullName()
+        ):
+            # Set data value as fullName since this is the value we want to store in the settings
+            self.copycat_node_box.addItem(copycat_node.fullName(), copycat_node.fullName())
+
     def _rebuild_write_node_drop_down(self) -> None:
         self.write_node_box.clear()
         self.write_node_box.addItem("All write nodes", None)
@@ -229,7 +262,7 @@ class SceneSettingsWidget(QWidget):
     def on_exit_timeout_seconds(self):
         return self._calculate_timeout_seconds(self.on_exit_timeouts)
 
-    def refresh_ui(self, settings: RenderSubmitterUISettings):
+    def _refresh_render_ui(self, settings: RenderSettings):
         self.frame_override_chck.setChecked(settings.override_frame_range)
         self.frame_override_txt.setEnabled(settings.override_frame_range)
         self.frame_override_txt.setText(settings.frame_list)
@@ -250,6 +283,16 @@ class SceneSettingsWidget(QWidget):
 
         self.proxy_mode_check.setChecked(settings.is_proxy_mode)
         self.continue_on_error_check.setChecked(settings.continue_on_error)
+
+    def _refresh_copycat_ui(self, settings: CopyCatTrainingSettings):
+        pass
+
+    def refresh_ui(self, settings: SubmitterUISettings):
+
+        if self._job_type == JobType.RENDER:
+            self._refresh_render_ui(settings.jobtype_specific_settings)  # type: ignore[arg-type]
+        elif self._job_type == JobType.COPYCAT_TRAINING:
+            self._refresh_copycat_ui(settings.jobtype_specific_settings)  # type: ignore[arg-type]
 
         self.timeout_checkbox.setChecked(settings.timeouts_enabled)
 
@@ -272,10 +315,7 @@ class SceneSettingsWidget(QWidget):
 
         self.activate_timeout_changed(warn=False)  # don't warn when loading from sticky settings
 
-    def update_settings(self, settings: RenderSubmitterUISettings):
-        """
-        Update a scene settings object with the latest values.
-        """
+    def _update_render_settings(self, settings: RenderSettings):
         settings.override_frame_range = self.frame_override_chck.isChecked()
         settings.frame_list = self.frame_override_txt.text()
 
@@ -283,6 +323,21 @@ class SceneSettingsWidget(QWidget):
         settings.view_selection = self.views_box.currentData()
         settings.is_proxy_mode = self.proxy_mode_check.isChecked()
         settings.continue_on_error = self.continue_on_error_check.isChecked()
+
+    def _update_copycat_training_settings(self, settings: CopyCatTrainingSettings):
+        settings.copycat_node = self.copycat_node_box.currentData()
+
+    def update_settings(self, settings: SubmitterUISettings):
+        """
+        Update a scene settings object with the latest values.
+        """
+
+        if self._job_type == JobType.RENDER:
+            settings.jobtype_specific_settings = RenderSettings()
+            self._update_render_settings(settings.jobtype_specific_settings)
+        elif self._job_type == JobType.COPYCAT_TRAINING:
+            settings.jobtype_specific_settings = CopyCatTrainingSettings()
+            self._update_copycat_training_settings(settings.jobtype_specific_settings)
 
         settings.timeouts_enabled = self.timeout_checkbox.isChecked()
         settings.on_run_timeout_seconds = self.on_run_timeout_seconds
