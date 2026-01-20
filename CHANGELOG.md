@@ -1,3 +1,11 @@
+## 0.18.16 (2026-01-20)
+
+
+
+### Bug Fixes
+* fixed copycat adaptor not working when plugin installed using installer (#288) ([`f7c57f3`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f7c57f362f245a06068545be00f997d0060bac25))
+
+
 ## 0.18.15 (2026-01-20)
 
 
