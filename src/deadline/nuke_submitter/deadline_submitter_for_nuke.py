@@ -12,6 +12,7 @@ import yaml  # type: ignore[import]
 from deadline.client.api import get_deadline_cloud_library_telemetry_client
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
+import deadline.nuke_submitter.copycat_adaptor as copycat_adaptor_module
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
     JobBundlePurpose,
     SubmitJobToDeadlineDialog,
@@ -310,7 +311,7 @@ def _get_copycat_training_parameter_values(
     parameter_values.append(
         {
             "name": "CopyCatAdaptor",
-            "value": "C:\\Users\\npmac\\Documents\\deadline-cloud-for-nuke\\src\\deadline\\nuke_adaptor\\copycat_adaptor.py",
+            "value": copycat_adaptor_module.__file__,
         }
     )
 
