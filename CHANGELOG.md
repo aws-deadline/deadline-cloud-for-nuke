@@ -1,3 +1,16 @@
+## 0.18.15 (2026-01-20)
+
+
+### Features
+* add submitter for copycat. (#286) ([`700b6b4`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/700b6b4d44afc404fc21c7ab19128da3ff8e6114))
+* add submitter for copycat. ([`700b6b4`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/700b6b4d44afc404fc21c7ab19128da3ff8e6114))
+* add copycat job template (#283) ([`dfb0e4c`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/dfb0e4c1cf0f3b2ee03caa9de9fb58d08b34c3bf))
+* add copycat job template ([`dfb0e4c`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/dfb0e4c1cf0f3b2ee03caa9de9fb58d08b34c3bf))
+* add copycat adaptor script (#281) ([`c292eaa`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/c292eaa1ea96d8a4b356a3ca0453bde47b98219f))
+* add adaptor script for copycat ([`c292eaa`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/c292eaa1ea96d8a4b356a3ca0453bde47b98219f))
+
+
+
 ## 0.18.14 (2025-12-18)
 
 
