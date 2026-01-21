@@ -1,0 +1,42 @@
+site_name: AWS Deadline Cloud for Nuke User Guide
+site_url: https://aws-deadline.github.io/deadline-cloud-for-nuke/
+repo_url: https://github.com/aws-deadline/deadline-cloud-for-nuke
+repo_name: aws-deadline/deadline-cloud-for-nuke
+edit_uri: edit/mainline/docs/user_guide/
+
+theme:
+  name: material
+  palette:
+    primary: custom
+  features:
+    - navigation.indexes
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - content.code.copy
+
+extra:
+  generator: false # Hide mkdocs-material call out
+
+copyright: Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+markdown_extensions:
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Installation:
+    - installation/index.md
+    - Using the submitter installer: installation/installation.md
+  - Using the submitter: 
+    - using-submitter/index.md
+    - Submitting render jobs: using-submitter/render-submissions.md
+    - Submitting CopyCat training jobs: using-submitter/copycat-submissions.md
+  - Telemetry: telemetry.md
+
+plugins:
+  - search
+
+docs_dir: docs/user_guide
+site_dir: site
