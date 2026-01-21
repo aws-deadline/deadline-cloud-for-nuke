@@ -32,12 +32,3 @@ The **Job-specific settings** tab has options specific to jobs created in Nuke.
   - *Include gizmos in job bundle* - Whether or not to include [gizmos](https://learn.foundry.com/nuke/content/comp_environment/configuring_nuke/creating_sourcing_gizmos.html) in the job bundle.
 
 For information about the other submitter tabs, see the [AWS Deadline Cloud guide for using a submitter](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/jobs-using-submitter.html).
-
-## Monitoring your jobs
-
-You can monitor job progress using the Deadline Cloud monitor. For more information, see the [AWS Deadline Cloud guide for using the monitor](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/working-with-deadline-monitor.html).
-
-## Getting help
-
-- Contact AWS Support
-- (Requires a GitHub account) [Open an issue in `deadline-cloud-for-nuke` on GitHub](https://github.com/aws-deadline/deadline-cloud-for-nuke/issues)

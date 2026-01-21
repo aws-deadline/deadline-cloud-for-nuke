@@ -11,4 +11,5 @@ You can install the Deadline Cloud for Nuke submitter using the Deadline Cloud s
 1. Finish running the installer.
 1. Launch Nuke.
 1. Verify the installation by checking if **AWS Deadline** has been added to the top navigation bar.
+
 ![navigation bar with plugin](../images/top_bar_with_plugin.png)
