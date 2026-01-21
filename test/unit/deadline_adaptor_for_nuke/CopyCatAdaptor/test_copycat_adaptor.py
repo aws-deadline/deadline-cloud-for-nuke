@@ -1,9 +1,9 @@
 import subprocess
 import pytest
 
-import deadline.nuke_adaptor.copycat_adaptor as copycat_adaptor_module
+import deadline.nuke_submitter.copycat_adaptor as copycat_adaptor_module
 import test.unit.deadline_adaptor_for_nuke.CopyCatAdaptor.stubbed_nuke as stubbed_nuke_module
-from deadline.nuke_adaptor.copycat_adaptor import (
+from deadline.nuke_submitter.copycat_adaptor import (
     get_nuke_remap_string,
     report_openjd_messages,
 )
