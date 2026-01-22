@@ -1,6 +1,6 @@
 ## 0.18.16 (2026-01-20)
 
-
+Added support for training CopyCat nodes. Users are now able to select to submit a CopyCat training job. A CopyCat training job will perform CopyCat training on the render farm, rather than on the local system.
 
 ### Bug Fixes
 * fixed copycat adaptor not working when plugin installed using installer (#288) ([`f7c57f3`](https://github.com/aws-deadline/deadline-cloud-for-nuke/commit/f7c57f362f245a06068545be00f997d0060bac25))
