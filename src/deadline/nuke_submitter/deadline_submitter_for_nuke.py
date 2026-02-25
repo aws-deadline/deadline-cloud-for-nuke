@@ -165,11 +165,10 @@ def _get_job_template(settings: SubmitterUISettings) -> dict[str, Any]:
     # Load the default Nuke job template, and then fill in scene-specific
     # values it needs.
 
-    template_name = (
-        "default_nuke_job_template.yaml"
-        if job_type == JobType.RENDER
-        else "copycat_job_template.yaml"
-    )
+    if job_type == JobType.RENDER:
+        template_name = "default_nuke_job_template.yaml"
+    else:
+        template_name = "copycat_job_template.yaml"
 
     with open(Path(__file__).parent / template_name) as f:
         job_template = yaml.safe_load(f)
@@ -361,6 +360,20 @@ def _get_render_parameter_values(
         {
             "name": "ContinueOnError",
             "value": "true" if settings.jobtype_specific_settings.continue_on_error else "false",  # type: ignore[union-attr]
+        }
+    )
+
+    # Set chunking parameter values
+    parameter_values.append(
+        {
+            "name": "ChunkSize",
+            "value": settings.jobtype_specific_settings.chunk_size,  # type: ignore[union-attr]
+        }
+    )
+    parameter_values.append(
+        {
+            "name": "TargetChunkDuration",
+            "value": settings.jobtype_specific_settings.target_chunk_duration,  # type: ignore[union-attr]
         }
     )
 

@@ -25,6 +25,8 @@ The **Job-specific settings** tab has options specific to jobs created in Nuke.
   - *Override frame range* - Select this to render a different frame or frame range than is set in Nuke. Frame ranges follow the [Open Job Description](https://github.com/OpenJobDescription/openjd-specifications/wiki/2023-09-Template-Schemas#34111-intrangeexpr) pattern.
   - *Use proxy mode* - Manages whether to use [proxy mode](https://learn.foundry.com/nuke/9.0/content/getting_started/managing_scripts/proxy_mode.html) in the submitted job.
   - *Continue on error* - If set, try to continue rendering if Nuke encounters an error. If false, in the case of an error the task is failed.
+  - *Chunk size* - Number of frames to group into each chunk (1-150). Use 1 for one frame per task (default). Higher values group frames into contiguous chunks to reduce per-task overhead. For more information, see [Task chunking for job templates](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/build-job-bundle-chunking.html).
+  - *Target chunk duration (seconds)* - When set, the scheduler dynamically adjusts chunk sizes based on observed runtimes of completed chunks, aiming for this duration per chunk. Leave at 0 to use a fixed chunk size for all chunks.
   - *Use timeouts* - Whether or not to use user configured timeouts.
   - *Render task timeout* - Maximum duration of each action which performs a render. Default is 6 days.
   - *Setup timeout* - Maximum duration of each action which sets up the job for rendering, such as scene load. Default is 1 day.
