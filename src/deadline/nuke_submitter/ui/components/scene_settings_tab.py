@@ -3,6 +3,7 @@
 """
 UI widgets for the Scene Settings tab.
 """
+
 import os
 import nuke
 
@@ -98,6 +99,29 @@ class SceneSettingsWidget(QWidget):
         )
         lyt.addWidget(self.continue_on_error_check, 4, 0)
 
+        # Chunking controls
+        lyt.addWidget(QLabel("Chunk size"), 5, 0)
+        self.chunk_size_spin = QSpinBox(self, minimum=1, maximum=150)
+        self.chunk_size_spin.setValue(1)
+        self.chunk_size_spin.setToolTip(
+            "Number of frames to group into each chunk.\n"
+            "Use 1 for one frame per task (default).\n"
+            "Higher values reduce per-task overhead."
+        )
+        lyt.addWidget(self.chunk_size_spin, 5, 1, 1, -1)
+
+        lyt.addWidget(QLabel("Target chunk duration (seconds)"), 6, 0)
+        self.target_chunk_duration_spin = QSpinBox(self, minimum=0, maximum=86400)
+        self.target_chunk_duration_spin.setValue(0)
+        self.target_chunk_duration_spin.setToolTip(
+            "When set, the scheduler dynamically adjusts chunk sizes\n"
+            "based on observed runtimes of completed chunks, aiming\n"
+            "for this duration per chunk. Leave at 0 to use a fixed\n"
+            "chunk size for all chunks."
+        )
+        self.target_chunk_duration_spin.setSpecialValueText("Disabled")
+        lyt.addWidget(self.target_chunk_duration_spin, 6, 1, 1, -1)
+
     def _build_copycat_ui_options(self, lyt: QGridLayout):
         self.copycat_node_box = QComboBox(self)
         self._rebuild_copycat_node_drop_down()
@@ -118,17 +142,17 @@ class SceneSettingsWidget(QWidget):
         self.timeout_checkbox.setToolTip(
             "Set a maximum duration for actions from this job. See AWS Deadline Cloud documentation to learn more"
         )
-        lyt.addWidget(self.timeout_checkbox, 5, 0)
+        lyt.addWidget(self.timeout_checkbox, 7, 0)
         self.timeouts_subtext = QLabel("Set a maximum duration for actions from this job")
         self.timeouts_subtext.setStyleSheet("font-style: italic")
-        lyt.addWidget(self.timeouts_subtext, 5, 1, 1, -1)
+        lyt.addWidget(self.timeouts_subtext, 7, 1, 1, -1)
 
         self.timeouts_box = QGroupBox()
         timeouts_lyt = QGridLayout(self.timeouts_box)
-        lyt.addWidget(self.timeouts_box, 6, 0, 1, -1)
+        lyt.addWidget(self.timeouts_box, 8, 0, 1, -1)
 
         self.gizmos_checkbox = QCheckBox("Include gizmos in job bundle", self)
-        lyt.addWidget(self.gizmos_checkbox, 7, 0)
+        lyt.addWidget(self.gizmos_checkbox, 9, 0)
 
         def create_timeout_row(label, tooltip, row):
             qlabel = QLabel(label)
@@ -181,9 +205,9 @@ class SceneSettingsWidget(QWidget):
             self.include_adaptor_wheels = QCheckBox(
                 "Developer option: Include adaptor wheels", self
             )
-            lyt.addWidget(self.include_adaptor_wheels, 8, 0, 1, 2)
+            lyt.addWidget(self.include_adaptor_wheels, 10, 0, 1, 2)
 
-        lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 9, 0)
+        lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 11, 0)
 
     def indicate_if_valid(self, timeout_boxes: tuple[QLabel, QSpinBox, QSpinBox, QSpinBox]):
         if (
@@ -284,6 +308,9 @@ class SceneSettingsWidget(QWidget):
         self.proxy_mode_check.setChecked(settings.is_proxy_mode)
         self.continue_on_error_check.setChecked(settings.continue_on_error)
 
+        self.chunk_size_spin.setValue(settings.chunk_size)
+        self.target_chunk_duration_spin.setValue(settings.target_chunk_duration)
+
     def _refresh_copycat_ui(self, settings: CopyCatTrainingSettings):
         pass
 
@@ -323,6 +350,9 @@ class SceneSettingsWidget(QWidget):
         settings.view_selection = self.views_box.currentData()
         settings.is_proxy_mode = self.proxy_mode_check.isChecked()
         settings.continue_on_error = self.continue_on_error_check.isChecked()
+
+        settings.chunk_size = self.chunk_size_spin.value()
+        settings.target_chunk_duration = self.target_chunk_duration_spin.value()
 
     def _update_copycat_training_settings(self, settings: CopyCatTrainingSettings):
         settings.copycat_node = self.copycat_node_box.currentData()
