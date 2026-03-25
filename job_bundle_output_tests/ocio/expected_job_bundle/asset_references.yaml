@@ -1,8 +1,8 @@
 assetReferences:
   inputs:
     directories:
-    - /normalized/job/bundle/dir/luts
     - /tmp/luts
+    - /normalized/job/bundle/dir/luts
     filenames:
     - /normalized/job/bundle/dir/config.ocio
     - /normalized/job/bundle/dir/ocio.nk
