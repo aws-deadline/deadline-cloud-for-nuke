@@ -121,8 +121,12 @@ def _copy_dcc_scene_file(source_filename: str, dest_filename: str):
 def _show_deadline_cloud_submitter(mainwin: Any):
     """Shows the Deadline Cloud Submitter for Nuke."""
     from deadline.nuke_submitter.data_classes import JobType
+    from deadline.nuke_submitter import deadline_submitter_for_nuke
 
-    return show_nuke_render_submitter(JobType.RENDER)
+    with mock.patch.object(
+        deadline_submitter_for_nuke, "check_and_show_update_dialog", return_value=False
+    ):
+        return show_nuke_render_submitter(JobType.RENDER)
 
 
 # The following functions implement the test logic.
