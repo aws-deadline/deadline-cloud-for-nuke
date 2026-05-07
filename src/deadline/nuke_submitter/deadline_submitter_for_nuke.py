@@ -5,11 +5,15 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import nuke
 import yaml  # type: ignore[import]
-from deadline.client.api import get_deadline_cloud_library_telemetry_client
+from deadline.client.api import (
+    get_deadline_cloud_library_telemetry_client,
+    get_queue_parameter_definitions
+)
+from deadline.client.config import get_setting
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 import deadline.nuke_submitter.copycat_adaptor as copycat_adaptor_module
@@ -163,6 +167,123 @@ def _remove_ocio_path_from_job_template(job_template: dict[str, Any]) -> None:
             break
 
 
+def get_queue_parameters(
+    farm_id: Optional[str] = None,
+    queue_id: Optional[str] = None,
+    initial_values: Optional[dict[str, Any]] = None,
+) -> list[dict[str, Any]]:
+    """Get queue parameters from Deadline Cloud for external API usage.
+
+    This function retrieves queue parameter definitions from the Deadline Cloud API
+    and optionally applies initial values. It can be used to construct queue_parameters
+    for get_parameter_values_for_submission() without going through the UI.
+
+    Args:
+        farm_id: The farm ID. If not provided, uses the default from settings.
+        queue_id: The queue ID. If not provided, uses the default from settings.
+        initial_values: Optional dict of {parameter_name: value} to override
+            default parameter values. For example:
+            {"RezPackages": "maya-2024 deadline_cloud_for_maya"}
+
+    Returns:
+        A list of parameter definition dicts with "name" and "value" keys,
+        suitable for passing to get_parameter_values_for_submission().
+
+    Raises:
+        DeadlineOperationError: If farm_id or queue_id are not configured.
+
+    Example:
+        >>> queue_params = get_queue_parameters(
+        ...     initial_values={"RezPackages": "maya-2024"}
+        ... )
+        >>> param_values = get_parameter_values_for_submission(settings, queue_params)
+    """
+    if farm_id is None:
+        farm_id = get_setting("defaults.farm_id")
+    if queue_id is None:
+        queue_id = get_setting("defaults.queue_id")
+
+    if not farm_id or not queue_id:
+        raise DeadlineOperationError(
+            "Farm ID and Queue ID must be configured. "
+            "Either provide them as arguments or configure them in Deadline Cloud settings."
+        )
+
+    # Fetch queue parameter definitions from the API
+    queue_parameters = get_queue_parameter_definitions(farmId=farm_id, queueId=queue_id)
+
+    # Apply initial values if provided
+    if initial_values:
+        for parameter in queue_parameters:
+            if parameter["name"] in initial_values:
+                parameter["value"] = initial_values[parameter["name"]]
+
+    return cast(list[dict[str, Any]], queue_parameters)
+
+
+def _normalize_queue_parameters(
+    queue_parameters: list[dict[str, Any]],
+    initial_values: Optional[dict[str, Any]] = None,
+) -> list[dict[str, Any]]:
+    """    Ensure every queue parameter has a "value" field so downstream code can safely
+    serialize {"name": ..., "value": ...} for submission.
+
+    Args:
+        queue_parameters (list[dict[str, Any]]): The list of queue parameters to normalize.
+        initial_values (Optional[dict[str, Any]], optional): Initial values for the parameters.
+            Defaults to None.
+
+    Returns:
+        list[dict[str, Any]]: The normalized list of queue parameters with "value" fields populated.
+    """
+    normalized: list[dict[str, Any]] = []
+
+    for parameter in queue_parameters:
+        name = parameter.get("name")
+        if not name:
+            # Skip malformed entries; alternatively raise if you prefer strict behavior.
+            continue
+
+        normalized_param = dict(parameter)
+
+        # Priority: caller-provided initial_values > existing value > API default > empty string
+        if initial_values and name in initial_values:
+            normalized_param["value"] = initial_values[name]
+        elif "value" not in normalized_param:
+            if "default" in normalized_param:
+                normalized_param["value"] = normalized_param["default"]
+            else:
+                normalized_param["value"] = ""
+
+        normalized.append(normalized_param)
+
+    return normalized
+
+
+def get_job_template_for_submission(
+    settings: SubmitterUISettings,
+    host_requirements: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Generate the job template for Houdini render submissions.
+
+    This function returns the job template in its final state, ready to be
+    serialized to YAML. It can be used for external integrations.
+
+    Args:
+        settings: The render submitter UI settings.
+        host_requirements: Optional host requirements to inject into job steps.
+
+    Returns:
+        The job template dictionary ready for serialization.
+    """
+    job_template = _get_job_template(settings)
+    # If "HostRequirements" is provided, inject it into each of the "Step"
+    if host_requirements:
+        for step in job_template["steps"]:
+            step["hostRequirements"] = host_requirements
+    return job_template
+
+
 def _get_job_template(settings: SubmitterUISettings) -> dict[str, Any]:
     job_type = settings.get_job_type()
     # Load the default Nuke job template, and then fill in scene-specific
@@ -279,6 +400,45 @@ def _get_job_template(settings: SubmitterUISettings) -> dict[str, Any]:
                 ] = f"frameRange: {start_frame}-{end_frame}\n"
 
     return job_template
+
+
+def get_asset_references_for_submission(
+    asset_references: AssetReferences,
+) -> dict[str, Any]:
+    """Get the asset references in dictionary form for Houdini render submissions.
+
+    This function returns the asset references in their final state, ready to be
+    serialized to YAML. It can be used for external integrations.
+
+    Args:
+        asset_references: The asset references object.
+
+    Returns:
+        The asset references dictionary ready for serialization.
+    """
+    return asset_references.to_dict()
+
+
+def get_parameter_values_for_submission(
+    settings: SubmitterUISettings,
+    queue_parameters: Optional[list[dict[str, Any]]] = None,
+) -> list[dict[str, Any]]:
+    """Generate the parameter values for a job submission.
+
+    This function returns the parameter values in their final state, ready to be
+    included in the job bundle for submission. It can be used for external integrations.
+
+    Args:
+        settings: The render submitter UI settings.
+        queue_parameters: Optional list of additional queue parameters to include.
+
+    Returns:
+        The list of parameter values to include in the job bundle.
+    """
+    if queue_parameters is None:
+        queue_parameters = []
+    queue_parameters = _normalize_queue_parameters(queue_parameters)
+    return _get_parameter_values(settings, queue_parameters)
 
 
 def _get_parameter_values(
@@ -526,6 +686,7 @@ def _show_nuke_render_submitter(
                 step["hostRequirements"] = host_requirements
 
         parameter_values = _get_parameter_values(settings, queue_parameters)
+        asset_references_dict = get_asset_references_for_submission(asset_references)
 
         with open(job_bundle_path / "template.yaml", "w", encoding="utf8") as f:
             deadline_yaml_dump(job_template, f, indent=1)
@@ -534,7 +695,7 @@ def _show_nuke_render_submitter(
             deadline_yaml_dump({"parameterValues": parameter_values}, f, indent=1)
 
         with open(job_bundle_path / "asset_references.yaml", "w", encoding="utf8") as f:
-            deadline_yaml_dump(asset_references.to_dict(), f, indent=1)
+            deadline_yaml_dump(asset_references_dict, f, indent=1)
 
         # Save Sticky Settings
         attachments: AssetReferences = widget.job_attachments.attachments
