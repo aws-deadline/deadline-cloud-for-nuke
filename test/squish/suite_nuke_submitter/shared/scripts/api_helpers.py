@@ -192,12 +192,12 @@ def download_output(farm_id, queue_id, job_id):
         )
 
         # Get output paths
-        output_paths = downloader.get_output_paths_by_root()
+        output_paths = downloader.get_paths_by_root()
         print("Output paths by root:", output_paths)
 
         if output_paths:
             # Download output files
-            download_summary = downloader.download_job_output()
+            download_summary = downloader.download()
             print(
                 f"Downloaded {download_summary.processed_files} files totaling {download_summary.processed_bytes} bytes"
             )
