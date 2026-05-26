@@ -26,6 +26,10 @@ This library requires:
 
 This package provides a Nuke plugin that creates jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded comp it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
+The submitter supports [task chunking][task-chunking], which groups multiple frames into contiguous chunks to reduce per-task overhead. When combined with the adaptor's sticky rendering, this provides optimal performance by eliminating both repeated application startup and scene loading time.
+
+[task-chunking]: https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/build-job-bundle-chunking.html
+
 ## Adaptor
 
 The Nuke Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Nuke and feed it commands. This gives the following benefits:

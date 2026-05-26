@@ -7,6 +7,10 @@ parameterValues:
   value: 'false'
 - name: ContinueOnError
   value: 'false'
+- name: ChunkSize
+  value: 1
+- name: TargetChunkDuration
+  value: 0
 - name: deadline:targetTaskRunStatus
   value: READY
 - name: deadline:maxFailedTasksCount

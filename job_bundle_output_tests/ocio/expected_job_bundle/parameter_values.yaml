@@ -3,12 +3,16 @@ parameterValues:
   value: 1-100
 - name: NukeScriptFile
   value: /normalized/job/bundle/dir/ocio.nk
-- name: OCIOConfigPath
-  value: /normalized/job/bundle/dir/config.ocio
 - name: ProxyMode
   value: 'false'
 - name: ContinueOnError
   value: 'false'
+- name: ChunkSize
+  value: 1
+- name: TargetChunkDuration
+  value: 0
+- name: OCIOConfigPath
+  value: /normalized/job/bundle/dir/config.ocio
 - name: deadline:targetTaskRunStatus
   value: READY
 - name: deadline:maxFailedTasksCount

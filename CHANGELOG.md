@@ -1,3 +1,17 @@
+## 0.18.17 (Unreleased)
+
+
+### Features
+* feat: Add task chunking support to Nuke submitter. Frames are now rendered using
+  the OpenJD TASK_CHUNKING extension with contiguous chunks. Chunk size defaults to 1
+  (one frame per task, same as before). Increase chunk size to group frames and reduce
+  per-task overhead. Optional target chunk duration enables dynamic chunk sizing.
+
+### Important
+* This version requires a worker agent that supports the TASK_CHUNKING extension.
+  Service-managed fleets always use a compatible version. If you use customer-managed
+  fleets, ensure your worker agents are updated before submitting jobs.
+
 ## 0.18.16 (2026-01-20)
 
 Added support for training CopyCat nodes. Users are now able to select to submit a CopyCat training job. A CopyCat training job will perform CopyCat training on the render farm, rather than on the local system.

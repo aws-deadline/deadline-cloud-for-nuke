@@ -26,6 +26,8 @@ class RenderSettings:
     view_selection: str = field(default="", metadata={"sticky": True})
     is_proxy_mode: bool = field(default=False, metadata={"sticky": True})
     continue_on_error: bool = field(default=False, metadata={"sticky": True})
+    chunk_size: int = field(default=1, metadata={"sticky": True})
+    target_chunk_duration: int = field(default=0, metadata={"sticky": True})
 
 
 @dataclass

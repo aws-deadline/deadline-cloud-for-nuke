@@ -1,4 +1,6 @@
 specificationVersion: jobtemplate-2023-09
+extensions:
+- TASK_CHUNKING
 name: noise-saver.nk
 parameterDefinitions:
 - name: NukeScriptFile
@@ -20,6 +22,24 @@ parameterDefinitions:
   type: STRING
   description: The frames to render. E.g. 1-3,8,11-15
   minLength: 1
+- name: ChunkSize
+  type: INT
+  default: 1
+  minValue: 1
+  description: |
+    Number of frames per chunk. Use 1 for one frame per task (default). Higher values group frames into chunks to reduce per-task overhead.
+  userInterface:
+    control: SPIN_BOX
+    label: Chunk Size
+- name: TargetChunkDuration
+  type: INT
+  default: 0
+  minValue: 0
+  description: |
+    Optional target duration in seconds per chunk. When set, the scheduler dynamically adjusts chunk sizes based on observed runtimes of completed chunks. Set to 0 to use a fixed chunk size for all chunks.
+  userInterface:
+    control: SPIN_BOX
+    label: Target Chunk Duration (Seconds)
 - name: WriteNode
   type: STRING
   userInterface:
@@ -64,8 +84,12 @@ steps:
   parameterSpace:
     taskParameterDefinitions:
     - name: Frame
-      type: INT
+      type: CHUNK[INT]
       range: '{{Param.Frames}}'
+      chunks:
+        defaultTaskCount: '{{Param.ChunkSize}}'
+        targetRuntimeSeconds: '{{Param.TargetChunkDuration}}'
+        rangeConstraint: CONTIGUOUS
   stepEnvironments:
   - name: Nuke
     description: Runs Nuke in the background with a script file loaded.
