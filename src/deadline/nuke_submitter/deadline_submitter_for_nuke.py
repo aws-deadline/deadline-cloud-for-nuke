@@ -10,12 +10,18 @@ from typing import Any, Optional
 import nuke
 import yaml  # type: ignore[import]
 from deadline.client.api import get_deadline_cloud_library_telemetry_client
+from deadline.client.config import get_setting, str2bool
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 import deadline.nuke_submitter.copycat_adaptor as copycat_adaptor_module
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
     JobBundlePurpose,
     SubmitJobToDeadlineDialog,
+)
+from deadline.client.ui.pre_gui_hooks import (  # pylint: disable=import-error
+    PreGuiHookContext,
+    qt_hook_confirmation,
+    run_pre_gui_hooks,
 )
 from nuke import Node
 
@@ -453,6 +459,29 @@ def _get_frame_list(
     return frame_list
 
 
+def _apply_pre_gui_output(
+    pre_gui_output: dict[str, Any],
+    render_settings: SubmitterUISettings,
+    shared_parameter_values: dict[str, Any],
+) -> None:
+    """Map merged pre-GUI hook output onto Nuke's settings + shared parameter values.
+
+    ``SubmitterUISettings`` has no ``.parameters`` list (unlike the standalone submitter's
+    ``JobBundleSettings``), so ``name`` / ``description`` are written onto the settings object
+    and any hook ``parameters`` (queue params like ``RezPackages`` / ``CondaPackages``,
+    ``deadline:`` job properties, etc.) are merged into the shared values the dialog is seeded
+    with. This is why the DCC does its own mapping rather than calling deadline-cloud's
+    ``JobBundleSettings``-specific ``apply_pre_gui_output``.
+    """
+    if not pre_gui_output:
+        return
+    if "name" in pre_gui_output:
+        render_settings.name = pre_gui_output["name"]
+    if "description" in pre_gui_output:
+        render_settings.description = pre_gui_output["description"]
+    shared_parameter_values.update(pre_gui_output.get("parameters", {}))
+
+
 def _show_nuke_render_submitter(
     parent, job_type: JobType, f=Qt.WindowFlags()
 ) -> SubmitJobToDeadlineDialog:
@@ -595,13 +624,33 @@ def _show_nuke_render_submitter(
         if job_type == JobType.RENDER:
             conda_packages += f" nuke-openjd={adaptor_version}.*"
 
+        shared_parameter_values = {
+            "RezPackages": rez_packages,
+            "CondaPackages": conda_packages,
+        }
+
+        # Run pre-GUI hooks so studios can pre-populate dialog fields before it opens. Nuke has
+        # no on-disk job bundle at this point, so hooks are sourced from DEADLINE_HOOKS_DIR only
+        # (bundle_dir=None), gated by settings.allow_environment_hooks. The confirmation prompt is
+        # skipped when auto_accept is set; otherwise the standard dialog is shown.
+        confirm_callback = (
+            None if str2bool(get_setting("settings.auto_accept")) else qt_hook_confirmation(parent)
+        )
+        pre_gui_output = run_pre_gui_hooks(
+            PreGuiHookContext(
+                bundle_dir=None,
+                job_name=render_settings.name,
+                submitter_name="nuke",
+                parameters=dict(shared_parameter_values),
+            ),
+            confirm_callback=confirm_callback,
+        )
+        _apply_pre_gui_output(pre_gui_output, render_settings, shared_parameter_values)
+
         submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
-            initial_shared_parameter_values={
-                "RezPackages": rez_packages,
-                "CondaPackages": conda_packages,
-            },
+            initial_shared_parameter_values=shared_parameter_values,
             auto_detected_attachments=asset_references_parsing_outcome.asset_references,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
