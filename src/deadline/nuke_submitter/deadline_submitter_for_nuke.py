@@ -20,6 +20,7 @@ from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: 
 )
 from deadline.client.ui.pre_gui_hooks import (  # pylint: disable=import-error
     PreGuiHookContext,
+    apply_pre_gui_output,
     qt_hook_confirmation,
     run_pre_gui_hooks,
 )
@@ -459,29 +460,6 @@ def _get_frame_list(
     return frame_list
 
 
-def _apply_pre_gui_output(
-    pre_gui_output: dict[str, Any],
-    render_settings: SubmitterUISettings,
-    shared_parameter_values: dict[str, Any],
-) -> None:
-    """Map merged pre-GUI hook output onto Nuke's settings + shared parameter values.
-
-    ``SubmitterUISettings`` has no ``.parameters`` list (unlike the standalone submitter's
-    ``JobBundleSettings``), so ``name`` / ``description`` are written onto the settings object
-    and any hook ``parameters`` (queue params like ``RezPackages`` / ``CondaPackages``,
-    ``deadline:`` job properties, etc.) are merged into the shared values the dialog is seeded
-    with. This is why the DCC does its own mapping rather than calling deadline-cloud's
-    ``JobBundleSettings``-specific ``apply_pre_gui_output``.
-    """
-    if not pre_gui_output:
-        return
-    if "name" in pre_gui_output:
-        render_settings.name = pre_gui_output["name"]
-    if "description" in pre_gui_output:
-        render_settings.description = pre_gui_output["description"]
-    shared_parameter_values.update(pre_gui_output.get("parameters", {}))
-
-
 def _show_nuke_render_submitter(
     parent, job_type: JobType, f=Qt.WindowFlags()
 ) -> SubmitJobToDeadlineDialog:
@@ -645,7 +623,7 @@ def _show_nuke_render_submitter(
             ),
             confirm_callback=confirm_callback,
         )
-        _apply_pre_gui_output(pre_gui_output, render_settings, shared_parameter_values)
+        apply_pre_gui_output(pre_gui_output, render_settings, shared_parameter_values)
 
         submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
