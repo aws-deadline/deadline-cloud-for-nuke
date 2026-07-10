@@ -11,6 +11,8 @@ dialog's shared parameter values (name/description land on the settings object).
 modules are stubbed by ``test/unit/__init__`` so the module imports.
 """
 
+from typing import Optional
+
 from deadline.client.ui.pre_gui_hooks import apply_pre_gui_output
 
 from deadline.nuke_submitter.data_classes import SubmitterUISettings
@@ -87,7 +89,8 @@ def test_falsy_output_is_a_noop():
     """The submitter passes ``pre_gui_output or {}`` into apply_pre_gui_output, so the values
     run_pre_gui_hooks can actually produce for the no-hooks path — ``{}`` today, or ``None`` if
     the contract ever changed — must both be safe no-ops that leave settings/shared untouched."""
-    for falsy in ({}, None):
+    falsy_values: list[Optional[dict]] = [{}, None]
+    for falsy in falsy_values:
         settings = _settings()
         shared = {"RezPackages": "nuke-15 deadline_cloud_for_nuke"}
 
