@@ -81,3 +81,19 @@ def test_partial_output_only_touches_present_keys():
     assert settings.name == "NewName"
     assert settings.description == "keep me"  # not overwritten
     assert shared == {}  # no parameters in output
+
+
+def test_falsy_output_is_a_noop():
+    """The submitter passes ``pre_gui_output or {}`` into apply_pre_gui_output, so the values
+    run_pre_gui_hooks can actually produce for the no-hooks path — ``{}`` today, or ``None`` if
+    the contract ever changed — must both be safe no-ops that leave settings/shared untouched."""
+    for falsy in ({}, None):
+        settings = _settings()
+        shared = {"RezPackages": "nuke-15 deadline_cloud_for_nuke"}
+
+        # Mirror the submitter call site: `pre_gui_output or {}`.
+        apply_pre_gui_output(falsy or {}, settings, shared)
+
+        assert settings.name == "Original"
+        assert settings.description == ""
+        assert shared == {"RezPackages": "nuke-15 deadline_cloud_for_nuke"}

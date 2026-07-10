@@ -611,6 +611,12 @@ def _show_nuke_render_submitter(
         # no on-disk job bundle at this point, so hooks are sourced from DEADLINE_HOOKS_DIR only
         # (bundle_dir=None), gated by settings.allow_environment_hooks. The confirmation prompt is
         # skipped when auto_accept is set; otherwise the standard dialog is shown.
+        #
+        # This runs once per Nuke session, on first open: the dialog is cached in the
+        # g_*_submitter_dialog globals and reused via refresh() on later opens (see the else
+        # branch below), so hooks are not re-run on every open. This is intentional and mirrors
+        # the Maya submitter; re-running hooks per open would require threading the merged
+        # parameters through refresh(), which does not accept initial_shared_parameter_values.
         confirm_callback = (
             None if str2bool(get_setting("settings.auto_accept")) else qt_hook_confirmation(parent)
         )
@@ -623,7 +629,10 @@ def _show_nuke_render_submitter(
             ),
             confirm_callback=confirm_callback,
         )
-        apply_pre_gui_output(pre_gui_output, render_settings, shared_parameter_values)
+        # run_pre_gui_hooks returns {} when no hooks run and raises DeadlineOperationCanceled if
+        # the user declines; `or {}` is defensive against any future contract change so the
+        # common no-hooks path can never pass a falsy value into apply_pre_gui_output.
+        apply_pre_gui_output(pre_gui_output or {}, render_settings, shared_parameter_values)
 
         submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
