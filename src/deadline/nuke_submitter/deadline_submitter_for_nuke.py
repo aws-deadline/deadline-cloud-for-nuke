@@ -10,12 +10,19 @@ from typing import Any, Optional
 import nuke
 import yaml  # type: ignore[import]
 from deadline.client.api import get_deadline_cloud_library_telemetry_client
+from deadline.client.config import get_setting, str2bool
 from deadline.client.job_bundle import deadline_yaml_dump
 from deadline.client.ui import gui_error_handler
 import deadline.nuke_submitter.copycat_adaptor as copycat_adaptor_module
 from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: ignore
     JobBundlePurpose,
     SubmitJobToDeadlineDialog,
+)
+from deadline.client.ui.pre_gui_hooks import (  # type: ignore
+    PreGuiHookContext,
+    apply_pre_gui_output,
+    qt_hook_confirmation,
+    run_pre_gui_hooks,
 )
 from nuke import Node
 
@@ -35,7 +42,7 @@ except ImportError:
         QMessageBox,
     )
 
-from deadline.client.exceptions import DeadlineOperationError
+from deadline.client.exceptions import DeadlineOperationCanceled, DeadlineOperationError
 from deadline.client.job_bundle.submission import AssetReferences
 
 from ._version import version
@@ -453,9 +460,21 @@ def _get_frame_list(
     return frame_list
 
 
+def _pre_gui_hook_confirm_callback(parent):
+    """Choose the confirmation callback for pre-GUI hooks based on the auto_accept setting.
+
+    Returns ``None`` (run hooks without prompting) when ``settings.auto_accept`` is enabled,
+    otherwise the standard Qt confirmation dialog from ``qt_hook_confirmation``. Kept as a small
+    helper so the auto_accept branch can be unit-tested headlessly.
+    """
+    if str2bool(get_setting("settings.auto_accept")):
+        return None
+    return qt_hook_confirmation(parent)
+
+
 def _show_nuke_render_submitter(
     parent, job_type: JobType, f=Qt.WindowFlags()
-) -> SubmitJobToDeadlineDialog:
+) -> Optional[SubmitJobToDeadlineDialog]:
     global g_render_submitter_dialog
     global g_copycat_submitter_dialog
     # Initialize telemetry client, opt-out is respected
@@ -595,13 +614,46 @@ def _show_nuke_render_submitter(
         if job_type == JobType.RENDER:
             conda_packages += f" nuke-openjd={adaptor_version}.*"
 
+        shared_parameter_values = {
+            "RezPackages": rez_packages,
+            "CondaPackages": conda_packages,
+        }
+
+        # Run pre-GUI hooks so studios can pre-populate dialog fields before it opens. Nuke has
+        # no on-disk job bundle at this point, so hooks are sourced from DEADLINE_HOOKS_DIR only
+        # (bundle_dir=None), gated by settings.allow_environment_hooks. The confirmation prompt is
+        # skipped when auto_accept is set; otherwise the standard dialog is shown.
+        #
+        # This runs once per Nuke session, on first open: the dialog is cached in the
+        # g_*_submitter_dialog globals and reused via refresh() on later opens (see the else
+        # branch below), so hooks are not re-run on every open. This is intentional and mirrors
+        # the Maya submitter; re-running hooks per open would require threading the merged
+        # parameters through refresh(), which does not accept initial_shared_parameter_values.
+        try:
+            pre_gui_output = run_pre_gui_hooks(
+                PreGuiHookContext(
+                    bundle_dir=None,
+                    job_name=render_settings.name,
+                    submitter_name="nuke",
+                    parameters=dict(shared_parameter_values),
+                ),
+                confirm_callback=_pre_gui_hook_confirm_callback(parent),
+            )
+        except DeadlineOperationCanceled:
+            # The user declined the hook confirmation prompt. This is a normal cancellation, not
+            # an error, so abort opening the dialog silently. Without this, the exception would
+            # propagate to the outer gui_error_handler and surface a spurious "Error opening AWS
+            # Deadline Cloud Submitter" dialog for what is a deliberate "No" click.
+            return None
+        # run_pre_gui_hooks returns {} when no hooks run and raises DeadlineOperationCanceled if
+        # the user declines; `or {}` is defensive against any future contract change so the
+        # common no-hooks path can never pass a falsy value into apply_pre_gui_output.
+        apply_pre_gui_output(pre_gui_output or {}, render_settings, shared_parameter_values)
+
         submitter_dialog = SubmitJobToDeadlineDialog(
             job_setup_widget_type=SceneSettingsWidget,
             initial_job_settings=render_settings,
-            initial_shared_parameter_values={
-                "RezPackages": rez_packages,
-                "CondaPackages": conda_packages,
-            },
+            initial_shared_parameter_values=shared_parameter_values,
             auto_detected_attachments=asset_references_parsing_outcome.asset_references,
             attachments=attachments,
             on_create_job_bundle_callback=on_create_job_bundle_callback,  # type: ignore
