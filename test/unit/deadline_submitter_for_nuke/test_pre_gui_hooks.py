@@ -5,16 +5,22 @@
 ``_show_nuke_render_submitter`` calls deadline-cloud's ``run_pre_gui_hooks`` (env-only, since
 Nuke has no on-disk bundle) and then applies the merged output with deadline-cloud's generic
 ``apply_pre_gui_output``. The full submitter needs a running Nuke, so it is exercised in the
-integration suite; here we verify the DCC-relevant contract headless: Nuke's
-``SubmitterUISettings`` has no ``.parameters`` list, so every hook parameter must flow to the
-dialog's shared parameter values (name/description land on the settings object). The nuke / Qt
-modules are stubbed by ``test/unit/__init__`` so the module imports.
+integration suite; here we verify the DCC-owned pieces headless:
+
+* ``apply_pre_gui_output`` routes hook output correctly against Nuke's own
+  ``SubmitterUISettings`` — which has no ``.parameters`` list, so every hook parameter must flow
+  to the dialog's shared parameter values (name/description land on the settings object).
+* ``_pre_gui_hook_confirm_callback`` honours the ``settings.auto_accept`` setting.
+
+The nuke / Qt modules are stubbed by ``test/unit/__init__`` so the module imports.
 """
 
 from typing import Optional
+from unittest.mock import patch
 
 from deadline.client.ui.pre_gui_hooks import apply_pre_gui_output
 
+from deadline.nuke_submitter import deadline_submitter_for_nuke
 from deadline.nuke_submitter.data_classes import SubmitterUISettings
 
 
@@ -100,3 +106,23 @@ def test_falsy_output_is_a_noop():
         assert settings.name == "Original"
         assert settings.description == ""
         assert shared == {"RezPackages": "nuke-15 deadline_cloud_for_nuke"}
+
+
+@patch.object(deadline_submitter_for_nuke, "get_setting", return_value="true")
+def test_confirm_callback_none_when_auto_accept_enabled(mock_get_setting):
+    """With settings.auto_accept enabled, hooks run without a confirmation prompt."""
+    assert deadline_submitter_for_nuke._pre_gui_hook_confirm_callback(parent=None) is None
+    mock_get_setting.assert_called_once_with("settings.auto_accept")
+
+
+@patch.object(deadline_submitter_for_nuke, "qt_hook_confirmation")
+@patch.object(deadline_submitter_for_nuke, "get_setting", return_value="false")
+def test_confirm_callback_prompts_when_auto_accept_disabled(mock_get_setting, mock_qt_confirm):
+    """With settings.auto_accept disabled, the standard Qt confirmation callback is used."""
+    sentinel = object()
+    mock_qt_confirm.return_value = sentinel
+
+    result = deadline_submitter_for_nuke._pre_gui_hook_confirm_callback(parent="mainwin")
+
+    assert result is sentinel
+    mock_qt_confirm.assert_called_once_with("mainwin")

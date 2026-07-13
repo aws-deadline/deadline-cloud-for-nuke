@@ -18,7 +18,7 @@ from deadline.client.ui.dialogs.submit_job_to_deadline_dialog import (  # type: 
     JobBundlePurpose,
     SubmitJobToDeadlineDialog,
 )
-from deadline.client.ui.pre_gui_hooks import (  # pylint: disable=import-error
+from deadline.client.ui.pre_gui_hooks import (  # type: ignore
     PreGuiHookContext,
     apply_pre_gui_output,
     qt_hook_confirmation,
@@ -460,6 +460,18 @@ def _get_frame_list(
     return frame_list
 
 
+def _pre_gui_hook_confirm_callback(parent):
+    """Choose the confirmation callback for pre-GUI hooks based on the auto_accept setting.
+
+    Returns ``None`` (run hooks without prompting) when ``settings.auto_accept`` is enabled,
+    otherwise the standard Qt confirmation dialog from ``qt_hook_confirmation``. Kept as a small
+    helper so the auto_accept branch can be unit-tested headlessly.
+    """
+    if str2bool(get_setting("settings.auto_accept")):
+        return None
+    return qt_hook_confirmation(parent)
+
+
 def _show_nuke_render_submitter(
     parent, job_type: JobType, f=Qt.WindowFlags()
 ) -> SubmitJobToDeadlineDialog:
@@ -617,9 +629,6 @@ def _show_nuke_render_submitter(
         # branch below), so hooks are not re-run on every open. This is intentional and mirrors
         # the Maya submitter; re-running hooks per open would require threading the merged
         # parameters through refresh(), which does not accept initial_shared_parameter_values.
-        confirm_callback = (
-            None if str2bool(get_setting("settings.auto_accept")) else qt_hook_confirmation(parent)
-        )
         pre_gui_output = run_pre_gui_hooks(
             PreGuiHookContext(
                 bundle_dir=None,
@@ -627,7 +636,7 @@ def _show_nuke_render_submitter(
                 submitter_name="nuke",
                 parameters=dict(shared_parameter_values),
             ),
-            confirm_callback=confirm_callback,
+            confirm_callback=_pre_gui_hook_confirm_callback(parent),
         )
         # run_pre_gui_hooks returns {} when no hooks run and raises DeadlineOperationCanceled if
         # the user declines; `or {}` is defensive against any future contract change so the
