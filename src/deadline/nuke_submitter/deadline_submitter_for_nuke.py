@@ -42,7 +42,7 @@ except ImportError:
         QMessageBox,
     )
 
-from deadline.client.exceptions import DeadlineOperationError
+from deadline.client.exceptions import DeadlineOperationCanceled, DeadlineOperationError
 from deadline.client.job_bundle.submission import AssetReferences
 
 from ._version import version
@@ -474,7 +474,7 @@ def _pre_gui_hook_confirm_callback(parent):
 
 def _show_nuke_render_submitter(
     parent, job_type: JobType, f=Qt.WindowFlags()
-) -> SubmitJobToDeadlineDialog:
+) -> Optional[SubmitJobToDeadlineDialog]:
     global g_render_submitter_dialog
     global g_copycat_submitter_dialog
     # Initialize telemetry client, opt-out is respected
@@ -629,15 +629,22 @@ def _show_nuke_render_submitter(
         # branch below), so hooks are not re-run on every open. This is intentional and mirrors
         # the Maya submitter; re-running hooks per open would require threading the merged
         # parameters through refresh(), which does not accept initial_shared_parameter_values.
-        pre_gui_output = run_pre_gui_hooks(
-            PreGuiHookContext(
-                bundle_dir=None,
-                job_name=render_settings.name,
-                submitter_name="nuke",
-                parameters=dict(shared_parameter_values),
-            ),
-            confirm_callback=_pre_gui_hook_confirm_callback(parent),
-        )
+        try:
+            pre_gui_output = run_pre_gui_hooks(
+                PreGuiHookContext(
+                    bundle_dir=None,
+                    job_name=render_settings.name,
+                    submitter_name="nuke",
+                    parameters=dict(shared_parameter_values),
+                ),
+                confirm_callback=_pre_gui_hook_confirm_callback(parent),
+            )
+        except DeadlineOperationCanceled:
+            # The user declined the hook confirmation prompt. This is a normal cancellation, not
+            # an error, so abort opening the dialog silently. Without this, the exception would
+            # propagate to the outer gui_error_handler and surface a spurious "Error opening AWS
+            # Deadline Cloud Submitter" dialog for what is a deliberate "No" click.
+            return None
         # run_pre_gui_hooks returns {} when no hooks run and raises DeadlineOperationCanceled if
         # the user declines; `or {}` is defensive against any future contract change so the
         # common no-hooks path can never pass a falsy value into apply_pre_gui_output.

@@ -11,17 +11,20 @@ integration suite; here we verify the DCC-owned pieces headless:
   ``SubmitterUISettings`` — which has no ``.parameters`` list, so every hook parameter must flow
   to the dialog's shared parameter values (name/description land on the settings object).
 * ``_pre_gui_hook_confirm_callback`` honours the ``settings.auto_accept`` setting.
+* Declining the hook confirmation (``DeadlineOperationCanceled``) aborts the open silently
+  rather than surfacing a spurious error dialog.
 
 The nuke / Qt modules are stubbed by ``test/unit/__init__`` so the module imports.
 """
 
 from typing import Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from deadline.client.exceptions import DeadlineOperationCanceled
 from deadline.client.ui.pre_gui_hooks import apply_pre_gui_output
 
 from deadline.nuke_submitter import deadline_submitter_for_nuke
-from deadline.nuke_submitter.data_classes import SubmitterUISettings
+from deadline.nuke_submitter.data_classes import JobType, SubmitterUISettings
 
 
 def _settings() -> SubmitterUISettings:
@@ -126,3 +129,38 @@ def test_confirm_callback_prompts_when_auto_accept_disabled(mock_get_setting, mo
 
     assert result is sentinel
     mock_qt_confirm.assert_called_once_with("mainwin")
+
+
+@patch.object(deadline_submitter_for_nuke, "SubmitJobToDeadlineDialog")
+@patch.object(deadline_submitter_for_nuke, "run_pre_gui_hooks")
+@patch.object(deadline_submitter_for_nuke, "_pre_gui_hook_confirm_callback")
+@patch.object(deadline_submitter_for_nuke, "get_scene_asset_references")
+@patch.object(deadline_submitter_for_nuke, "get_nuke_script_file", return_value="/scene.nk")
+@patch.object(deadline_submitter_for_nuke, "get_deadline_cloud_library_telemetry_client")
+@patch.object(deadline_submitter_for_nuke, "nuke")
+def test_declining_hook_confirmation_aborts_without_error(
+    mock_nuke,
+    mock_telemetry,
+    mock_script_file,
+    mock_asset_refs,
+    mock_confirm_cb,
+    mock_run_hooks,
+    mock_dialog,
+):
+    """Declining the hook prompt (DeadlineOperationCanceled) returns None and never builds the
+    dialog, so the outer gui_error_handler cannot surface a spurious error dialog."""
+    mock_nuke.root.return_value.modified.return_value = False
+    mock_nuke.root.return_value.frameRange.return_value = "1-100"
+    mock_nuke.env = {"NukeVersionMajor": 15, "NukeVersionString": "15.0v4"}
+    mock_asset_refs.return_value.encountered_exception.return_value = False
+    mock_asset_refs.return_value.asset_references = MagicMock()
+    # The user clicks "No" on the confirmation prompt.
+    mock_run_hooks.side_effect = DeadlineOperationCanceled("user declined")
+
+    result = deadline_submitter_for_nuke._show_nuke_render_submitter(
+        parent=MagicMock(), job_type=JobType.RENDER
+    )
+
+    assert result is None
+    mock_run_hooks.assert_called_once()
+    mock_dialog.assert_not_called()  # dialog must not be built on cancellation
