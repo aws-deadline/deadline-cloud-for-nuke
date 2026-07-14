@@ -1,3 +1,9 @@
+## 0.18.17 (2026-07-14)
+
+### Features
+* Pre-GUI hooks are now executed in the Nuke render submitter before building the submission dialog. Studios can use hooks sourced from DEADLINE_HOOKS_DIR to pre-populate dialog fields such as job name, description, and parameters. (#321)
+* Added task chunking support to the Nuke submitter. Users can now configure chunk size to group multiple frames into a single task, reducing per-task overhead. Chunk size defaults to 1 (one frame per task), preserving existing behavior. (#294)
+* The submitter now notifies users when a newer version of the submitter is available. (#295)
 ## 0.18.17 (Unreleased)
 
 
