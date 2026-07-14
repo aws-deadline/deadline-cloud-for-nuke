@@ -660,6 +660,7 @@ def _show_nuke_render_submitter(
             parent=parent,
             f=f,
             show_host_requirements_tab=True,
+            use_deadline_cloud_v2_channel=True,
         )
 
         if job_type == JobType.RENDER:
