@@ -1,3 +1,9 @@
+## 0.18.17 (2026-07-14)
+
+### Features
+* Pre-GUI hooks are now run in the Nuke render submitter. Studios can use hooks sourced from DEADLINE_HOOKS_DIR to pre-populate dialog fields (e.g., job name and description) before the submission dialog opens. (#321)
+* Added task chunking support to the Nuke submitter. Users can now configure chunk size to group multiple frames into a single task, reducing per-task overhead. Chunk size defaults to 1 (one frame per task), preserving previous behavior. (#294)
+* The submitter now notifies users when a newer version of the submitter is available. (#295)
 ## 0.18.16 (2026-01-20)
 
 Added support for training CopyCat nodes. Users are now able to select to submit a CopyCat training job. A CopyCat training job will perform CopyCat training on the render farm, rather than on the local system.
