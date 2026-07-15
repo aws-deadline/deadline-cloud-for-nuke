@@ -1,3 +1,7 @@
+## 0.18.18 (2026-07-15)
+
+### Features
+* The submitter now uses the deadline-cloud-v2 conda channel, enabling access to updated Nuke conda packages (including Nuke 17) when submitting jobs. (`e4c9e25`)
 ## 0.18.17 (2026-07-14)
 
 ### Features
