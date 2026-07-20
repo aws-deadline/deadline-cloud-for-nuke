@@ -8,4 +8,4 @@ pytest-cov == 7.*
 pytest-xdist == 3.*
 ruff == 0.15.*
 twine == 6.*
-types-pywin32 == 311.*
+types-pywin32 == 312.*
