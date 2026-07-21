@@ -152,19 +152,7 @@ def test_submitter_export_bundle(
     assert exported_bundle is not None, f"no complete bundle found under {job_history_dir}"
     copy_bundle_files_flat(exported_bundle, actual_dir)
 
-    # The submitter ran against the mock, not real AWS: prove its calls
-    # arrived and nothing escaped to an unmocked route.
-    log(f"mock backend call_counts: {dict(mock_backend.call_counts)}")
-    assert (
-        mock_backend.unmatched_requests == []
-    ), f"submitter hit routes the mock doesn't implement: {mock_backend.unmatched_requests}"
-    for operation in ("ListFarms", "ListQueueEnvironments"):
-        assert (
-            mock_backend.call_counts.get(operation, 0) >= 1
-        ), f"expected the submitter to call {operation}; saw {dict(mock_backend.call_counts)}"
-    assert any(
-        mock_backend.call_counts.get(operation, 0) >= 1 for operation in ("GetQueue", "ListQueues")
-    ), f"expected a queue lookup; saw {dict(mock_backend.call_counts)}"
+    _assert_expected_mock_traffic(mock_backend)
 
     assert_valid_job_bundle(actual_dir / "template.yaml")
 
