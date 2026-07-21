@@ -90,11 +90,16 @@ def build_nuke_environment(
         config_path=config_path,
         home_dir=work_dir / "home",
     )
-    # Foundry licensing and Nuke prefs live under the real HOME; hermetic
-    # isolation is provided by DEADLINE_CONFIG_FILE_PATH + scrubbed vars.
-    env["HOME"] = os.environ["HOME"]
-    if "USERPROFILE" in os.environ:
-        env["USERPROFILE"] = os.environ["USERPROFILE"]
+    # Foundry licensing and Nuke prefs live under the real user profile;
+    # hermetic isolation is provided by DEADLINE_CONFIG_FILE_PATH and the
+    # scrubbed vars, so undo build_mock_environment's HOME/USERPROFILE
+    # redirection: restore each var the real environment defines and drop
+    # the mock value otherwise (HOME is typically unset on Windows).
+    for profile_var in ("HOME", "USERPROFILE"):
+        if profile_var in os.environ:
+            env[profile_var] = os.environ[profile_var]
+        else:
+            env.pop(profile_var, None)
 
     env["NUKE_PATH"] = f"{REPO_ROOT / 'src'}{os.pathsep}{OPENER_DIR}"
     env[ENV_STATUS_FILE] = str(work_dir / "opener_status.txt")
