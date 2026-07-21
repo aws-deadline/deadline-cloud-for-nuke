@@ -29,8 +29,16 @@ def log(message: str) -> None:
 
 
 def repo_parent_path(any_path_in_repo: Path) -> str:
-    """The absolute path prefix that PATH_PLACEHOLDER stands for."""
-    return str(any_path_in_repo.resolve()).rsplit("deadline-cloud-for-nuke", 1)[0].rstrip("/\\")
+    """The absolute path prefix that PATH_PLACEHOLDER stands for.
+
+    Everything up to (not including) the last literal
+    ``deadline-cloud-for-nuke`` in the resolved path — separator included,
+    so goldens read ``PATH_TO_BE_REPLACEDdeadline-cloud-for-nuke/...`` and
+    expand correctly on any machine. No trailing-separator stripping: the
+    prefix must round-trip exactly, and clones with a decorated dir name
+    (e.g. ``Bea-1234-deadline-cloud-for-nuke``) don't even end in one.
+    """
+    return str(any_path_in_repo.resolve()).rsplit("deadline-cloud-for-nuke", 1)[0]
 
 
 def nuke_bundle_normalization(expected_dir: Path) -> BundleNormalization:
