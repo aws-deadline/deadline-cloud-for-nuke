@@ -7,22 +7,23 @@ in the foreground with the repo's ``src`` and this suite's ``_opener`` dir
 on ``NUKE_PATH``; the opener hook builds a scene and opens the submitter
 dialog, which tests then drive through the platform accessibility tree.
 
-Platform notes baked in from the macOS spike (2026-07-20):
+Environment notes (verified on macOS 15 / Nuke 16.0v7; see ``pages.py``
+for the canonical platform notes on driving the dialog):
 
-* ``build_mock_environment`` redirects ``HOME``, which breaks Foundry
-  licensing — the real ``HOME`` is restored and hermetic isolation relies
-  on ``DEADLINE_CONFIG_FILE_PATH`` instead.
-* Credential-sandbox variables (``AWS_SHARED_CREDENTIALS_FILE`` etc.) leak
-  into Nuke and cause a login-error popup — they are scrubbed.
-* The submitter is a ``Qt.Tool`` window: macOS drops it from the AX tree
-  whenever Nuke is not the frontmost application, so activation is
-  performed via ``NSRunningApplication`` and verified against
-  ``xa11y.App.foreground()`` (which is a getter, not an activator).
+* ``build_mock_environment`` redirects the user profile dirs, which
+  breaks Foundry licensing — the real ``HOME``/``USERPROFILE`` are
+  restored and hermetic isolation relies on ``DEADLINE_CONFIG_FILE_PATH``.
+* Inherited credential-sandbox variables (``AWS_SHARED_CREDENTIALS_FILE``
+  etc.) cause a login-error popup inside Nuke — they are scrubbed.
+* Activation goes through ``NSRunningApplication`` and is verified
+  against ``xa11y.App.foreground()``, which is a getter, not an
+  activator.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import time
@@ -51,6 +52,12 @@ ENV_OPEN_DELAY_MS = "NUKE_SUBMITTER_UI_OPEN_DELAY_MS"
 _SCRUBBED_ENV_VARS = ("AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE", "AWS_PROFILE")
 
 
+def _version_key(path: Path) -> tuple[int, ...]:
+    """Numeric sort key for install dirs like ``Nuke16.0v7`` (a plain
+    lexical sort would rank Nuke9.5 above Nuke16.0)."""
+    return tuple(int(number) for number in re.findall(r"\d+", path.name)) or (0,)
+
+
 def find_nuke_executable() -> Path:
     """Locate the GUI Nuke executable (``NUKE_EXECUTABLE`` wins)."""
     override = os.environ.get("NUKE_EXECUTABLE")
@@ -60,13 +67,14 @@ def find_nuke_executable() -> Path:
             return path
         raise FileNotFoundError(f"NUKE_EXECUTABLE={override} does not exist")
     if sys.platform == "darwin":
-        candidates = sorted(Path("/Applications").glob("Nuke*"), reverse=True)
-        for install_dir in candidates:
+        install_dirs = sorted(Path("/Applications").glob("Nuke*"), key=_version_key, reverse=True)
+        for install_dir in install_dirs:
             for binary in sorted(install_dir.glob("Nuke*.app/Contents/MacOS/Nuke[0-9]*.[0-9]*")):
                 if binary.is_file() and os.access(binary, os.X_OK):
                     return binary
     elif sys.platform.startswith("linux"):
-        for install_dir in sorted(Path("/usr/local").glob("Nuke*"), reverse=True):
+        install_dirs = sorted(Path("/usr/local").glob("Nuke*"), key=_version_key, reverse=True)
+        for install_dir in install_dirs:
             for binary in sorted(install_dir.glob("Nuke[0-9]*.[0-9]*")):
                 if binary.is_file() and os.access(binary, os.X_OK):
                     return binary
@@ -80,7 +88,7 @@ def build_nuke_environment(
     deadline_endpoint_url: str,
     config_path: Path,
     work_dir: Path,
-    open_delay_ms: int = 5000,
+    open_delay_ms: int = 5000,  # keep in sync with _DELAY_MS fallback in _opener/menu.py
 ) -> dict[str, str]:
     """Hermetic environment for the Nuke subprocess pointed at the mock."""
     base_env = {k: v for k, v in os.environ.items() if k not in _SCRUBBED_ENV_VARS}
@@ -108,7 +116,6 @@ def build_nuke_environment(
     # Required for the AT-SPI bridge on Linux; harmless elsewhere.
     env["QT_ACCESSIBILITY"] = "1"
     env["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
-    (work_dir / "scene").mkdir(parents=True, exist_ok=True)
     return env
 
 
@@ -155,8 +162,7 @@ class NukeSession:
     opener_status: str
 
     def activate(self) -> bool:
-        """(Re-)raise Nuke to the foreground; required before AX queries
-        on macOS because Qt.Tool windows drop out of the tree otherwise."""
+        """(Re-)raise Nuke to the foreground (see pages.py platform notes)."""
         return _activate_app(self.process.pid)
 
     def close(self) -> None:
@@ -187,13 +193,22 @@ def launch_nuke_with_submitter(
     Returns an activated :class:`NukeSession`. Raises with Nuke's log tails
     on any startup failure.
     """
-    process = subprocess.Popen(
-        [str(nuke_exe)],
-        env=dict(env),
-        stdout=(work_dir / "nuke_stdout.log").open("w"),
-        stderr=(work_dir / "nuke_stderr.log").open("w"),
-        start_new_session=(sys.platform != "win32"),
-    )
+    Path(env[ENV_SCENE_FILE]).parent.mkdir(parents=True, exist_ok=True)
+    stdout_log = (work_dir / "nuke_stdout.log").open("w")
+    stderr_log = (work_dir / "nuke_stderr.log").open("w")
+    try:
+        process = subprocess.Popen(
+            [str(nuke_exe)],
+            env=dict(env),
+            stdout=stdout_log,
+            stderr=stderr_log,
+            start_new_session=(sys.platform != "win32"),
+        )
+    finally:
+        # The child holds duplicated descriptors; the parent's handles can
+        # (and should) be closed regardless of whether Popen succeeded.
+        stdout_log.close()
+        stderr_log.close()
     session: Optional[NukeSession] = None
     try:
         app = find_accessibility_app(process.pid, timeout=NUKE_STARTUP_TIMEOUT)

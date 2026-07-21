@@ -6,40 +6,42 @@ Extends the shared-dialog page object from ``deadline-cloud-test-fixtures``
 with accessors for the Nuke ``SceneSettingsWidget`` (Job-specific settings
 tab).
 
-Selector notes (macOS AX ground truth from the 2026-07-20 spike):
+Platform notes — verified on macOS 15 / Nuke 16.0v7 (Qt 6.5.3). This is
+the canonical write-up for the suite; other modules reference it:
 
+* Qt.Tool windows: the submitter dialog is a ``Qt.Tool`` window, and
+  macOS removes those from the accessibility tree whenever the owning
+  app is not frontmost. Every accessor therefore re-asserts Nuke
+  frontmost first (the ``ensure_frontmost`` hook), making tests
+  self-healing after brief focus steals. Synthetic input still lands in
+  whatever window has focus at the moment it fires — keep hands off the
+  machine while tests run.
 * The dialog window title is ``Submit Rendering to AWS Deadline Cloud``
-  (Nuke overrides the shared default).
-* The submitter is a ``Qt.Tool`` window: macOS REMOVES it from the AX
-  tree whenever Nuke is not the frontmost application (e.g. someone
-  touches another window mid-test). Every accessor therefore calls the
-  ``ensure_frontmost`` hook first, making tests self-healing after brief
-  focus steals. Synthetic input still requires Nuke frontmost at the
-  moment it fires — don't use the machine while these tests run.
-* Most scene-settings widgets are ANONYMOUS in the accessibility tree
+  (Nuke overrides the shared client default).
+* Most scene-settings widgets are anonymous in the accessibility tree
   (no ``setAccessibleName``/``setBuddy`` in ``scene_settings_tab.py``),
   and Qt tab pages drop out of the tree when inactive, so accessors are
   positional (``nth``, 1-BASED) scoped to the active Job-specific tab.
   Positions follow the layout order of ``scene_settings_tab.py``;
-  revisit after UI changes there (an accessible-naming pass will make
-  these robust).
+  revisit after UI changes there. An accessible-naming pass will make
+  these selectors robust.
 * QComboBox accessible names mirror their current text, so combos are
   addressed positionally, never by name. Popup items expose no working
-  AX press/select action (verified: rows accept only ``focus``; pressing
-  their text is a no-op) — selection uses ``show_menu`` plus PHYSICAL
-  input: a real click at the row's screen bounds, falling back to arrow
-  keys + Enter.
-* QSpinBox AX increment/decrement jump by 10% OF THE RANGE (Qt maps them
-  to PageUp/PageDown semantics; chunk size 1-150 steps by 15), so exact
-  values are typed instead: AX ``focus`` (verifiable), clear the line
-  edit with End+Backspaces, type digits, commit with Tab — wrapped in a
-  read-back-verify retry loop.
+  AX activation action (rows accept only ``focus``; pressing their text
+  is a no-op), so selection uses ``show_menu`` plus physical input: a
+  real click at the target row, falling back to arrow keys + Enter.
+* QSpinBox AX increment/decrement jump by 10% of the widget's range
+  (Qt maps them to PageUp/PageDown semantics), so exact values are
+  typed instead. A real click is required first because AX ``focus()``
+  does not make a Qt.Tool window key: click into the line edit,
+  double-click to select the number, type, commit with Tab, verify by
+  reading the value back.
 """
 
 from __future__ import annotations
 
 import time
-from typing import Callable, Optional
+from typing import Callable
 
 import xa11y
 from deadline_test_fixtures.xa11y import SharedSubmitterDialog
@@ -58,7 +60,7 @@ FARM_RESOLVE_TIMEOUT = 30.0
 EXPORT_TIMEOUT = 60.0
 POPUP_TIMEOUT = 10.0
 
-# Positional indexes on the ACTIVE Job-specific tab, in document order.
+# Positional indexes on the active Job-specific tab, in document order.
 # NOTE: xa11y Locator.nth is 1-BASED.
 _COMBO_WRITE_NODES = 1
 _COMBO_VIEWS = 2
@@ -73,7 +75,7 @@ CHECKBOX_CONTINUE_ON_ERROR = "Continue on error"
 CHECKBOX_USE_TIMEOUTS = "Use timeouts"
 CHECKBOX_INCLUDE_GIZMOS = "Include gizmos in job bundle"
 # The Description field's AX name is inherited from its QGroupBox — an
-# artifact, not a real name (see spike anonymous-widget list).
+# artifact of the missing naming pass, not a real name.
 _DESCRIPTION_FIELD_AX_NAME = "Job Properties"
 
 WRITE_NODES_ALL = "All write nodes"
@@ -82,7 +84,7 @@ WRITE_NODES_ALL = "All write nodes"
 class NukeSubmitterDialog(SharedSubmitterDialog):
     """Drives the Nuke submitter dialog through the accessibility tree.
 
-    Rooted at the dialog WINDOW locator so selectors cannot leak into
+    Rooted at the dialog window locator so selectors cannot leak into
     Nuke's main window; keeps the app handle for popups (message boxes,
     combo popups) that surface outside the dialog window.
     """
@@ -91,7 +93,7 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         self,
         app: xa11y.App,
         window: xa11y.Locator,
-        ensure_frontmost: Optional[Callable[[], object]] = None,
+        ensure_frontmost: Callable[[], object] | None = None,
     ) -> None:
         super().__init__(window)
         self.app = app
@@ -103,7 +105,7 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         cls,
         app: xa11y.App,
         timeout: float = WIDGET_TIMEOUT,
-        ensure_frontmost: Optional[Callable[[], object]] = None,
+        ensure_frontmost: Callable[[], object] | None = None,
     ) -> "NukeSubmitterDialog":
         if ensure_frontmost is not None:
             ensure_frontmost()
@@ -112,8 +114,7 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         return cls(app, window, ensure_frontmost)
 
     def _front(self) -> None:
-        """Re-assert Nuke frontmost; the Qt.Tool window otherwise drops
-        out of the AX tree entirely."""
+        """Re-assert Nuke frontmost (see module notes on Qt.Tool windows)."""
         self._ensure_frontmost()
 
     # ------------------------------------------------------------------
@@ -142,11 +143,9 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             self.window, _DESCRIPTION_FIELD_AX_NAME, description, timeout=WIDGET_TIMEOUT
         )
 
-    def wait_farm_resolved(
-        self, farm_name: str = "TestFarm", timeout: float = FARM_RESOLVE_TIMEOUT
-    ) -> None:
+    def wait_farm_resolved(self, farm_name: str, timeout: float = FARM_RESOLVE_TIMEOUT) -> None:
         """Wait until the farm display name appears in the dialog tree,
-        i.e. ListFarms against the (mock) backend succeeded."""
+        i.e. ListFarms against the backend succeeded."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             self._front()
@@ -154,8 +153,7 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
                 if farm_name in self.window.element().dump():
                     return
             except Exception:
-                # The window drops out of the AX tree while Nuke is
-                # backgrounded; _front() re-asserts it next iteration.
+                # Transient AX-tree churn (see module notes); retry.
                 pass
             time.sleep(0.5)
         raise TimeoutError(
@@ -178,18 +176,16 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     def views_combo(self) -> xa11y.Locator:
         return self._job_specific_combo(_COMBO_VIEWS)
 
-    def selected_write_node(self, retries: int = 10) -> str:
-        """Current write-node selection (the combo's AX name mirrors it).
-
-        Retries with re-activation: the whole window vanishes from the AX
-        tree while Nuke is momentarily backgrounded.
-        """
+    def selected_write_node(self, timeout: float = WIDGET_TIMEOUT) -> str:
+        """Current write-node selection (the combo's AX name mirrors it)."""
+        deadline = time.monotonic() + timeout
         last_error: Exception | None = None
-        for _ in range(retries):
+        while time.monotonic() < deadline:
             self._front()
             try:
                 return self.write_nodes_combo().element().name or ""
             except Exception as exc:
+                # Transient AX-tree churn (see module notes); retry.
                 last_error = exc
                 time.sleep(0.5)
         raise TimeoutError(f"Could not read write-node combo: {last_error!r}")
@@ -213,49 +209,43 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
                         seen.add(label)
                         rows.append((row, label))
             except Exception:
+                # Transient AX-tree churn (see module notes); retry.
                 rows = []
             if rows:
                 return rows
             time.sleep(0.5)
         return []
 
-    def select_write_node(self, label: str) -> None:
-        """Select *label* in the write-node combo.
-
-        Popup rows expose no functional AX activation action, so this uses
-        physical input: click at the target row's screen bounds; if the
-        readback disagrees, retry with arrow keys + Enter.
-        """
-        if self.selected_write_node() == label:
-            return
-        sim = xa11y.input_sim()
-
-        # Strategy 1: physical click on the popup row.
+    def _open_write_node_popup(
+        self, label: str
+    ) -> tuple[list[tuple[xa11y.Element, str]], xa11y.Element]:
+        """Open the write-node popup; return its rows and the row for *label*."""
         self._front()
         self.write_nodes_combo().show_menu()
         rows = self._popup_rows()
         target = next((row for row, name in rows if name == label), None)
         if target is None:
-            sim.press("Escape")
+            xa11y.input_sim().press("Escape")
             raise AssertionError(
                 f"Write node {label!r} not in popup: {[name for _, name in rows]}\n"
                 f"{self.dump_tree()}"
             )
-        sim.click(target)  # InputSim accepts an Element: clicks centre bounds
-        time.sleep(1.0)
-        if self.selected_write_node() == label:
-            return
+        return rows, target
 
-        # Strategy 2: keyboard navigation from the top of the popup.
-        self._front()
-        self.write_nodes_combo().show_menu()
-        rows = self._popup_rows()
+    def _select_write_node_by_click(self, label: str) -> bool:
+        """Physical click on the popup row (see module notes on combos)."""
+        _, target = self._open_write_node_popup(label)
+        xa11y.input_sim().click(target)
+        time.sleep(1.0)
+        return self.selected_write_node() == label
+
+    def _select_write_node_by_keyboard(self, label: str) -> bool:
+        """Arrow keys + Enter fallback for popup-row selection."""
+        rows, _ = self._open_write_node_popup(label)
         ordered = [name for _, name in rows]
-        if label not in ordered:
-            sim.press("Escape")
-            raise AssertionError(f"Write node {label!r} vanished from popup: {ordered}")
         current = self.selected_write_node()
         steps = ordered.index(label) - (ordered.index(current) if current in ordered else 0)
+        sim = xa11y.input_sim()
         key = "ArrowDown" if steps >= 0 else "ArrowUp"
         self._front()
         for _ in range(abs(steps)):
@@ -263,11 +253,20 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             time.sleep(0.2)
         sim.press("Enter")
         time.sleep(1.0)
-        selected = self.selected_write_node()
-        if selected != label:
-            raise AssertionError(
-                f"Write-node selection failed: wanted {label!r}, combo shows {selected!r}"
-            )
+        return self.selected_write_node() == label
+
+    def select_write_node(self, label: str) -> None:
+        """Select *label* in the write-node combo."""
+        if self.selected_write_node() == label:
+            return
+        if self._select_write_node_by_click(label):
+            return
+        if self._select_write_node_by_keyboard(label):
+            return
+        raise AssertionError(
+            f"Write-node selection failed: wanted {label!r}, "
+            f"combo shows {self.selected_write_node()!r}"
+        )
 
     def frame_range_field(self) -> xa11y.Locator:
         self._front()
@@ -292,6 +291,14 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         self._front()
         set_checkbox(self.window, CHECKBOX_CONTINUE_ON_ERROR, enabled, timeout=WIDGET_TIMEOUT)
 
+    def set_use_timeouts(self, enabled: bool) -> None:
+        self._front()
+        set_checkbox(self.window, CHECKBOX_USE_TIMEOUTS, enabled, timeout=WIDGET_TIMEOUT)
+
+    def set_include_gizmos(self, enabled: bool) -> None:
+        self._front()
+        set_checkbox(self.window, CHECKBOX_INCLUDE_GIZMOS, enabled, timeout=WIDGET_TIMEOUT)
+
     def _spin(self, index: int) -> xa11y.Locator:
         self._front()
         spin = self.window.descendant("spin_button").nth(index)
@@ -299,14 +306,8 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         return spin
 
     def _set_spin(self, index: int, target: int, attempts: int = 5) -> None:
-        """Type *target* into the spin box at *index* (see module notes:
-        AX increment/decrement step by 10% of range, so typing it is).
-
-        Keyboard events go to the KEY window, and AX ``focus()`` does not
-        make a Qt.Tool window key — a real click does. So: click into the
-        line edit (left of the arrow buttons), double-click to select the
-        number, type the replacement, commit with Tab, read back; retry.
-        """
+        """Type *target* into the spin box at *index* (see module notes on
+        spin boxes: AX increment/decrement step by 10% of range)."""
         sim = xa11y.input_sim()
         last_seen = "<never read>"
         for _ in range(attempts):

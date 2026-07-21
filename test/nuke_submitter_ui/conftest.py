@@ -2,19 +2,11 @@
 
 """Fixtures for the xa11y-driven Nuke submitter UI tests.
 
-Run explicitly (not part of the default unit-test run)::
+Requirements, setup, and platform notes: see ``README.md`` in this
+directory. Canonical invocation (the suite is not part of the default
+unit-test run)::
 
-    python -m pytest test/nuke_submitter_ui -p no:cacheprovider --no-cov -s
-
-Requirements:
-
-* GUI Nuke installed (``NUKE_EXECUTABLE`` overrides discovery) with this
-  repo installed into Nuke's Python (see ``DEVELOPMENT.md``) — the same
-  setup used for manual submitter development.
-* ``deadline-cloud-test-fixtures``, ``xa11y`` and ``openjd-cli`` installed
-  in the test environment.
-* macOS: the terminal running pytest needs Accessibility permission
-  (System Settings > Privacy & Security > Accessibility).
+    python -m pytest test/nuke_submitter_ui -o addopts= -q
 
 Tests run fully offline against the out-of-process mock Deadline backend
 from ``deadline-cloud-test-fixtures``; no farm and no AWS credentials.
@@ -52,12 +44,16 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _venv_bin_on_path() -> None:
+def _venv_bin_on_path() -> Iterator[None]:
     """``assert_valid_job_bundle`` shells out to ``openjd``; make sure the
     interpreter's script dir is on PATH even when pytest is invoked via an
     absolute path without activating the venv."""
-    scripts = Path(sys.executable).parent
-    os.environ["PATH"] = f"{scripts}{os.pathsep}{os.environ.get('PATH', '')}"
+    original = os.environ.get("PATH", "")
+    os.environ["PATH"] = f"{Path(sys.executable).parent}{os.pathsep}{original}"
+    try:
+        yield
+    finally:
+        os.environ["PATH"] = original
 
 
 @pytest.fixture(scope="session")
@@ -66,7 +62,6 @@ def nuke_executable() -> Path:
         return find_nuke_executable()
     except FileNotFoundError as exc:
         pytest.skip(str(exc))
-        raise  # unreachable: skip() always raises; keeps returns explicit
 
 
 @pytest.fixture(scope="session")
@@ -87,27 +82,34 @@ def mock_backend(mock_deadline_server):
 
 
 @pytest.fixture
-def nuke_env(tmp_path: Path, mock_deadline_server, mock_backend) -> dict[str, str]:
+def job_history_dir(tmp_path: Path) -> Path:
+    """Where the dialog's 'Export bundle' writes bundles (via config)."""
+    return tmp_path / "job_history"
+
+
+@pytest.fixture
+def nuke_env(
+    tmp_path: Path, mock_deadline_server, mock_backend, job_history_dir: Path
+) -> dict[str, str]:
     """Hermetic env for the Nuke subprocess: mock endpoint, isolated
-    deadline config preselecting the scenario farm/queue, temp history."""
+    deadline config preselecting the scenario farm/queue, temp history.
+
+    ``mock_backend`` is unreferenced on purpose: depending on it forces
+    the per-test backend reset to happen before Nuke launches.
+    """
     scenario = mock_deadline_server.scenario
     config_path = tmp_path / "deadline_config"
     write_deadline_config(
         config_path,
         farm_id=scenario.farm_id,
         queue_id=scenario.queue_id,
-        job_history_dir=tmp_path / "job_history",
+        job_history_dir=job_history_dir,
     )
     return build_nuke_environment(
         deadline_endpoint_url=mock_deadline_server.base_url,
         config_path=config_path,
         work_dir=tmp_path,
     )
-
-
-@pytest.fixture
-def job_history_dir(tmp_path: Path) -> Path:
-    return tmp_path / "job_history"
 
 
 @pytest.fixture

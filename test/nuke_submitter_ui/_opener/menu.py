@@ -20,6 +20,9 @@ them, so a developer launching Nuke by hand is unaffected):
 3. Report success/failure to a status file polled by the launcher.
 """
 
+# Deliberately no type hints or typing imports: this file executes inside
+# whichever Python ships with the Nuke on NUKE_PATH, so it stays as plain
+# and dependency-free as the repo's own src/menu.py.
 import os
 import traceback
 
@@ -29,7 +32,7 @@ try:
     _DELAY_MS = int(os.environ.get("NUKE_SUBMITTER_UI_OPEN_DELAY_MS", "5000"))
 except ValueError:
     # Never break Nuke startup over a malformed env var (module contract).
-    _DELAY_MS = 5000
+    _DELAY_MS = 5000  # keep in sync with open_delay_ms default in _launcher.py
 
 
 def _write_status(text):
@@ -45,7 +48,8 @@ def _patch_botocore_host_prefix():
 
     original_urljoin = awsrequest._urljoin
 
-    def _urljoin(endpoint_url, url_path, host_prefix):
+    def _urljoin(endpoint_url, url_path, _host_prefix):
+        # _host_prefix is deliberately dropped: that's the whole patch.
         return original_urljoin(endpoint_url, url_path, None)
 
     awsrequest._urljoin = _urljoin
@@ -63,6 +67,8 @@ def _open_submitter():
         nuke.scriptSaveAs(_SCENE_FILE, overwrite=1)
 
         # The update-available dialog would block the submitter dialog.
+        # Private API: if _session_state/update_dismissed is renamed this
+        # raises AttributeError, which surfaces loudly via the status file.
         from deadline.nuke_submitter import update_utils
 
         update_utils._session_state.update_dismissed = True
