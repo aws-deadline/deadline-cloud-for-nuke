@@ -67,12 +67,9 @@ def find_nuke_executable() -> Path:
                     return binary
     elif sys.platform.startswith("linux"):
         for install_dir in sorted(Path("/usr/local").glob("Nuke*"), reverse=True):
-            binary = install_dir / install_dir.name.replace("v", ".").split(".", 2)[0]
-            matches = sorted(install_dir.glob("Nuke[0-9]*.[0-9]*"))
-            if matches:
-                return matches[0]
-            if binary.exists():
-                return binary
+            for binary in sorted(install_dir.glob("Nuke[0-9]*.[0-9]*")):
+                if binary.is_file() and os.access(binary, os.X_OK):
+                    return binary
     raise FileNotFoundError(
         "No Nuke installation found. Set NUKE_EXECUTABLE to the GUI Nuke binary."
     )

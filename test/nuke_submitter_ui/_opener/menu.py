@@ -25,7 +25,11 @@ import traceback
 
 _STATUS_FILE = os.environ.get("NUKE_SUBMITTER_UI_STATUS_FILE", "")
 _SCENE_FILE = os.environ.get("NUKE_SUBMITTER_UI_SCENE_FILE", "")
-_DELAY_MS = int(os.environ.get("NUKE_SUBMITTER_UI_OPEN_DELAY_MS", "5000"))
+try:
+    _DELAY_MS = int(os.environ.get("NUKE_SUBMITTER_UI_OPEN_DELAY_MS", "5000"))
+except ValueError:
+    # Never break Nuke startup over a malformed env var (module contract).
+    _DELAY_MS = 5000
 
 
 def _write_status(text):
