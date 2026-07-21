@@ -80,8 +80,3 @@ def mock_backend(mock_deadline_server):
     backend = mock_deadline_server.backend
     backend.reset()
     return backend
-
-
-@pytest.fixture
-def test_cases_root() -> Path:
-    return Path(__file__).resolve().parent / "test_cases"

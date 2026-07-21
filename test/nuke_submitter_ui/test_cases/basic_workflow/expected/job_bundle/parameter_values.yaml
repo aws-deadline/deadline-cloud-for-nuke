@@ -2,7 +2,7 @@ parameterValues:
 - name: Frames
   value: 1-100
 - name: NukeScriptFile
-  value: PATH_TO_BE_REPLACEDdeadline-cloud-for-nuke/test/nuke_submitter_ui/test_cases/basic_workflow/actual/basic_workflow.nk
+  value: <REPO_ROOT>/test/nuke_submitter_ui/test_cases/basic_workflow/actual/basic_workflow.nk
 - name: WriteNode
   value: Write1
 - name: ProxyMode

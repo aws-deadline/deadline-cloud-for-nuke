@@ -2,8 +2,8 @@ assetReferences:
   inputs:
     directories: []
     filenames:
-    - PATH_TO_BE_REPLACEDdeadline-cloud-for-nuke/test/nuke_submitter_ui/test_cases/basic_workflow/actual/basic_workflow.nk
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/basic_workflow/actual/basic_workflow.nk
   outputs:
     directories:
-    - PATH_TO_BE_REPLACEDdeadline-cloud-for-nuke/test/nuke_submitter_ui/test_cases/basic_workflow/actual/renders
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/basic_workflow/actual/renders
   referencedPaths: []

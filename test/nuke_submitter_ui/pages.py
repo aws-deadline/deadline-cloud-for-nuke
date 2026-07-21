@@ -44,6 +44,7 @@ import time
 from typing import Callable
 
 import xa11y
+from _utils import log
 from deadline_test_fixtures.xa11y import SharedSubmitterDialog
 from deadline_test_fixtures.xa11y.controls import (
     TAB_JOB_SPECIFIC,
@@ -165,20 +166,32 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
 
         The shared client shows "Loading Queue Environments..." while it
         rebuilds queue parameter widgets; waiting for it to disappear is the
-        dialog's own "finished loading" signal. Non-fatal on timeout — the
-        export button may still be usable.
+        dialog's own "finished loading" signal. A dialog stuck in the ERROR
+        state fails fast here — proceeding would only fail later with an
+        unrelated message. The loading/reloading wait itself is non-fatal.
         """
         self._front()
+        error = self.window.descendant("static_text[name^='Error loading queue environments']")
+        try:
+            if error.exists():
+                raise AssertionError(
+                    f"dialog is in a queue-environment error state\n{self.dump_tree()}"
+                )
+        except AssertionError:
+            raise
+        except Exception:
+            # Transient AX-tree churn (see module notes); the loading wait
+            # below still covers settling.
+            pass
         loading = self.window.descendant(
             "static_text[name^='Loading Queue Environments'], "
-            "static_text[name^='Reloading Queue Environments'], "
-            "static_text[name^='Error loading queue environments']"
+            "static_text[name^='Reloading Queue Environments']"
         )
         try:
             loading.wait_hidden(timeout=timeout)
         except Exception as exc:
             # Non-fatal: absence of the caption is the common steady state.
-            print(f"queue-environment settle wait ended without signal: {exc!r}")
+            log(f"queue-environment settle wait ended without signal: {exc!r}")
 
     def dump_settings_tabs(self) -> None:
         """Print each settings tab's accessibility subtree.

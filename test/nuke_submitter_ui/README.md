@@ -32,8 +32,8 @@ A run is ~15 s with warm Nuke caches, ~35 s cold.
 
 ## Test case layout
 
-Each case is a folder under `test_cases/` registered in
-`test_submitter_ui.py`:
+Each case is a folder under `test_cases/`, auto-discovered by
+`test_submitter_ui.py` (no registration step):
 
 ```
 test_cases/<case>/
@@ -41,7 +41,7 @@ test_cases/<case>/
                         #   $NUKE_SUBMITTER_UI_SCENE_FILE (see _opener/menu.py)
   input/configure.py    # optional: configure(dialog) drives the dialog
                         #   (receives the NukeSubmitterDialog page object)
-  expected/job_bundle/  # committed goldens (normalization: utils.py)
+  expected/job_bundle/  # committed goldens (normalization: _utils.py)
   actual/               # runtime output; left behind on failure, gitignored
 ```
 

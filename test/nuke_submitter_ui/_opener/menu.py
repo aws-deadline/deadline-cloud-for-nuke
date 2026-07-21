@@ -70,7 +70,7 @@ def _open_submitter():
         exec(code, {"__name__": "__main__", "__file__": _SCENE_SCRIPT})
         if not os.path.isfile(_SCENE_FILE):
             raise RuntimeError(
-                "scene script %r did not save a scene at %r" % (_SCENE_SCRIPT, _SCENE_FILE)
+                f"scene script {_SCENE_SCRIPT!r} did not save a scene at {_SCENE_FILE!r}"
             )
 
         # The update-available dialog would block the submitter dialog.

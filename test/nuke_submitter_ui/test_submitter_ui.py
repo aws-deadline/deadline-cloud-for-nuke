@@ -1,28 +1,13 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-"""Parametrized runner for the data-driven submitter UI cases.
+"""Parametrized runner for the data-driven cases under ``test_cases/``.
 
-A case is a folder under ``test_cases/``:
-
-* ``input/scene.py`` (required) — builds the scene inside GUI Nuke; see the
-  contract in ``_opener/menu.py``.
-* ``input/configure.py`` (optional) — ``configure(dialog)`` drives the
-  dialog after it settles and before Export bundle; receives the
-  ``NukeSubmitterDialog`` page object. Without it the case exports with
-  default settings.
-* ``expected/job_bundle/`` — committed goldens compared structurally
-  against the exported bundle (normalization in ``utils.py``).
-
-Runtime output goes to the case's ``actual/`` dir (recreated per run,
-left behind on failure for inspection).
-
-Diagnostic modes (env vars):
-
-* ``NUKE_SUBMITTER_UI_DIALOG_DUMP=1`` — dump both settings tabs' trees for
-  selector harvesting and fail without exporting.
-* ``NUKE_SUBMITTER_UI_UPDATE_GOLDENS=1`` — regenerate the case's goldens
-  from this run's verified bundle, then still run the comparison (proves
-  the normalization round-trips). Review the diff before committing.
+Case layout, contract, and diagnostic env vars: see ``README.md``. Cases
+are auto-discovered from ``test_cases/``; a malformed case (no
+``input/scene.py``) fails loudly rather than being skipped. One
+non-obvious runner behavior: ``NUKE_SUBMITTER_UI_UPDATE_GOLDENS=1``
+regenerates a case's goldens and then STILL runs the comparison, proving
+the normalization round-trips before you commit the new goldens.
 """
 
 from __future__ import annotations
@@ -42,24 +27,28 @@ from deadline_test_fixtures.job_bundle import (
 )
 
 from _launcher import build_nuke_environment, launch_nuke_with_submitter
-from pages import NukeSubmitterDialog
-from utils import (
+from _utils import (
     assert_bundle_matches_golden,
     copy_bundle_files_flat,
     log,
     write_goldens_from_actual,
 )
+from pages import NukeSubmitterDialog
 
 # The default scenario's farm display name (deadline-cloud-test-fixtures).
 _MOCK_FARM_NAME = "TestFarm"
 
 DialogConfigurator = Callable[[NukeSubmitterDialog], None]
 
-# Registered cases: folder names under test_cases/. To add one, create the
-# folder (see README) and list it here.
-_CASES = [
-    "basic_workflow",
-]
+_CASES_ROOT = Path(__file__).resolve().parent / "test_cases"
+
+# Auto-discovered: every directory under test_cases/ is a case (see README).
+# No registration list to forget — a malformed case fails in the test.
+_CASES = sorted(
+    path.name
+    for path in _CASES_ROOT.iterdir()
+    if path.is_dir() and not path.name.startswith((".", "_"))
+)
 
 
 def _load_configurator(cases_root: Path, case: str) -> Optional[DialogConfigurator]:
@@ -68,9 +57,7 @@ def _load_configurator(cases_root: Path, case: str) -> Optional[DialogConfigurat
     A configure.py must define a top-level ``configure(dialog)``. A present
     but broken configurator fails loudly rather than being skipped.
     """
-    config_path = (cases_root / case / "input" / "configure.py").resolve()
-    if not config_path.is_relative_to(cases_root.resolve()):
-        raise ValueError(f"case {case!r} resolves outside test_cases/")
+    config_path = cases_root / case / "input" / "configure.py"
     if not config_path.is_file():
         return None
     spec = importlib.util.spec_from_file_location(f"_configure_{case}", config_path)
@@ -84,23 +71,8 @@ def _load_configurator(cases_root: Path, case: str) -> Optional[DialogConfigurat
     return configure
 
 
-@pytest.mark.parametrize("case", _CASES)
-def test_submitter_export_bundle(
-    nuke_executable: Path,
-    test_cases_root: Path,
-    mock_deadline_server,
-    mock_backend,
-    tmp_path: Path,
-    case: str,
-) -> None:
-    """Drive the real submitter dialog for *case* and verify the exported
-    bundle against the case's goldens, fully offline against the mock."""
-    bundle_case = JobBundleCase(test_cases_root / case)
-    case_folder = bundle_case.root
-    actual_dir = bundle_case.prepare_actual_dir()
-    configure = _load_configurator(test_cases_root, case)
-
-    scenario = mock_deadline_server.scenario
+def _write_case_config(tmp_path: Path, scenario) -> tuple[Path, Path]:
+    """Write the isolated deadline config; return (config_path, history_dir)."""
     config_path = tmp_path / "deadline_config"
     job_history_dir = tmp_path / "job_history"
     write_deadline_config(
@@ -109,11 +81,50 @@ def test_submitter_export_bundle(
         queue_id=scenario.queue_id,
         job_history_dir=job_history_dir,
     )
+    return config_path, job_history_dir
+
+
+def _assert_expected_mock_traffic(mock_backend) -> None:
+    """The submitter ran against the mock, not real AWS: prove its calls
+    arrived and nothing escaped to an unmocked route."""
+    counts = dict(mock_backend.call_counts)
+    log(f"mock backend call_counts: {counts}")
+    assert (
+        mock_backend.unmatched_requests == []
+    ), f"submitter hit routes the mock doesn't implement: {mock_backend.unmatched_requests}"
+    for operation in ("ListFarms", "ListQueueEnvironments"):
+        assert (
+            counts.get(operation, 0) >= 1
+        ), f"expected the submitter to call {operation}; saw {counts}"
+    assert any(
+        counts.get(operation, 0) >= 1 for operation in ("GetQueue", "ListQueues")
+    ), f"expected a queue lookup; saw {counts}"
+
+
+@pytest.mark.parametrize("case", _CASES)
+def test_submitter_export_bundle(
+    nuke_executable: Path,
+    mock_deadline_server,
+    mock_backend,
+    tmp_path: Path,
+    case: str,
+) -> None:
+    """Drive the real submitter dialog for *case* and verify the exported
+    bundle against the case's goldens, fully offline against the mock."""
+    bundle_case = JobBundleCase(_CASES_ROOT / case)
+    case_folder = bundle_case.root
+    scene_script = case_folder / "input" / "scene.py"
+    if not scene_script.is_file():
+        pytest.fail(f"case {case!r} has no input/scene.py — malformed case folder")
+    actual_dir = bundle_case.prepare_actual_dir()
+    configure = _load_configurator(_CASES_ROOT, case)
+
+    config_path, job_history_dir = _write_case_config(tmp_path, mock_deadline_server.scenario)
     env = build_nuke_environment(
         deadline_endpoint_url=mock_deadline_server.base_url,
         config_path=config_path,
         work_dir=tmp_path,
-        scene_script=case_folder / "input" / "scene.py",
+        scene_script=scene_script,
         scene_file=actual_dir / f"{case}.nk",
     )
 
