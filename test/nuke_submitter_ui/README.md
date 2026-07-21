@@ -30,6 +30,31 @@ Keep hands off the keyboard and mouse while tests run: they use real
 (synthetic) clicks and keystrokes, which land in whatever window has focus.
 A run is ~15 s with warm Nuke caches, ~35 s cold.
 
+## Test case layout
+
+Each case is a folder under `test_cases/` registered in
+`test_submitter_ui.py`:
+
+```
+test_cases/<case>/
+  input/scene.py        # builds the scene INSIDE GUI Nuke; must save to
+                        #   $NUKE_SUBMITTER_UI_SCENE_FILE (see _opener/menu.py)
+  input/configure.py    # optional: configure(dialog) drives the dialog
+                        #   (receives the NukeSubmitterDialog page object)
+  expected/job_bundle/  # committed goldens (normalization: utils.py)
+  actual/               # runtime output; left behind on failure, gitignored
+```
+
+Diagnostic env vars:
+
+- `NUKE_SUBMITTER_UI_DIALOG_DUMP=1` — dump both settings tabs' accessibility
+  trees (for harvesting selectors, which differ across platforms) and fail
+  without exporting.
+- `NUKE_SUBMITTER_UI_UPDATE_GOLDENS=1` — regenerate a case's goldens from the
+  run's verified bundle; review the diff before committing.
+- `MOCK_DEADLINE_RESPONSE_DELAY_S` — mock backend per-response latency
+  (default 0.3, approximating the real service).
+
 ## Platform notes
 
 The accessibility-layer ground rules (Qt.Tool window visibility, anonymous
@@ -38,5 +63,5 @@ canonically, in the `pages.py` module docstring.
 
 ## Status
 
-Ported Squish cases: `basic_workflow_gui` (as `test_basic_workflow.py`).
+Ported Squish cases: `basic_workflow_gui` (as case `basic_workflow`).
 Remaining: 8 cases — see `test/squish/suite_nuke_submitter/`.

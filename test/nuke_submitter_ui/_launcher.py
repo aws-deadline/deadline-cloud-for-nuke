@@ -45,6 +45,7 @@ ACTIVATE_TIMEOUT = 15.0
 # Environment variables consumed by _opener/menu.py inside Nuke.
 ENV_STATUS_FILE = "NUKE_SUBMITTER_UI_STATUS_FILE"
 ENV_SCENE_FILE = "NUKE_SUBMITTER_UI_SCENE_FILE"
+ENV_SCENE_SCRIPT = "NUKE_SUBMITTER_UI_SCENE_SCRIPT"
 ENV_OPEN_DELAY_MS = "NUKE_SUBMITTER_UI_OPEN_DELAY_MS"
 
 # Inherited AWS settings that would override the mock credentials or point
@@ -88,6 +89,8 @@ def build_nuke_environment(
     deadline_endpoint_url: str,
     config_path: Path,
     work_dir: Path,
+    scene_script: Path,
+    scene_file: Path,
     open_delay_ms: int = 5000,  # keep in sync with _DELAY_MS fallback in _opener/menu.py
 ) -> dict[str, str]:
     """Hermetic environment for the Nuke subprocess pointed at the mock."""
@@ -111,7 +114,8 @@ def build_nuke_environment(
 
     env["NUKE_PATH"] = f"{REPO_ROOT / 'src'}{os.pathsep}{OPENER_DIR}"
     env[ENV_STATUS_FILE] = str(work_dir / "opener_status.txt")
-    env[ENV_SCENE_FILE] = str(work_dir / "scene" / "basic_workflow.nk")
+    env[ENV_SCENE_FILE] = str(scene_file)
+    env[ENV_SCENE_SCRIPT] = str(scene_script)
     env[ENV_OPEN_DELAY_MS] = str(open_delay_ms)
     # Required for the AT-SPI bridge on Linux; harmless elsewhere.
     env["QT_ACCESSIBILITY"] = "1"

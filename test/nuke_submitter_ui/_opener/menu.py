@@ -13,10 +13,11 @@ them, so a developer launching Nuke by hand is unaffected):
 1. Patch ``botocore.awsrequest._urljoin`` to drop the ``management.``
    host prefix so Deadline API calls reach the loopback mock server
    (mirrors ``deadline-cloud`` ``test/ui`` sitecustomize).
-2. After the Qt event loop starts: build a minimal one-write-node scene
-   and save it (the submitter refuses unsaved scripts), suppress the
-   update-available dialog, and open the render submitter — the same
-   code path as the AWS Deadline menu item.
+2. After the Qt event loop starts: execute the per-case scene script
+   (NUKE_SUBMITTER_UI_SCENE_SCRIPT), which builds the case's scene and
+   saves it to NUKE_SUBMITTER_UI_SCENE_FILE (the submitter refuses
+   unsaved scripts), suppress the update-available dialog, and open the
+   render submitter — the same code path as the AWS Deadline menu item.
 3. Report success/failure to a status file polled by the launcher.
 """
 
@@ -28,6 +29,7 @@ import traceback
 
 _STATUS_FILE = os.environ.get("NUKE_SUBMITTER_UI_STATUS_FILE", "")
 _SCENE_FILE = os.environ.get("NUKE_SUBMITTER_UI_SCENE_FILE", "")
+_SCENE_SCRIPT = os.environ.get("NUKE_SUBMITTER_UI_SCENE_SCRIPT", "")
 try:
     _DELAY_MS = int(os.environ.get("NUKE_SUBMITTER_UI_OPEN_DELAY_MS", "5000"))
 except ValueError:
@@ -59,12 +61,17 @@ def _open_submitter():
     try:
         import nuke
 
-        scene_dir = os.path.dirname(_SCENE_FILE)
-        color_wheel = nuke.nodes.ColorWheel()
-        write_node = nuke.nodes.Write(name="Write1")
-        write_node.setInput(0, color_wheel)
-        write_node["file"].setValue(os.path.join(scene_dir, "render_output.####.exr"))
-        nuke.scriptSaveAs(_SCENE_FILE, overwrite=1)
+        # Execute the case's scene script inside this GUI session (no extra
+        # license seat, unlike a separate `nuke -t` build step). Contract:
+        # the script reads NUKE_SUBMITTER_UI_SCENE_FILE from the environment,
+        # builds the scene, and saves it there via nuke.scriptSaveAs.
+        with open(_SCENE_SCRIPT) as script_file:
+            code = compile(script_file.read(), _SCENE_SCRIPT, "exec")
+        exec(code, {"__name__": "__main__", "__file__": _SCENE_SCRIPT})
+        if not os.path.isfile(_SCENE_FILE):
+            raise RuntimeError(
+                "scene script %r did not save a scene at %r" % (_SCENE_SCRIPT, _SCENE_FILE)
+            )
 
         # The update-available dialog would block the submitter dialog.
         # Private API: if _session_state/update_dismissed is renamed this
@@ -92,7 +99,7 @@ def _open_submitter():
 try:
     import nuke
 
-    if nuke.env.get("gui") and _STATUS_FILE and _SCENE_FILE:
+    if nuke.env.get("gui") and _STATUS_FILE and _SCENE_FILE and _SCENE_SCRIPT:
         _patch_botocore_host_prefix()
 
         from PySide6.QtCore import QTimer

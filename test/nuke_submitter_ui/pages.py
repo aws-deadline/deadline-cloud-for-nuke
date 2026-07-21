@@ -160,6 +160,44 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             f"Farm {farm_name!r} did not resolve within {timeout}s\n{self.dump_tree()}"
         )
 
+    def wait_settled(self, timeout: float = FARM_RESOLVE_TIMEOUT) -> None:
+        """Wait for the queue-environment loading caption to clear.
+
+        The shared client shows "Loading Queue Environments..." while it
+        rebuilds queue parameter widgets; waiting for it to disappear is the
+        dialog's own "finished loading" signal. Non-fatal on timeout — the
+        export button may still be usable.
+        """
+        self._front()
+        loading = self.window.descendant(
+            "static_text[name^='Loading Queue Environments'], "
+            "static_text[name^='Reloading Queue Environments'], "
+            "static_text[name^='Error loading queue environments']"
+        )
+        try:
+            loading.wait_hidden(timeout=timeout)
+        except Exception as exc:
+            # Non-fatal: absence of the caption is the common steady state.
+            print(f"queue-environment settle wait ended without signal: {exc!r}")
+
+    def dump_settings_tabs(self) -> None:
+        """Print each settings tab's accessibility subtree.
+
+        Selector-harvesting aid: accessible role+name pairs differ between
+        macOS AX and Windows UIA and cannot be guessed, so contributors run
+        the suite with NUKE_SUBMITTER_UI_DIALOG_DUMP=1 to capture them when
+        writing a case configurator (see README).
+        """
+        for tab in (TAB_SHARED, TAB_JOB_SPECIFIC):
+            print(f"=== DIALOG_DUMP: {tab} (depth 15) ===")
+            try:
+                self._front()
+                switch_to_tab(self.window, tab, timeout=WIDGET_TIMEOUT)
+                print(self.window.element().dump(max_depth=15))
+            except Exception as exc:
+                print(f"dump of {tab!r} failed: {exc!r}")
+            print(f"=== DIALOG_DUMP: end {tab} ===")
+
     # ------------------------------------------------------------------
     # Job-specific (scene) settings — positional, tab must be active
     # ------------------------------------------------------------------
@@ -351,16 +389,19 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
 
         No file dialog is involved: the bundle is written to the configured
         ``job_history_dir``. The confirmation QMessageBox is a separate
-        window, hence the app-scoped OK lookup.
+        window whose AX name is empty on macOS, so it is matched by its
+        body text ("Saved the submission as a job bundle") before OK is
+        pressed — an app-wide bare OK match could hit an unrelated dialog.
         """
         self._front()
         self.button("Export bundle").press()
+        body = self.app.locator("static_text[name^='Saved the submission as a job bundle']")
         ok = self.app.locator('button[name="OK"]')
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             self._front()
             try:
-                if ok.exists():
+                if body.exists() and ok.exists():
                     ok.press()
                     return
             except Exception:

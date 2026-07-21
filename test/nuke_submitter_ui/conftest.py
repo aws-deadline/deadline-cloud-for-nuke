@@ -2,8 +2,8 @@
 
 """Fixtures for the xa11y-driven Nuke submitter UI tests.
 
-Requirements, setup, and platform notes: see ``README.md`` in this
-directory. Canonical invocation (the suite is not part of the default
+Requirements, setup, case layout, and platform notes: see ``README.md`` in
+this directory. Canonical invocation (the suite is not part of the default
 unit-test run)::
 
     python -m pytest test/nuke_submitter_ui -o addopts= -q
@@ -21,19 +21,13 @@ from typing import Iterator
 
 import pytest
 from deadline_test_fixtures.deadline_mock import (
+    MockDeadlineScenario,
     MockDeadlineServerProcess,
-    write_deadline_config,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _launcher import (  # noqa: E402
-    NukeSession,
-    build_nuke_environment,
-    find_nuke_executable,
-    launch_nuke_with_submitter,
-)
-from pages import NukeSubmitterDialog  # noqa: E402
+from _launcher import find_nuke_executable  # noqa: E402
 
 
 def pytest_collection_modifyitems(config, items):
@@ -66,7 +60,14 @@ def nuke_executable() -> Path:
 
 @pytest.fixture(scope="session")
 def mock_deadline_server() -> Iterator[MockDeadlineServerProcess]:
-    server = MockDeadlineServerProcess().start()
+    """Out-of-process mock Deadline backend for the whole session.
+
+    Responses carry an artificial per-request delay approximating the real
+    service's observed 200-600 ms, so timing races that a zero-latency mock
+    would hide still surface. Override via MOCK_DEADLINE_RESPONSE_DELAY_S.
+    """
+    delay = float(os.environ.get("MOCK_DEADLINE_RESPONSE_DELAY_S", "0.3"))
+    server = MockDeadlineServerProcess(MockDeadlineScenario(response_delay_s=delay)).start()
     try:
         yield server
     finally:
@@ -82,45 +83,5 @@ def mock_backend(mock_deadline_server):
 
 
 @pytest.fixture
-def job_history_dir(tmp_path: Path) -> Path:
-    """Where the dialog's 'Export bundle' writes bundles (via config)."""
-    return tmp_path / "job_history"
-
-
-@pytest.fixture
-def nuke_env(
-    tmp_path: Path, mock_deadline_server, mock_backend, job_history_dir: Path
-) -> dict[str, str]:
-    """Hermetic env for the Nuke subprocess: mock endpoint, isolated
-    deadline config preselecting the scenario farm/queue, temp history.
-
-    ``mock_backend`` is unreferenced on purpose: depending on it forces
-    the per-test backend reset to happen before Nuke launches.
-    """
-    scenario = mock_deadline_server.scenario
-    config_path = tmp_path / "deadline_config"
-    write_deadline_config(
-        config_path,
-        farm_id=scenario.farm_id,
-        queue_id=scenario.queue_id,
-        job_history_dir=job_history_dir,
-    )
-    return build_nuke_environment(
-        deadline_endpoint_url=mock_deadline_server.base_url,
-        config_path=config_path,
-        work_dir=tmp_path,
-    )
-
-
-@pytest.fixture
-def nuke_session(nuke_executable: Path, nuke_env: dict[str, str], tmp_path: Path):
-    session: NukeSession = launch_nuke_with_submitter(nuke_executable, nuke_env, tmp_path)
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-@pytest.fixture
-def submitter_dialog(nuke_session: NukeSession) -> NukeSubmitterDialog:
-    return NukeSubmitterDialog.wait_for(nuke_session.app, ensure_frontmost=nuke_session.activate)
+def test_cases_root() -> Path:
+    return Path(__file__).resolve().parent / "test_cases"
