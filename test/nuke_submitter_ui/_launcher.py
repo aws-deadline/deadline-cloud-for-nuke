@@ -79,6 +79,13 @@ def find_nuke_executable() -> Path:
             for binary in sorted(install_dir.glob("Nuke[0-9]*.[0-9]*")):
                 if binary.is_file() and os.access(binary, os.X_OK):
                     return binary
+    elif sys.platform == "win32":
+        program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+        install_dirs = sorted(program_files.glob("Nuke*"), key=_version_key, reverse=True)
+        for install_dir in install_dirs:
+            for binary in sorted(install_dir.glob("Nuke[0-9]*.[0-9]*.exe")):
+                if binary.is_file():
+                    return binary
     raise FileNotFoundError(
         "No Nuke installation found. Set NUKE_EXECUTABLE to the GUI Nuke binary."
     )
