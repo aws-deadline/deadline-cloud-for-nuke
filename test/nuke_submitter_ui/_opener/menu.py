@@ -84,11 +84,15 @@ def _open_submitter():
         from PySide6.QtCore import qVersion
 
         dialog = show_nuke_render_submitter(JobType.RENDER)
+        if dialog is None:
+            # Report the failure now; an OK here would surface only later as
+            # an unrelated wait_visible timeout in the test.
+            _write_status("ERROR\nshow_nuke_render_submitter returned None\n")
+            return
         _write_status(
             "OK\n"
             f"qt_runtime={qVersion()}\n"
             f"nuke_version={nuke.env.get('NukeVersionString')}\n"
-            f"dialog={'opened' if dialog is not None else 'None'}\n"
         )
     except Exception:
         # Report the failure to the launcher instead of leaving it to time

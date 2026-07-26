@@ -31,10 +31,18 @@ from _launcher import find_nuke_executable  # noqa: E402
 
 
 def pytest_collection_modifyitems(config, items):
-    """These tests launch a licensed GUI Nuke — never run them in parallel."""
-    if config.pluginmanager.hasplugin("xdist") and config.getoption("numprocesses", 0):
-        for item in items:
-            item.add_marker(pytest.mark.xdist_group("nuke_gui"))
+    """Refuse to run under pytest-xdist parallelism.
+
+    These tests launch a licensed GUI Nuke and drive it with real synthetic
+    input; parallel workers would type into each other's windows. The
+    xdist_group marker only serializes under --dist loadgroup, which the
+    repo's default addopts (-n auto) do not set, so fail fast instead.
+    """
+    if items and config.pluginmanager.hasplugin("xdist") and config.getoption("numprocesses", 0):
+        raise pytest.UsageError(
+            "test/nuke_submitter_ui cannot run under pytest-xdist; use the "
+            "canonical command: python -m pytest test/nuke_submitter_ui -o addopts= -q"
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)
