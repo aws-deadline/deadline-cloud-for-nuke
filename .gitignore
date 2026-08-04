@@ -19,3 +19,5 @@ dev_install
 .exe
 .run
 
+# xa11y UI suite runtime output
+test/nuke_submitter_ui/test_cases/*/actual/
