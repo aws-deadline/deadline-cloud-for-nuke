@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -177,13 +178,45 @@ class NukeSession:
         return _activate_app(self.process.pid)
 
     def close(self) -> None:
+        """Stop Nuke and the helper processes it spawned.
+
+        Nuke starts children that outlive a plain ``terminate()`` of the main
+        process — the frame server worker and the crash handler. Left behind,
+        they accumulate across a multi-case run and interfere with later
+        launches (they hold the license and the frame server's fixed port).
+        The launch puts Nuke in its own process group precisely so the whole
+        tree can be signalled here; the main process is still signalled
+        directly as a fallback (and on Windows, where there is no group).
+        """
         if self.process.poll() is None:
+            self._signal_process_group(signal.SIGTERM)
             self.process.terminate()
             try:
                 self.process.wait(timeout=15)
             except subprocess.TimeoutExpired:
+                self._signal_process_group(signal.SIGKILL)
                 self.process.kill()
                 self.process.wait(timeout=5)
+        # Children can outlive the parent's exit, so sweep the group again.
+        self._signal_process_group(signal.SIGKILL)
+
+    def _signal_process_group(self, sig: int) -> None:
+        """Best-effort signal to Nuke's process group (POSIX only)."""
+        if sys.platform == "win32" or not hasattr(os, "killpg"):
+            return
+        try:
+            group = os.getpgid(self.process.pid)
+        except (ProcessLookupError, PermissionError):
+            return
+        if group == os.getpgrp():
+            # Never signal our own group: that would take down pytest. This
+            # means start_new_session did not take effect, so leave the
+            # children to the direct terminate/kill above.
+            return
+        try:
+            os.killpg(group, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
