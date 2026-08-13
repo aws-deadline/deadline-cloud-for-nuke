@@ -34,6 +34,7 @@ import os
 import signal
 import subprocess
 import sys
+from contextlib import suppress
 from typing import Optional
 
 TERMINATE_TIMEOUT = 15.0
@@ -134,7 +135,17 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
         except subprocess.TimeoutExpired:
             signal_process_group(group, force=True)
             process.kill()
-            process.wait(timeout=KILL_TIMEOUT)
+            with suppress(subprocess.TimeoutExpired):
+                # Already SIGKILLed, so reaching this means the process is
+                # wedged in the kernel — an uninterruptible read against a
+                # hung license server or file server, say. Nothing further
+                # can be done about it, and raising from teardown would
+                # replace whatever failure asked for the teardown: on the
+                # launcher's failure path that diagnostic is the point (it
+                # carries Nuke's log tails), and in a fixture it would turn
+                # a real assertion failure into a teardown error. The cost
+                # is one leaked zombie in a case that is already lost.
+                process.wait(timeout=KILL_TIMEOUT)
     # The leader is reaped now, so the group id — which is its pid — is free
     # for reuse the moment the group empties. Children still in the group
     # keep the id ours (see the module docstring); a live process owning it

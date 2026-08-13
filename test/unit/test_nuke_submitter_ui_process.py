@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Optional, Tuple
 
@@ -72,38 +73,41 @@ def _wait_until(predicate, timeout: float = 10.0) -> bool:
     return False
 
 
-@pytest.fixture
-def leader_with_child(tmp_path: Path) -> Iterator[Tuple[subprocess.Popen, Optional[int], int]]:
-    """A process group holding a leader and a descendant that outlives it."""
+@contextmanager
+def _stand_in_for_nuke(tmp_path: Path, child_command: str):
+    """A process group holding a leader and a descendant that outlives it.
+
+    Yields ``(process, group, child_pid)``. Teardown goes through
+    ``stop_process_tree`` rather than killing the recorded pids directly: by
+    then the leader has usually been reaped and its descendant collected by
+    init, so signalling those raw pids would risk hitting whatever has since
+    been given them — the very hazard this module exists to avoid. A test
+    that leaves the group alive is therefore cleaned up by the same guarded
+    path it exercises, and a test that already stopped it costs nothing.
+    """
     child_pid_file = tmp_path / "child.pid"
     process = subprocess.Popen(
-        ["/bin/sh", "-c", f"sleep 300 & echo $! > {child_pid_file}; sleep 300"],
+        ["/bin/sh", "-c", f"{child_command} & echo $! > {child_pid_file}; sleep 300"],
         start_new_session=True,
     )
-    assert _wait_until(
-        lambda: child_pid_file.is_file() and child_pid_file.read_text().strip().isdigit()
-    ), "stand-in process never reported its child"
-    group = process_module.capture_process_group(process)
-    child_pid = int(child_pid_file.read_text().strip())
-    assert group == process.pid, "start_new_session should make the process a group leader"
-    assert _alive(child_pid)
+    group: Optional[int] = None
     try:
+        assert _wait_until(
+            lambda: child_pid_file.is_file() and child_pid_file.read_text().strip().isdigit()
+        ), "stand-in process never reported its child"
+        group = process_module.capture_process_group(process)
+        child_pid = int(child_pid_file.read_text().strip())
+        assert group == process.pid, "start_new_session should make the process a group leader"
+        assert _alive(child_pid)
         yield process, group, child_pid
     finally:
-        for pid in (child_pid, process.pid):
-            try:
-                os.kill(pid, 9)
-            except ProcessLookupError:
-                # Already gone: the expected case, since the test under way
-                # is usually the thing that stopped it.
-                pass
-            except PermissionError:
-                # The pid was recycled between the test and this cleanup, so
-                # it is somebody else's process and must be left alone.
-                pass
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
+        process_module.stop_process_tree(process, group)
+
+
+@pytest.fixture
+def leader_with_child(tmp_path: Path) -> Iterator[Tuple[subprocess.Popen, Optional[int], int]]:
+    with _stand_in_for_nuke(tmp_path, "sleep 300") as stand_in:
+        yield stand_in
 
 
 def test_stops_descendant_when_leader_is_running(leader_with_child) -> None:
@@ -138,37 +142,13 @@ def test_stops_descendant_that_ignores_sigterm(tmp_path: Path) -> None:
     the leader is gone and reaped, so its id is free, yet the group is still
     ours because the stubborn child remains in it.
     """
-    child_pid_file = tmp_path / "stubborn.pid"
-    process = subprocess.Popen(
-        [
-            "/bin/sh",
-            "-c",
-            f"/bin/sh -c 'trap \"\" TERM; sleep 300' & echo $! > {child_pid_file}; sleep 300",
-        ],
-        start_new_session=True,
-    )
-    try:
-        assert _wait_until(
-            lambda: child_pid_file.is_file() and child_pid_file.read_text().strip().isdigit()
-        ), "stand-in process never reported its child"
-        group = process_module.capture_process_group(process)
-        child_pid = int(child_pid_file.read_text().strip())
-        assert _alive(child_pid)
-
+    stubborn_child = "/bin/sh -c 'trap \"\" TERM; sleep 300'"
+    with _stand_in_for_nuke(tmp_path, stubborn_child) as (process, group, child_pid):
         process_module.stop_process_tree(process, group)
 
         assert _wait_until(
             lambda: not _alive(child_pid)
         ), "a SIGTERM-ignoring descendant was never escalated to SIGKILL"
-    finally:
-        try:
-            os.kill(int(child_pid_file.read_text().strip()), 9)
-        except (ValueError, OSError):
-            # Nothing to clean up: the test stopped it, or it never started.
-            pass
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
 
 
 def test_group_id_is_not_signalled_once_recycled(leader_with_child) -> None:
