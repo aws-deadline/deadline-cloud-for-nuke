@@ -56,6 +56,11 @@ posix_only = pytest.mark.skipif(
 )
 
 
+# Drain window for tests that deliberately spend it. The production default
+# is sized for a real frame server; these stand-ins need no grace at all.
+SHORT_DRAIN = 0.5
+
+
 def _alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -155,7 +160,9 @@ def test_stops_descendant_that_ignores_sigterm(tmp_path: Path) -> None:
     """
     stubborn_child = "/bin/sh -c 'trap \"\" TERM; sleep 300'"
     with _stand_in_for_nuke(tmp_path, stubborn_child) as (process, group, child_pid):
-        process_module.stop_process_tree(process, group)
+        # A short window keeps this quick: the production default is sized for
+        # a frame server releasing a license seat, not for /bin/sh.
+        process_module.stop_process_tree(process, group, drain_timeout=SHORT_DRAIN)
 
         assert _wait_until(
             lambda: not _alive(child_pid)
@@ -217,7 +224,7 @@ def test_sweep_runs_when_the_caller_knows_the_group_is_ours(leader_with_child) -
     """
     process, group, child_pid = leader_with_child
 
-    process_module.sweep_process_group(group, group_is_ours=True)
+    process_module.sweep_process_group(group, drain_timeout=SHORT_DRAIN, group_is_ours=True)
 
     assert _wait_until(lambda: not _alive(child_pid)), "descendant survived a sanctioned sweep"
 

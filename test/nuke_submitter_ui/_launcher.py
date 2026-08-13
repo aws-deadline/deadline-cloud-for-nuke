@@ -187,13 +187,13 @@ class NukeSession:
         See ``_process.stop_process_tree`` for the teardown sequence and the
         process-group reuse rules it relies on.
 
-        The captured group is dropped afterwards so this is effectively
-        one-shot: by the time anything calls ``close()`` again the group is
-        empty, and an empty group's id is free to be handed to an unrelated
-        process, which must never be signalled.
+        The captured group is kept rather than cleared afterwards. Teardown is
+        best-effort and can return with survivors, and the group id is the
+        only way to reach them, so a retry needs it. Signalling a group whose
+        id may have been reassigned is prevented by the checks inside
+        ``sweep_process_group``, which run on every call.
         """
         stop_process_tree(self.process, self.process_group)
-        self.process_group = None
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []

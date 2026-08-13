@@ -40,9 +40,15 @@ from typing import Optional
 TERMINATE_TIMEOUT = 15.0
 KILL_TIMEOUT = 5.0
 # How long the group's survivors get to exit after SIGTERM before they are
-# killed. Short, because it is only ever spent on children that ignore
-# SIGTERM: a group that drains (the normal case) ends the wait immediately.
-DRAIN_TIMEOUT = 2.0
+# killed. Matched to TERMINATE_TIMEOUT because the frame server needs the
+# same kind of grace Nuke does: releasing its license seat means a round trip
+# to the license server before the process can exit, and killing it mid
+# handshake leaves the seat held, which is the residue this module exists to
+# clear. The window is spent on anything that has not finished exiting,
+# whether it ignores SIGTERM or is merely slow, but a longer one is close to
+# free: the poll ends the moment the group empties, measured at 0.00s for a
+# group whose children exit on SIGTERM.
+DRAIN_TIMEOUT = 15.0
 DRAIN_POLL_INTERVAL = 0.1
 
 
@@ -165,7 +171,12 @@ def sweep_process_group(
     signal_process_group(group, force=True)
 
 
-def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
+def stop_process_tree(
+    process: subprocess.Popen,
+    group: Optional[int],
+    *,
+    drain_timeout: float = DRAIN_TIMEOUT,
+) -> None:
     """Stop *process* and every remaining process in its *group*.
 
     Handles both shapes of teardown:
@@ -217,4 +228,4 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
     # safe. Where the leader was reaped, the id is free the moment the group
     # empties, and the checks are exactly what keeps us off a stranger's
     # group.
-    sweep_process_group(group, group_is_ours=not leader_reaped)
+    sweep_process_group(group, drain_timeout=drain_timeout, group_is_ours=not leader_reaped)
