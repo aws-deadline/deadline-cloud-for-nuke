@@ -34,11 +34,17 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from contextlib import suppress
 from typing import Optional
 
 TERMINATE_TIMEOUT = 15.0
 KILL_TIMEOUT = 5.0
+# How long the group's survivors get to exit after SIGTERM before they are
+# killed. Short, because it is only ever spent on children that ignore
+# SIGTERM: a group that drains (the normal case) ends the wait immediately.
+DRAIN_TIMEOUT = 2.0
+DRAIN_POLL_INTERVAL = 0.1
 
 
 def capture_process_group(process: subprocess.Popen) -> Optional[int]:
@@ -106,6 +112,47 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
     return True
 
 
+def group_has_members(group: Optional[int]) -> bool:
+    """Whether any process is still in *group* and signallable by us."""
+    if sys.platform == "win32" or group is None:
+        return False
+    try:
+        os.killpg(group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # It exists but is not ours to signal, so as far as cleanup is
+        # concerned there is nothing here to act on.
+        return False
+    return True
+
+
+def sweep_process_group(group: Optional[int], *, drain_timeout: float = DRAIN_TIMEOUT) -> None:
+    """Stop whatever is left in *group*, asking before insisting.
+
+    SIGTERM first, because a frame server that shuts down releases its
+    license seat, while one that is killed outright leaves the seat held
+    until the license server's heartbeat expires — which is the residue that
+    breaks the next launch, the whole reason this module exists. Anything
+    still there when the drain window closes is killed.
+
+    The reuse check runs twice: once before signalling, and again after the
+    wait, because the window is long enough for a freed group id to be handed
+    to somebody else while we are draining.
+    """
+    if group_id_was_recycled(group):
+        return
+    signal_process_group(group)
+    deadline = time.monotonic() + drain_timeout
+    while time.monotonic() < deadline:
+        if not group_has_members(group):
+            return
+        time.sleep(DRAIN_POLL_INTERVAL)
+    if group_id_was_recycled(group):
+        return
+    signal_process_group(group, force=True)
+
+
 def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
     """Stop *process* and every remaining process in its *group*.
 
@@ -150,5 +197,4 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
     # for reuse the moment the group empties. Children still in the group
     # keep the id ours (see the module docstring); a live process owning it
     # means it was reassigned, and signalling it would hit a stranger.
-    if not group_id_was_recycled(group):
-        signal_process_group(group, force=True)
+    sweep_process_group(group)

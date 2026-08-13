@@ -90,7 +90,7 @@ def _stand_in_for_nuke(tmp_path: Path, child_command: str):
     """
     child_pid_file = tmp_path / "child.pid"
     process = subprocess.Popen(
-        ["/bin/sh", "-c", f"{child_command} & echo $! > {child_pid_file}; sleep 300"],
+        ["/bin/sh", "-c", f"{child_command} & echo $! > '{child_pid_file}'; sleep 300"],
         start_new_session=True,
     )
     group: Optional[int] = None
@@ -155,6 +155,35 @@ def test_stops_descendant_that_ignores_sigterm(tmp_path: Path) -> None:
         assert _wait_until(
             lambda: not _alive(child_pid)
         ), "a SIGTERM-ignoring descendant was never escalated to SIGKILL"
+
+
+@posix_only
+def test_survivors_get_a_chance_to_exit_cleanly(tmp_path: Path) -> None:
+    """The sweep asks the group to stop before it kills it.
+
+    Driven through the exited-leader path on purpose: there the sweep is the
+    only thing that signals the group, so the child's SIGTERM handler running
+    can only be the sweep's doing. (On the live-leader path the child would
+    receive SIGTERM before the leader is even terminated, which would prove
+    nothing about the sweep.)
+
+    It matters for the frame server specifically: shutting down releases its
+    license seat, whereas being killed leaves the seat held until the license
+    server's heartbeat expires.
+    """
+    farewell = tmp_path / "farewell"
+    graceful_child = f"/bin/sh -c 'trap \"echo bye > {farewell}; exit 0\" TERM; sleep 300'"
+    with _stand_in_for_nuke(tmp_path, graceful_child) as (process, group, child_pid):
+        # Stop the leader alone, so nothing has signalled the group yet.
+        process.terminate()
+        process.wait(timeout=10)
+        assert _alive(child_pid), "precondition: the descendant outlives its leader"
+        assert not farewell.exists(), "precondition: the descendant has not been signalled"
+
+        process_module.stop_process_tree(process, group)
+
+        assert _wait_until(lambda: not _alive(child_pid)), "descendant outlived the teardown"
+        assert farewell.is_file(), "descendant was killed without being asked to stop first"
 
 
 @posix_only
