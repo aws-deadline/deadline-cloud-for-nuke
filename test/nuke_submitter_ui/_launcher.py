@@ -164,6 +164,53 @@ def _activate_app(pid: int, timeout: float = ACTIVATE_TIMEOUT) -> bool:
     return False
 
 
+def _capture_process_group(process: subprocess.Popen) -> Optional[int]:
+    """The child's process group, resolved while it is known to be alive.
+
+    Captured once at launch rather than per signal. Once the child has been
+    reaped, ``os.getpgid`` on its pid either fails or — if the OS has
+    recycled the pid — reports an unrelated process's group, so re-resolving
+    later would make the post-exit sweep a no-op at best and a signal to
+    somebody else's group at worst. ``start_new_session`` makes the child a
+    group leader, so this value stays valid for the whole session.
+    """
+    if sys.platform == "win32":
+        return None
+    try:
+        return os.getpgid(process.pid)
+    except (ProcessLookupError, PermissionError):
+        # Raced with an immediate exit, or not ours to inspect. Cleanup falls
+        # back to signalling the process directly.
+        return None
+
+
+def _signal_process_group(group: Optional[int], *, force: bool = False) -> None:
+    """Best-effort signal to a captured process group (POSIX only).
+
+    The signal is resolved inside the platform guard because Windows has no
+    ``SIGKILL`` at all, so naming it in a caller would not type-check there —
+    and, worse, would raise ``AttributeError`` at the call site before the
+    guard could run.
+    """
+    if sys.platform == "win32" or group is None:
+        return
+    if group == os.getpgrp():
+        # Never signal our own group: that would take down pytest. This means
+        # start_new_session did not take effect, so leave the children to the
+        # direct terminate/kill instead.
+        return
+    try:
+        os.killpg(group, signal.SIGKILL if force else signal.SIGTERM)
+    except ProcessLookupError:
+        # Nothing left in the group — the expected outcome of the final sweep
+        # when the first signal already stopped every child.
+        pass
+    except PermissionError:
+        # Not ours to signal. Cleanup is best-effort and must never mask the
+        # test's own failure.
+        pass
+
+
 @dataclass
 class NukeSession:
     """A running GUI Nuke process with its accessibility handle."""
@@ -172,6 +219,9 @@ class NukeSession:
     app: xa11y.App
     work_dir: Path
     opener_status: str
+    # Resolved at launch; see _capture_process_group. None on Windows, which
+    # has no process groups, and when the lookup failed.
+    process_group: Optional[int] = None
 
     def activate(self) -> bool:
         """(Re-)raise Nuke to the foreground (see pages.py platform notes)."""
@@ -189,40 +239,16 @@ class NukeSession:
         directly as a fallback (and on Windows, where there is no group).
         """
         if self.process.poll() is None:
-            self._signal_process_group()
+            _signal_process_group(self.process_group)
             self.process.terminate()
             try:
                 self.process.wait(timeout=15)
             except subprocess.TimeoutExpired:
-                self._signal_process_group(force=True)
+                _signal_process_group(self.process_group, force=True)
                 self.process.kill()
                 self.process.wait(timeout=5)
         # Children can outlive the parent's exit, so sweep the group again.
-        self._signal_process_group(force=True)
-
-    def _signal_process_group(self, *, force: bool = False) -> None:
-        """Best-effort signal to Nuke's process group (POSIX only).
-
-        The signal is resolved inside the platform guard because Windows has
-        no ``SIGKILL`` at all, so naming it in a caller would not type-check
-        there even though the call never runs.
-        """
-        if sys.platform == "win32":
-            return
-        sig = signal.SIGKILL if force else signal.SIGTERM
-        try:
-            group = os.getpgid(self.process.pid)
-        except (ProcessLookupError, PermissionError):
-            return
-        if group == os.getpgrp():
-            # Never signal our own group: that would take down pytest. This
-            # means start_new_session did not take effect, so leave the
-            # children to the direct terminate/kill above.
-            return
-        try:
-            os.killpg(group, sig)
-        except (ProcessLookupError, PermissionError):
-            pass
+        _signal_process_group(self.process_group, force=True)
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
@@ -259,10 +285,19 @@ def launch_nuke_with_submitter(
         # (and should) be closed regardless of whether Popen succeeded.
         stdout_log.close()
         stderr_log.close()
+    # Resolve the process group now, while the child is known to be alive:
+    # see _capture_process_group.
+    process_group = _capture_process_group(process)
     session: Optional[NukeSession] = None
     try:
         app = find_accessibility_app(process.pid, timeout=NUKE_STARTUP_TIMEOUT)
-        session = NukeSession(process=process, app=app, work_dir=work_dir, opener_status="")
+        session = NukeSession(
+            process=process,
+            app=app,
+            work_dir=work_dir,
+            opener_status="",
+            process_group=process_group,
+        )
 
         status_file = Path(env[ENV_STATUS_FILE])
         deadline = time.monotonic() + OPENER_TIMEOUT
@@ -286,6 +321,11 @@ def launch_nuke_with_submitter(
     except BaseException:
         if session is not None:
             session.close()
-        elif process.poll() is None:
-            process.terminate()
+        else:
+            # Failed before the session existed (e.g. the AX bridge never
+            # resolved). Nuke's children need reaping here too, or they
+            # outlive the failure and break the next launch.
+            if process.poll() is None:
+                process.terminate()
+            _signal_process_group(process_group, force=True)
         raise
