@@ -93,7 +93,13 @@ def leader_with_child(tmp_path: Path) -> Iterator[Tuple[subprocess.Popen, Option
         for pid in (child_pid, process.pid):
             try:
                 os.kill(pid, 9)
-            except (ProcessLookupError, PermissionError):
+            except ProcessLookupError:
+                # Already gone: the expected case, since the test under way
+                # is usually the thing that stopped it.
+                pass
+            except PermissionError:
+                # The pid was recycled between the test and this cleanup, so
+                # it is somebody else's process and must be left alone.
                 pass
         if process.poll() is None:
             process.kill()
