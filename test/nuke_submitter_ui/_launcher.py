@@ -189,21 +189,27 @@ class NukeSession:
         directly as a fallback (and on Windows, where there is no group).
         """
         if self.process.poll() is None:
-            self._signal_process_group(signal.SIGTERM)
+            self._signal_process_group()
             self.process.terminate()
             try:
                 self.process.wait(timeout=15)
             except subprocess.TimeoutExpired:
-                self._signal_process_group(signal.SIGKILL)
+                self._signal_process_group(force=True)
                 self.process.kill()
                 self.process.wait(timeout=5)
         # Children can outlive the parent's exit, so sweep the group again.
-        self._signal_process_group(signal.SIGKILL)
+        self._signal_process_group(force=True)
 
-    def _signal_process_group(self, sig: int) -> None:
-        """Best-effort signal to Nuke's process group (POSIX only)."""
-        if sys.platform == "win32" or not hasattr(os, "killpg"):
+    def _signal_process_group(self, *, force: bool = False) -> None:
+        """Best-effort signal to Nuke's process group (POSIX only).
+
+        The signal is resolved inside the platform guard because Windows has
+        no ``SIGKILL`` at all, so naming it in a caller would not type-check
+        there even though the call never runs.
+        """
+        if sys.platform == "win32":
             return
+        sig = signal.SIGKILL if force else signal.SIGTERM
         try:
             group = os.getpgid(self.process.pid)
         except (ProcessLookupError, PermissionError):
