@@ -237,6 +237,14 @@ class NukeSession:
         The launch puts Nuke in its own process group precisely so the whole
         tree can be signalled here; the main process is still signalled
         directly as a fallback (and on Windows, where there is no group).
+
+        Every group signal is confined to the branch that stops a live
+        process. A process group is identified by its leader's pid, so once
+        the group is empty and the leader reaped, that id can be recycled by
+        an unrelated process — and signalling a long-dead session's group
+        would then kill somebody else's. Signalling only around a
+        ``terminate()`` we just issued keeps the whole sequence inside a
+        window measured in milliseconds.
         """
         if self.process.poll() is None:
             _signal_process_group(self.process_group)
@@ -247,8 +255,9 @@ class NukeSession:
                 _signal_process_group(self.process_group, force=True)
                 self.process.kill()
                 self.process.wait(timeout=5)
-        # Children can outlive the parent's exit, so sweep the group again.
-        _signal_process_group(self.process_group, force=True)
+            # Children can outlive the parent, so sweep the group once more
+            # now that it is stopped.
+            _signal_process_group(self.process_group, force=True)
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
@@ -321,11 +330,11 @@ def launch_nuke_with_submitter(
     except BaseException:
         if session is not None:
             session.close()
-        else:
+        elif process.poll() is None:
             # Failed before the session existed (e.g. the AX bridge never
             # resolved). Nuke's children need reaping here too, or they
-            # outlive the failure and break the next launch.
-            if process.poll() is None:
-                process.terminate()
+            # outlive the failure and break the next launch. Only while the
+            # process is alive: see close() on recycled group ids.
+            process.terminate()
             _signal_process_group(process_group, force=True)
         raise
