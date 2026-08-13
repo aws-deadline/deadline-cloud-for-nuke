@@ -47,7 +47,10 @@ def _load_process_module():
 
 process_module = _load_process_module()
 
-pytestmark = pytest.mark.skipif(
+# Applied per test rather than to the module: the last test covers the
+# no-process-group path and must run everywhere, including on Windows, where
+# it is the real behaviour rather than a simulation.
+posix_only = pytest.mark.skipif(
     sys.platform == "win32",
     reason="POSIX process groups; on Windows the teardown is a plain terminate()",
 )
@@ -110,6 +113,7 @@ def leader_with_child(tmp_path: Path) -> Iterator[Tuple[subprocess.Popen, Option
         yield stand_in
 
 
+@posix_only
 def test_stops_descendant_when_leader_is_running(leader_with_child) -> None:
     process, group, child_pid = leader_with_child
 
@@ -119,6 +123,7 @@ def test_stops_descendant_when_leader_is_running(leader_with_child) -> None:
     assert process.returncode is not None, "leader was not reaped, leaving a zombie"
 
 
+@posix_only
 def test_stops_descendant_when_leader_already_exited(leader_with_child) -> None:
     """The case that leaks if teardown gives up on an already-exited leader.
 
@@ -135,6 +140,7 @@ def test_stops_descendant_when_leader_already_exited(leader_with_child) -> None:
     assert _wait_until(lambda: not _alive(child_pid)), "descendant survived an exited leader"
 
 
+@posix_only
 def test_stops_descendant_that_ignores_sigterm(tmp_path: Path) -> None:
     """The final sweep has to escalate for a child that refuses SIGTERM.
 
@@ -151,6 +157,7 @@ def test_stops_descendant_that_ignores_sigterm(tmp_path: Path) -> None:
         ), "a SIGTERM-ignoring descendant was never escalated to SIGKILL"
 
 
+@posix_only
 def test_group_id_is_not_signalled_once_recycled(leader_with_child) -> None:
     """A group id taken over by a live process must be left alone."""
     process, group, child_pid = leader_with_child
@@ -167,6 +174,7 @@ def test_group_id_is_not_signalled_once_recycled(leader_with_child) -> None:
     assert process_module.group_id_was_recycled(group) is False
 
 
+@posix_only
 def test_teardown_is_inert_for_an_already_stopped_group(leader_with_child) -> None:
     process, group, child_pid = leader_with_child
 
@@ -177,7 +185,7 @@ def test_teardown_is_inert_for_an_already_stopped_group(leader_with_child) -> No
     process_module.stop_process_tree(process, group)
 
 
-def test_capture_returns_none_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_capture_returns_none_without_process_groups(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(process_module.sys, "platform", "win32")
     process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     try:
