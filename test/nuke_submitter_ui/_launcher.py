@@ -211,6 +211,41 @@ def _signal_process_group(group: Optional[int], *, force: bool = False) -> None:
         pass
 
 
+def _stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
+    """Stop *process* and every child in its process *group*.
+
+    Nuke starts children that outlive a plain ``terminate()`` of the main
+    process — the frame server worker and the crash handler. Left behind,
+    they accumulate across a multi-case run and interfere with later launches
+    (they hold the license and the frame server's fixed port). The launch puts
+    Nuke in its own process group precisely so the whole tree can be stopped
+    here; the main process is still signalled directly as a fallback (and on
+    Windows, where there is no group).
+
+    Nothing is signalled unless the process is still running. A process group
+    is named by its leader's pid, so once the group is empty and the leader
+    reaped, that id can be recycled by an unrelated process — signalling a
+    long-dead session's group would then kill somebody else's. Confining
+    every signal to a live process keeps the sequence within milliseconds of
+    the ``terminate()`` just issued.
+    """
+    if process.poll() is not None:
+        return
+    _signal_process_group(group)
+    process.terminate()
+    try:
+        # Also reaps the process: skipping this would leave a zombie for the
+        # rest of the pytest run, once per launch.
+        process.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        _signal_process_group(group, force=True)
+        process.kill()
+        process.wait(timeout=5)
+    # Children can outlive the parent, so sweep the group once more now that
+    # it is stopped.
+    _signal_process_group(group, force=True)
+
+
 @dataclass
 class NukeSession:
     """A running GUI Nuke process with its accessibility handle."""
@@ -230,34 +265,10 @@ class NukeSession:
     def close(self) -> None:
         """Stop Nuke and the helper processes it spawned.
 
-        Nuke starts children that outlive a plain ``terminate()`` of the main
-        process — the frame server worker and the crash handler. Left behind,
-        they accumulate across a multi-case run and interfere with later
-        launches (they hold the license and the frame server's fixed port).
-        The launch puts Nuke in its own process group precisely so the whole
-        tree can be signalled here; the main process is still signalled
-        directly as a fallback (and on Windows, where there is no group).
-
-        Every group signal is confined to the branch that stops a live
-        process. A process group is identified by its leader's pid, so once
-        the group is empty and the leader reaped, that id can be recycled by
-        an unrelated process — and signalling a long-dead session's group
-        would then kill somebody else's. Signalling only around a
-        ``terminate()`` we just issued keeps the whole sequence inside a
-        window measured in milliseconds.
+        See _stop_process_tree for the sequence and why every group signal is
+        confined to a process that is still running.
         """
-        if self.process.poll() is None:
-            _signal_process_group(self.process_group)
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                _signal_process_group(self.process_group, force=True)
-                self.process.kill()
-                self.process.wait(timeout=5)
-            # Children can outlive the parent, so sweep the group once more
-            # now that it is stopped.
-            _signal_process_group(self.process_group, force=True)
+        _stop_process_tree(self.process, self.process_group)
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
@@ -330,11 +341,9 @@ def launch_nuke_with_submitter(
     except BaseException:
         if session is not None:
             session.close()
-        elif process.poll() is None:
+        else:
             # Failed before the session existed (e.g. the AX bridge never
-            # resolved). Nuke's children need reaping here too, or they
-            # outlive the failure and break the next launch. Only while the
-            # process is alive: see close() on recycled group ids.
-            process.terminate()
-            _signal_process_group(process_group, force=True)
+            # resolved). Nuke's children need stopping here too, or they
+            # outlive the failure and break the next launch.
+            _stop_process_tree(process, process_group)
         raise
