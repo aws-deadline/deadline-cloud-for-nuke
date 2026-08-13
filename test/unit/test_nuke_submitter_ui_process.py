@@ -131,6 +131,46 @@ def test_stops_descendant_when_leader_already_exited(leader_with_child) -> None:
     assert _wait_until(lambda: not _alive(child_pid)), "descendant survived an exited leader"
 
 
+def test_stops_descendant_that_ignores_sigterm(tmp_path: Path) -> None:
+    """The final sweep has to escalate for a child that refuses SIGTERM.
+
+    This is the path that reaches the sweep with the group still populated:
+    the leader is gone and reaped, so its id is free, yet the group is still
+    ours because the stubborn child remains in it.
+    """
+    child_pid_file = tmp_path / "stubborn.pid"
+    process = subprocess.Popen(
+        [
+            "/bin/sh",
+            "-c",
+            f"/bin/sh -c 'trap \"\" TERM; sleep 300' & echo $! > {child_pid_file}; sleep 300",
+        ],
+        start_new_session=True,
+    )
+    try:
+        assert _wait_until(
+            lambda: child_pid_file.is_file() and child_pid_file.read_text().strip().isdigit()
+        ), "stand-in process never reported its child"
+        group = process_module.capture_process_group(process)
+        child_pid = int(child_pid_file.read_text().strip())
+        assert _alive(child_pid)
+
+        process_module.stop_process_tree(process, group)
+
+        assert _wait_until(
+            lambda: not _alive(child_pid)
+        ), "a SIGTERM-ignoring descendant was never escalated to SIGKILL"
+    finally:
+        try:
+            os.kill(int(child_pid_file.read_text().strip()), 9)
+        except (ValueError, OSError):
+            # Nothing to clean up: the test stopped it, or it never started.
+            pass
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+
+
 def test_group_id_is_not_signalled_once_recycled(leader_with_child) -> None:
     """A group id taken over by a live process must be left alone."""
     process, group, child_pid = leader_with_child

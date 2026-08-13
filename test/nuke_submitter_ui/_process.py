@@ -112,14 +112,19 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
 
     * The process is still running: signal the group, terminate, wait (which
       also reaps it, so no zombie accumulates per launch), escalating to
-      ``SIGKILL`` if it does not go quietly, then sweep the group for
-      children that outlived it.
+      ``SIGKILL`` if it does not go quietly.
     * The process has already exited — it crashed, or the launcher's startup
-      loop observed an early exit. Its children can still be running and
-      holding the license and the frame server's port, so the group is still
-      swept. This is safe because the group id cannot have been recycled
-      while those children keep the group alive; the one case that is left
-      alone is a group id that a live process has since taken over.
+      loop observed an early exit. ``Popen.poll`` has reaped it already.
+
+    Either way the leader ends up reaped, so both paths finish the same way:
+    sweep the group for children that outlived it, unless the group id has
+    since been handed to somebody else.
+
+    The two signals sent while the leader is still alive are deliberately not
+    guarded that way. ``group_id_was_recycled`` asks whether a live process
+    owns the id, and before the leader is reaped that process is our own
+    leader — so the guard would report every live session as recycled and
+    suppress the very signals that stop it.
     """
     if process.poll() is None:
         signal_process_group(group)
@@ -130,7 +135,9 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
             signal_process_group(group, force=True)
             process.kill()
             process.wait(timeout=KILL_TIMEOUT)
-        signal_process_group(group, force=True)
-        return
+    # The leader is reaped now, so the group id — which is its pid — is free
+    # for reuse the moment the group empties. Children still in the group
+    # keep the id ours (see the module docstring); a live process owning it
+    # means it was reassigned, and signalling it would hit a stranger.
     if not group_id_was_recycled(group):
         signal_process_group(group, force=True)
