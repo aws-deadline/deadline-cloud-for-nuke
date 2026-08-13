@@ -35,7 +35,6 @@ import signal
 import subprocess
 import sys
 import time
-from contextlib import suppress
 from typing import Optional
 
 TERMINATE_TIMEOUT = 15.0
@@ -127,7 +126,12 @@ def group_has_members(group: Optional[int]) -> bool:
     return True
 
 
-def sweep_process_group(group: Optional[int], *, drain_timeout: float = DRAIN_TIMEOUT) -> None:
+def sweep_process_group(
+    group: Optional[int],
+    *,
+    drain_timeout: float = DRAIN_TIMEOUT,
+    group_is_ours: bool = False,
+) -> None:
     """Stop whatever is left in *group*, asking before insisting.
 
     SIGTERM first, because a frame server that shuts down releases its
@@ -139,8 +143,16 @@ def sweep_process_group(group: Optional[int], *, drain_timeout: float = DRAIN_TI
     The reuse check runs twice: once before signalling, and again after the
     wait, because the window is long enough for a freed group id to be handed
     to somebody else while we are draining.
+
+    Pass *group_is_ours* to skip those checks, which callers may do only with
+    independent proof that the id cannot have been handed out. There is
+    exactly one such proof: a leader that has not been reaped still occupies
+    the pid the group is named after. That case has to be spelled out,
+    because the check reads it backwards on its own — a live pid normally
+    means the id was reassigned, but an unreaped leader is the one situation
+    where a live pid means the opposite.
     """
-    if group_id_was_recycled(group):
+    if not group_is_ours and group_id_was_recycled(group):
         return
     signal_process_group(group)
     deadline = time.monotonic() + drain_timeout
@@ -148,7 +160,7 @@ def sweep_process_group(group: Optional[int], *, drain_timeout: float = DRAIN_TI
         if not group_has_members(group):
             return
         time.sleep(DRAIN_POLL_INTERVAL)
-    if group_id_was_recycled(group):
+    if not group_is_ours and group_id_was_recycled(group):
         return
     signal_process_group(group, force=True)
 
@@ -164,9 +176,11 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
     * The process has already exited — it crashed, or the launcher's startup
       loop observed an early exit. ``Popen.poll`` has reaped it already.
 
-    Either way the leader ends up reaped, so both paths finish the same way:
-    sweep the group for children that outlived it, unless the group id has
-    since been handed to somebody else.
+    Both paths finish by sweeping the group for children that outlived the
+    leader. Whether that sweep may signal depends on the leader having been
+    reaped, which is what makes its pid, and therefore the group id,
+    reusable; the one case where the leader survives its own SIGKILL is
+    called out below.
 
     The two signals sent while the leader is still alive are deliberately not
     guarded that way. ``group_id_was_recycled`` asks whether a live process
@@ -174,6 +188,7 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
     leader — so the guard would report every live session as recycled and
     suppress the very signals that stop it.
     """
+    leader_reaped = True
     if process.poll() is None:
         signal_process_group(group)
         process.terminate()
@@ -182,7 +197,9 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
         except subprocess.TimeoutExpired:
             signal_process_group(group, force=True)
             process.kill()
-            with suppress(subprocess.TimeoutExpired):
+            try:
+                process.wait(timeout=KILL_TIMEOUT)
+            except subprocess.TimeoutExpired:
                 # Already SIGKILLed, so reaching this means the process is
                 # wedged in the kernel — an uninterruptible read against a
                 # hung license server or file server, say. Nothing further
@@ -192,9 +209,12 @@ def stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
                 # carries Nuke's log tails), and in a fixture it would turn
                 # a real assertion failure into a teardown error. The cost
                 # is one leaked zombie in a case that is already lost.
-                process.wait(timeout=KILL_TIMEOUT)
-    # The leader is reaped now, so the group id — which is its pid — is free
-    # for reuse the moment the group empties. Children still in the group
-    # keep the id ours (see the module docstring); a live process owning it
-    # means it was reassigned, and signalling it would hit a stranger.
-    sweep_process_group(group)
+                leader_reaped = False
+    # An unreaped leader still holds the pid the group is named after, which
+    # is proof the id cannot have been reassigned, so the sweep is told to
+    # skip its reuse checks: they read a live pid as evidence of reassignment
+    # and would otherwise suppress the sweep in the one case it is certainly
+    # safe. Where the leader was reaped, the id is free the moment the group
+    # empties, and the checks are exactly what keeps us off a stranger's
+    # group.
+    sweep_process_group(group, group_is_ours=not leader_reaped)

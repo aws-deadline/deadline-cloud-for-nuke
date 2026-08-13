@@ -95,10 +95,15 @@ def _stand_in_for_nuke(tmp_path: Path, child_command: str):
     )
     group: Optional[int] = None
     try:
+        # Captured before anything that can fail: start_new_session has
+        # already taken effect when Popen returns, and teardown needs the
+        # group to reach the backgrounded child. Waiting until after the
+        # assertion below would leak that child for its full sleep whenever
+        # the assertion fires.
+        group = process_module.capture_process_group(process)
         assert _wait_until(
             lambda: child_pid_file.is_file() and child_pid_file.read_text().strip().isdigit()
         ), "stand-in process never reported its child"
-        group = process_module.capture_process_group(process)
         child_pid = int(child_pid_file.read_text().strip())
         assert group == process.pid, "start_new_session should make the process a group leader"
         assert _alive(child_pid)
@@ -184,6 +189,37 @@ def test_survivors_get_a_chance_to_exit_cleanly(tmp_path: Path) -> None:
 
         assert _wait_until(lambda: not _alive(child_pid)), "descendant outlived the teardown"
         assert farewell.is_file(), "descendant was killed without being asked to stop first"
+
+
+@posix_only
+def test_sweep_leaves_a_group_alone_when_the_id_may_be_reassigned(leader_with_child) -> None:
+    """With a live pid owning the group id, the sweep must not signal.
+
+    Standing in for the case it exists to prevent: our leader was reaped and
+    the id has since been handed to an unrelated process. That cannot be
+    staged directly, since pid reuse is not controllable, so this uses the
+    same input the check sees, a live process owning the id.
+    """
+    process, group, child_pid = leader_with_child
+
+    process_module.sweep_process_group(group)
+
+    assert _alive(child_pid), "the sweep signalled a group whose id might not be ours"
+
+
+@posix_only
+def test_sweep_runs_when_the_caller_knows_the_group_is_ours(leader_with_child) -> None:
+    """An unreaped leader is proof the id was not reassigned.
+
+    Without ``group_is_ours`` this is indistinguishable from a recycled id,
+    so the sweep would skip and leave the group running. That is the state
+    teardown is in when the leader survives its own SIGKILL.
+    """
+    process, group, child_pid = leader_with_child
+
+    process_module.sweep_process_group(group, group_is_ours=True)
+
+    assert _wait_until(lambda: not _alive(child_pid)), "descendant survived a sanctioned sweep"
 
 
 @posix_only
