@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import os
 import re
-import signal
 import subprocess
 import sys
 import time
@@ -35,6 +34,8 @@ from typing import Mapping, Optional
 import xa11y
 from deadline_test_fixtures.deadline_mock import build_mock_environment
 from deadline_test_fixtures.xa11y import find_accessibility_app
+
+from _process import capture_process_group, stop_process_tree
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OPENER_DIR = Path(__file__).resolve().parent / "_opener"
@@ -164,88 +165,6 @@ def _activate_app(pid: int, timeout: float = ACTIVATE_TIMEOUT) -> bool:
     return False
 
 
-def _capture_process_group(process: subprocess.Popen) -> Optional[int]:
-    """The child's process group, resolved while it is known to be alive.
-
-    Captured once at launch rather than per signal. Once the child has been
-    reaped, ``os.getpgid`` on its pid either fails or — if the OS has
-    recycled the pid — reports an unrelated process's group, so re-resolving
-    later would make the post-exit sweep a no-op at best and a signal to
-    somebody else's group at worst. ``start_new_session`` makes the child a
-    group leader, so this value stays valid for the whole session.
-    """
-    if sys.platform == "win32":
-        return None
-    try:
-        return os.getpgid(process.pid)
-    except (ProcessLookupError, PermissionError):
-        # Raced with an immediate exit, or not ours to inspect. Cleanup falls
-        # back to signalling the process directly.
-        return None
-
-
-def _signal_process_group(group: Optional[int], *, force: bool = False) -> None:
-    """Best-effort signal to a captured process group (POSIX only).
-
-    The signal is resolved inside the platform guard because Windows has no
-    ``SIGKILL`` at all, so naming it in a caller would not type-check there —
-    and, worse, would raise ``AttributeError`` at the call site before the
-    guard could run.
-    """
-    if sys.platform == "win32" or group is None:
-        return
-    if group == os.getpgrp():
-        # Never signal our own group: that would take down pytest. This means
-        # start_new_session did not take effect, so leave the children to the
-        # direct terminate/kill instead.
-        return
-    try:
-        os.killpg(group, signal.SIGKILL if force else signal.SIGTERM)
-    except ProcessLookupError:
-        # Nothing left in the group — the expected outcome of the final sweep
-        # when the first signal already stopped every child.
-        pass
-    except PermissionError:
-        # Not ours to signal. Cleanup is best-effort and must never mask the
-        # test's own failure.
-        pass
-
-
-def _stop_process_tree(process: subprocess.Popen, group: Optional[int]) -> None:
-    """Stop *process* and every child in its process *group*.
-
-    Nuke starts children that outlive a plain ``terminate()`` of the main
-    process — the frame server worker and the crash handler. Left behind,
-    they accumulate across a multi-case run and interfere with later launches
-    (they hold the license and the frame server's fixed port). The launch puts
-    Nuke in its own process group precisely so the whole tree can be stopped
-    here; the main process is still signalled directly as a fallback (and on
-    Windows, where there is no group).
-
-    Nothing is signalled unless the process is still running. A process group
-    is named by its leader's pid, so once the group is empty and the leader
-    reaped, that id can be recycled by an unrelated process — signalling a
-    long-dead session's group would then kill somebody else's. Confining
-    every signal to a live process keeps the sequence within milliseconds of
-    the ``terminate()`` just issued.
-    """
-    if process.poll() is not None:
-        return
-    _signal_process_group(group)
-    process.terminate()
-    try:
-        # Also reaps the process: skipping this would leave a zombie for the
-        # rest of the pytest run, once per launch.
-        process.wait(timeout=15)
-    except subprocess.TimeoutExpired:
-        _signal_process_group(group, force=True)
-        process.kill()
-        process.wait(timeout=5)
-    # Children can outlive the parent, so sweep the group once more now that
-    # it is stopped.
-    _signal_process_group(group, force=True)
-
-
 @dataclass
 class NukeSession:
     """A running GUI Nuke process with its accessibility handle."""
@@ -254,7 +173,7 @@ class NukeSession:
     app: xa11y.App
     work_dir: Path
     opener_status: str
-    # Resolved at launch; see _capture_process_group. None on Windows, which
+    # Resolved at launch; see capture_process_group. None on Windows, which
     # has no process groups, and when the lookup failed.
     process_group: Optional[int] = None
 
@@ -265,10 +184,16 @@ class NukeSession:
     def close(self) -> None:
         """Stop Nuke and the helper processes it spawned.
 
-        See _stop_process_tree for the sequence and why every group signal is
-        confined to a process that is still running.
+        See ``_process.stop_process_tree`` for the teardown sequence and the
+        process-group reuse rules it relies on.
+
+        The captured group is dropped afterwards so this is effectively
+        one-shot: by the time anything calls ``close()`` again the group is
+        empty, and an empty group's id is free to be handed to an unrelated
+        process, which must never be signalled.
         """
-        _stop_process_tree(self.process, self.process_group)
+        stop_process_tree(self.process, self.process_group)
+        self.process_group = None
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
@@ -306,8 +231,8 @@ def launch_nuke_with_submitter(
         stdout_log.close()
         stderr_log.close()
     # Resolve the process group now, while the child is known to be alive:
-    # see _capture_process_group.
-    process_group = _capture_process_group(process)
+    # see capture_process_group.
+    process_group = capture_process_group(process)
     session: Optional[NukeSession] = None
     try:
         app = find_accessibility_app(process.pid, timeout=NUKE_STARTUP_TIMEOUT)
@@ -345,5 +270,5 @@ def launch_nuke_with_submitter(
             # Failed before the session existed (e.g. the AX bridge never
             # resolved). Nuke's children need stopping here too, or they
             # outlive the failure and break the next launch.
-            _stop_process_tree(process, process_group)
+            stop_process_tree(process, process_group)
         raise
