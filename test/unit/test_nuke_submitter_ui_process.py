@@ -15,7 +15,7 @@ import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Optional, Tuple
+from typing import Iterator, Optional, Tuple, cast
 
 import pytest
 
@@ -189,7 +189,7 @@ def test_sweep_leaves_a_group_alone_when_the_id_may_be_reassigned(leader_with_ch
     """
     process, group, child_pid = leader_with_child
 
-    process_module.sweep_process_group(group)
+    process_module.sweep_process_group(group, drain_timeout=SHORT_DRAIN)
 
     assert _alive(child_pid), "the sweep signalled a group whose id might not be ours"
 
@@ -207,6 +207,43 @@ def test_sweep_runs_when_the_caller_knows_the_group_is_ours(leader_with_child) -
     process_module.sweep_process_group(group, drain_timeout=SHORT_DRAIN, group_is_ours=True)
 
     assert _wait_until(lambda: not _alive(child_pid)), "descendant survived a sanctioned sweep"
+
+
+class _NeverReaps:
+    """A process whose wait() always times out, standing in for a wedged Nuke.
+
+    Real uninterruptible sleep cannot be staged on demand, and this is the
+    input that matters: teardown cannot reap the leader, so the group id is
+    still ours and the sweep must go ahead anyway.
+    """
+
+    def __init__(self, process: subprocess.Popen) -> None:
+        self._process = process
+
+    def poll(self) -> None:
+        return None
+
+    def terminate(self) -> None:
+        self._process.terminate()
+
+    def kill(self) -> None:
+        self._process.kill()
+
+    def wait(self, timeout: Optional[float] = None) -> int:
+        raise subprocess.TimeoutExpired(cmd="stand-in", timeout=timeout or 0)
+
+
+@posix_only
+def test_stops_descendant_when_the_leader_cannot_be_reaped(tmp_path: Path) -> None:
+    stubborn_child = "/bin/sh -c 'trap \"\" TERM; sleep 300'"
+    with _stand_in_for_nuke(tmp_path, stubborn_child) as (process, group, child_pid):
+        wedged = cast(subprocess.Popen, _NeverReaps(process))
+
+        process_module.stop_process_tree(wedged, group, drain_timeout=SHORT_DRAIN)
+
+        assert _wait_until(
+            lambda: not _alive(child_pid)
+        ), "descendant survived a leader that could not be reaped"
 
 
 @posix_only

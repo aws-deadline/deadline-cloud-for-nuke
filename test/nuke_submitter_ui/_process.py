@@ -113,17 +113,15 @@ def sweep_process_group(
     drain_timeout: float = DRAIN_TIMEOUT,
     group_is_ours: bool = False,
 ) -> None:
-    """Stop what remains in *group*: SIGTERM, drain, then SIGKILL.
+    """Wait for *group* to drain after SIGTERM, then SIGKILL what is left.
 
-    The reuse check runs before signalling and again after the drain, since a
-    freed id can change hands while we wait. *group_is_ours* skips both, and
-    is only sound with proof the id cannot have been reassigned: an unreaped
-    leader still occupies it. That case needs stating because the check reads
-    a live pid as reassignment, which is backwards for an unreaped leader.
+    The reuse check guards the SIGKILL, since by then the leader is reaped and
+    its pid, which is the group id, may have been handed out. *group_is_ours*
+    skips it, and is only sound with proof the id cannot have been reassigned:
+    an unreaped leader still occupies it. That case needs stating because the
+    check reads a live pid as reassignment, which is backwards for a leader
+    that never died.
     """
-    if not group_is_ours and group_id_was_recycled(group):
-        return
-    signal_process_group(group)
     deadline = time.monotonic() + drain_timeout
     while time.monotonic() < deadline:
         if not group_has_members(group):
@@ -134,11 +132,15 @@ def sweep_process_group(
     signal_process_group(group, force=True)
 
 
-def _stop_process(process: subprocess.Popen) -> bool:
-    """Terminate *process*, escalating to kill. False if it was not reaped."""
+def _reap(process: subprocess.Popen) -> bool:
+    """Wait for *process*, killing it if it ignored SIGTERM.
+
+    False if it survived even SIGKILL, which means it is wedged in the kernel.
+    Raising instead would replace the failure that asked for teardown, so the
+    zombie is accepted.
+    """
     if process.poll() is not None:
-        return True  # already exited and reaped by poll()
-    process.terminate()
+        return True
     try:
         process.wait(timeout=TERMINATE_TIMEOUT)
     except subprocess.TimeoutExpired:
@@ -146,10 +148,15 @@ def _stop_process(process: subprocess.Popen) -> bool:
         try:
             process.wait(timeout=KILL_TIMEOUT)
         except subprocess.TimeoutExpired:
-            # Survived SIGKILL, so it is wedged in the kernel. Raising would
-            # replace the failure that asked for teardown, so accept a zombie.
             return False
     return True
+
+
+def _stop_process(process: subprocess.Popen) -> bool:
+    """Stop *process* alone, for when there is no group to signal."""
+    if process.poll() is None:
+        process.terminate()
+    return _reap(process)
 
 
 def stop_process_tree(
@@ -160,14 +167,22 @@ def stop_process_tree(
 ) -> None:
     """Stop *process*, then anything left in its *group*.
 
-    The group sweep is what catches children, which do not exit with their
-    parent; stopping the process alone is enough only on Windows, where there
-    is no group to sweep.
+    The group is what catches children, which do not exit with their parent.
     """
     if sys.platform == "win32":
+        # No process groups: helpers Nuke spawned are unreachable.
         _stop_process(process)
         return
-    reaped = _stop_process(process)
-    # An unreaped leader still holds the group id, which is proof it was not
-    # reassigned and the sweep may skip its reuse checks.
+    if group is None or group == os.getpgrp():
+        # Capture failed, or start_new_session did not take effect and the
+        # group is our own, which must never be signalled.
+        _stop_process(process)
+        return
+    # A leader belongs to its own group, so this asks it and its children to
+    # exit together and no separate terminate() is needed.
+    signal_process_group(group)
+    reaped = _reap(process)
+    # The leader must be reaped before draining: until then it is a member of
+    # its own group, so the poll could never see the group empty. An unreaped
+    # leader still holds the group id, which proves it was not reassigned.
     sweep_process_group(group, drain_timeout=drain_timeout, group_is_ours=not reaped)
