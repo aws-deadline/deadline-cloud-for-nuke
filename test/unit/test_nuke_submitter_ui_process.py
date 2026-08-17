@@ -1,17 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-"""Tests for the GUI test suite's process-tree teardown.
+"""Tests for test/nuke_submitter_ui/_process.py, the GUI suite's teardown.
 
-The module under test is ``test/nuke_submitter_ui/_process.py``, which the
-xa11y submitter UI suite uses to stop Nuke and the helper processes it
-spawns. It is deliberately free of the GUI suite's dependencies so these
-tests run in the normal unit suite on every platform, instead of only where a
-licensed Nuke is installed — the teardown rules are subtle enough that they
-should not go unverified on machines that cannot run the GUI suite.
-
-A ``/bin/sh`` process that backgrounds a child stands in for Nuke and its
-frame server: a leader with a descendant that outlives it, in its own process
-group, which is the shape that makes teardown non-trivial.
+A /bin/sh process that backgrounds a child stands in for Nuke and its frame
+server: a leader with a descendant that outlives it, in its own process group.
 """
 
 from __future__ import annotations
@@ -33,10 +25,8 @@ _MODULE_PATH = Path(__file__).resolve().parents[1] / "nuke_submitter_ui" / "_pro
 def _load_process_module():
     """Load the suite's _process module by path.
 
-    Imported this way rather than via ``sys.path`` because the GUI suite's
-    directory is not a package and importing its siblings would pull in xa11y
-    and the Deadline test fixtures, which the unit test environment does not
-    install.
+    By path rather than sys.path: the GUI suite's directory is not a package,
+    and its siblings import xa11y, which this environment does not install.
     """
     spec = importlib.util.spec_from_file_location("nuke_submitter_ui_process", _MODULE_PATH)
     assert spec is not None and spec.loader is not None, f"cannot load {_MODULE_PATH}"
@@ -47,17 +37,15 @@ def _load_process_module():
 
 process_module = _load_process_module()
 
-# Applied per test rather than to the module: the last test covers the
-# no-process-group path and must run everywhere, including on Windows, where
-# it is the real behaviour rather than a simulation.
+# Per test, not module-wide: the no-process-group case must also run on
+# Windows, where it is real behaviour rather than a simulation.
 posix_only = pytest.mark.skipif(
     sys.platform == "win32",
     reason="POSIX process groups; on Windows the teardown is a plain terminate()",
 )
 
 
-# Drain window for tests that deliberately spend it. The production default
-# is sized for a real frame server; these stand-ins need no grace at all.
+# For tests that deliberately spend the window; /bin/sh needs no grace.
 SHORT_DRAIN = 0.5
 
 
@@ -83,15 +71,10 @@ def _wait_until(predicate, timeout: float = 10.0) -> bool:
 
 @contextmanager
 def _stand_in_for_nuke(tmp_path: Path, child_command: str):
-    """A process group holding a leader and a descendant that outlives it.
+    """Yields (process, group, child_pid) for a leader with a live descendant.
 
-    Yields ``(process, group, child_pid)``. Teardown goes through
-    ``stop_process_tree`` rather than killing the recorded pids directly: by
-    then the leader has usually been reaped and its descendant collected by
-    init, so signalling those raw pids would risk hitting whatever has since
-    been given them — the very hazard this module exists to avoid. A test
-    that leaves the group alive is therefore cleaned up by the same guarded
-    path it exercises, and a test that already stopped it costs nothing.
+    Teardown goes through stop_process_tree rather than killing the recorded
+    pids, which by then may have been reassigned.
     """
     child_pid_file = tmp_path / "child.pid"
     process = subprocess.Popen(
@@ -100,11 +83,8 @@ def _stand_in_for_nuke(tmp_path: Path, child_command: str):
     )
     group: Optional[int] = None
     try:
-        # Captured before anything that can fail: start_new_session has
-        # already taken effect when Popen returns, and teardown needs the
-        # group to reach the backgrounded child. Waiting until after the
-        # assertion below would leak that child for its full sleep whenever
-        # the assertion fires.
+        # Before anything that can fail: teardown needs the group to reach
+        # the backgrounded child, so a failed assertion below would leak it.
         group = process_module.capture_process_group(process)
         assert _wait_until(
             lambda: child_pid_file.is_file() and child_pid_file.read_text().strip().isdigit()

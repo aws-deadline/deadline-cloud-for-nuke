@@ -173,8 +173,7 @@ class NukeSession:
     app: xa11y.App
     work_dir: Path
     opener_status: str
-    # Resolved at launch; see capture_process_group. None on Windows, which
-    # has no process groups, and when the lookup failed.
+    # None on Windows, and when the lookup failed. See capture_process_group.
     process_group: Optional[int] = None
 
     def activate(self) -> bool:
@@ -182,16 +181,10 @@ class NukeSession:
         return _activate_app(self.process.pid)
 
     def close(self) -> None:
-        """Stop Nuke and the helper processes it spawned.
+        """Stop Nuke and the helpers it spawned (see _process).
 
-        See ``_process.stop_process_tree`` for the teardown sequence and the
-        process-group reuse rules it relies on.
-
-        The captured group is kept rather than cleared afterwards. Teardown is
-        best-effort and can return with survivors, and the group id is the
-        only way to reach them, so a retry needs it. Signalling a group whose
-        id may have been reassigned is prevented by the checks inside
-        ``sweep_process_group``, which run on every call.
+        The group id is kept, not cleared: teardown is best effort and a retry
+        needs it to reach any survivors.
         """
         stop_process_tree(self.process, self.process_group)
 
@@ -230,8 +223,7 @@ def launch_nuke_with_submitter(
         # (and should) be closed regardless of whether Popen succeeded.
         stdout_log.close()
         stderr_log.close()
-    # Resolve the process group now, while the child is known to be alive:
-    # see capture_process_group.
+    # While the child is known alive: see capture_process_group.
     process_group = capture_process_group(process)
     session: Optional[NukeSession] = None
     try:
@@ -267,8 +259,6 @@ def launch_nuke_with_submitter(
         if session is not None:
             session.close()
         else:
-            # Failed before the session existed (e.g. the AX bridge never
-            # resolved). Nuke's children need stopping here too, or they
-            # outlive the failure and break the next launch.
+            # Failed before the session existed, so close() cannot do it.
             stop_process_tree(process, process_group)
         raise
