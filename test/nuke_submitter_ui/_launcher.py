@@ -35,6 +35,8 @@ import xa11y
 from deadline_test_fixtures.deadline_mock import build_mock_environment
 from deadline_test_fixtures.xa11y import find_accessibility_app
 
+from _process import capture_process_group, stop_process_tree
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OPENER_DIR = Path(__file__).resolve().parent / "_opener"
 
@@ -171,19 +173,20 @@ class NukeSession:
     app: xa11y.App
     work_dir: Path
     opener_status: str
+    # None on Windows, and when the lookup failed. See capture_process_group.
+    process_group: Optional[int] = None
 
     def activate(self) -> bool:
         """(Re-)raise Nuke to the foreground (see pages.py platform notes)."""
         return _activate_app(self.process.pid)
 
     def close(self) -> None:
-        if self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=5)
+        """Stop Nuke and the helpers it spawned (see _process).
+
+        The group id is kept, not cleared: teardown is best effort and a retry
+        needs it to reach any survivors.
+        """
+        stop_process_tree(self.process, self.process_group)
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
@@ -220,10 +223,18 @@ def launch_nuke_with_submitter(
         # (and should) be closed regardless of whether Popen succeeded.
         stdout_log.close()
         stderr_log.close()
+    # While the child is known alive: see capture_process_group.
+    process_group = capture_process_group(process)
     session: Optional[NukeSession] = None
     try:
         app = find_accessibility_app(process.pid, timeout=NUKE_STARTUP_TIMEOUT)
-        session = NukeSession(process=process, app=app, work_dir=work_dir, opener_status="")
+        session = NukeSession(
+            process=process,
+            app=app,
+            work_dir=work_dir,
+            opener_status="",
+            process_group=process_group,
+        )
 
         status_file = Path(env[ENV_STATUS_FILE])
         deadline = time.monotonic() + OPENER_TIMEOUT
@@ -247,6 +258,7 @@ def launch_nuke_with_submitter(
     except BaseException:
         if session is not None:
             session.close()
-        elif process.poll() is None:
-            process.terminate()
+        else:
+            # Failed before the session existed, so close() cannot do it.
+            stop_process_tree(process, process_group)
         raise
