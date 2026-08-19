@@ -17,6 +17,7 @@ def configure(dialog) -> None:
     dialog.set_job_name("Basic Workflow Submission Test")
     dialog.set_job_description("Basic Workflow Test Description")
     dialog.switch_to_job_specific_tab()
-    assert dialog.selected_write_node() == "All write nodes"
+    opened_with = dialog.selected_write_node()
+    assert opened_with == "All write nodes", f"dialog opened showing {opened_with!r}"
     dialog.select_write_node("Write1")
     dialog.set_chunk_size(5)

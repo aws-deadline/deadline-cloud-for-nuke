@@ -21,4 +21,5 @@ def configure(dialog) -> None:
     dialog.set_job_description("Selected single write node for submission")
     dialog.switch_to_job_specific_tab()
     dialog.select_write_node("Write1")
-    assert dialog.selected_write_node() == "Write1"
+    selected = dialog.selected_write_node()
+    assert selected == "Write1", f"write-node combo shows {selected!r}"
