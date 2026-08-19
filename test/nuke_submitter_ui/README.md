@@ -63,5 +63,22 @@ canonically, in the `pages.py` module docstring.
 
 ## Status
 
-Ported Squish cases: `basic_workflow_gui` (as case `basic_workflow`).
-Remaining: 8 cases — see `test/squish/suite_nuke_submitter/`.
+Ported Squish cases:
+
+| Squish case | case(s) here |
+| --- | --- |
+| `basic_workflow_gui` | `basic_workflow` |
+| `custom_frame_range_gui` | `custom_frame_range` |
+| `default_frame_range_gui` | `default_frame_range` |
+| `write_node_limit_gui` | `write_node_frame_limit` |
+| `write_node_gui` | `write_node_selection_single`, `write_node_selection_all` |
+
+`write_node_gui` submitted twice from one scene; since a case here exports one
+bundle, each submission became its own case.
+
+Remaining: `custom_settings_gui`, `manual_attachments_gui`, `ocio_gui`,
+`invalid_conda_gui`. Squish stays until they are ported.
+
+Scenes are built programmatically rather than opening the Squish `.nk` sample
+files, so the suite needs no Git LFS assets and each case's inputs are
+readable in its `scene.py`.

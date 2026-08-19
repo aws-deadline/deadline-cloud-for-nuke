@@ -49,6 +49,7 @@ from deadline_test_fixtures.xa11y import SharedSubmitterDialog
 from deadline_test_fixtures.xa11y.controls import (
     TAB_JOB_SPECIFIC,
     TAB_SHARED,
+    is_checked,
     set_checkbox,
     set_text_field,
     switch_to_tab,
@@ -328,6 +329,18 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     def set_override_frame_range(self, enabled: bool) -> None:
         self._front()
         set_checkbox(self.window, CHECKBOX_OVERRIDE_FRAME_RANGE, enabled, timeout=WIDGET_TIMEOUT)
+
+    def override_frame_range_enabled(self) -> bool:
+        """Whether the frame-range override is checked.
+
+        Cases that verify range inheritance assert this is off rather than
+        forcing it, so a change to the dialog's default surfaces as a failure
+        instead of being silently overwritten.
+        """
+        self._front()
+        box = self.window.descendant(f'check_box[name="{CHECKBOX_OVERRIDE_FRAME_RANGE}"]')
+        box.wait_visible(timeout=WIDGET_TIMEOUT)
+        return is_checked(box)
 
     def set_frame_range(self, frame_range: str) -> None:
         """Enable the override and type a frame range (e.g. ``1-5``)."""
