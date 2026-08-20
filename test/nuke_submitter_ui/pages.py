@@ -70,6 +70,14 @@ _SPIN_CHUNK_SIZE = 1
 _SPIN_TARGET_CHUNK_DURATION = 2
 _TEXT_FRAME_RANGE = 1
 
+# Positional within the shared tab's "Job Properties" group, in document order
+# (1-based). That group lives in the shared client's UI, so its name is the
+# stable anchor and only the order inside it is positional.
+_GROUP_JOB_PROPERTIES = "Job Properties"
+_SPIN_PRIORITY = 1
+_SPIN_MAX_FAILED_TASKS = 2
+_SPIN_MAX_RETRIES = 3
+
 # Accessible names that exist today (Qt auto-derived from label/text).
 CHECKBOX_OVERRIDE_FRAME_RANGE = "Override frame range"
 CHECKBOX_PROXY_MODE = "Use proxy mode"
@@ -369,15 +377,26 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         spin.wait_visible(timeout=WIDGET_TIMEOUT)
         return spin
 
-    def _set_spin(self, index: int, target: int, attempts: int = 5) -> None:
-        """Type *target* into the spin box at *index* (see module notes on
-        spin boxes: AX increment/decrement step by 10% of range)."""
+    def _type_into_spin(
+        self,
+        locate: Callable[[], xa11y.Locator],
+        target: int,
+        description: str,
+        attempts: int = 5,
+    ) -> None:
+        """Type *target* into the spin box *locate* returns.
+
+        Typed rather than stepped: AX increment/decrement move by 10% of the
+        widget's range (see module notes), so most values are unreachable.
+        *locate* is a callable because the element must be re-resolved per
+        attempt, as the AX tree churns when frontmost state changes.
+        """
         sim = xa11y.input_sim()
         last_seen = "<never read>"
         for _ in range(attempts):
             self._front()
             try:
-                element = self._spin(index).element()
+                element = locate().element()
                 bounds = element.bounds
                 text_spot = (int(bounds.x + bounds.width * 0.3), int(bounds.y + bounds.height / 2))
                 sim.click(text_spot)
@@ -389,13 +408,47 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
                 sim.press("Tab")
                 time.sleep(0.5)
                 self._front()
-                last_seen = str(self._spin(index).element().value or "")
+                last_seen = str(locate().element().value or "")
                 if last_seen == str(target):
                     return
             except Exception as exc:
                 last_seen = f"<error: {exc!r}>"
                 time.sleep(1.0)
-        raise AssertionError(f"Spin button {index} did not reach {target}; last: {last_seen}")
+        raise AssertionError(f"{description} did not reach {target}; last: {last_seen}")
+
+    def _set_spin(self, index: int, target: int, attempts: int = 5) -> None:
+        self._type_into_spin(
+            lambda: self._spin(index), target, f"Spin button {index}", attempts=attempts
+        )
+
+    def _job_properties_spin(self, index: int) -> xa11y.Locator:
+        """A spin box in the shared tab's Job Properties group."""
+        self._front()
+        spin = (
+            self.window.descendant(f'group[name="{_GROUP_JOB_PROPERTIES}"]')
+            .descendant("spin_button")
+            .nth(index)
+        )
+        spin.wait_visible(timeout=WIDGET_TIMEOUT)
+        return spin
+
+    def _set_job_properties_spin(self, index: int, value: int, description: str) -> None:
+        self.switch_to_shared_tab()
+        self._type_into_spin(lambda: self._job_properties_spin(index), value, description)
+
+    def set_priority(self, value: int) -> None:
+        """Set job priority.
+
+        Not the shared fixtures' ``set_priority``, which steps with AX
+        increment and so cannot land on most values here.
+        """
+        self._set_job_properties_spin(_SPIN_PRIORITY, value, "Priority")
+
+    def set_max_failed_tasks(self, value: int) -> None:
+        self._set_job_properties_spin(_SPIN_MAX_FAILED_TASKS, value, "Maximum failed tasks")
+
+    def set_max_retries(self, value: int) -> None:
+        self._set_job_properties_spin(_SPIN_MAX_RETRIES, value, "Maximum retries per task")
 
     def set_chunk_size(self, chunk_size: int) -> None:
         self._set_spin(_SPIN_CHUNK_SIZE, chunk_size)
