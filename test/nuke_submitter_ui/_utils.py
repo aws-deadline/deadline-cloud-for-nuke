@@ -28,9 +28,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 # tail (which config, which files) is worth pinning.
 OCIO_CONFIGS_PLACEHOLDER = "<NUKE_OCIO_CONFIGS>"
 # Applied at comparison time and when writing goldens, so committed files are
-# already canonical. Quotes are excluded so a quoted YAML scalar keeps them.
+# already canonical. Anchored on a root or drive rather than "no whitespace",
+# so a Windows install under "Program Files" still matches, and either
+# separator is accepted because the comparison normalizes them only afterwards.
 _PATH_REGEX_REPLACEMENTS: tuple[tuple[str, str], ...] = (
-    (r"[^\s'\"]*/OCIOConfigs/configs", OCIO_CONFIGS_PLACEHOLDER),
+    (r"(?:[A-Za-z]:)?[\\/][^\"'\n]*?[\\/]OCIOConfigs[\\/]configs", OCIO_CONFIGS_PLACEHOLDER),
 )
 
 

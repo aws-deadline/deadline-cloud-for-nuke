@@ -75,8 +75,9 @@ Ported Squish cases:
 | `custom_settings_gui` | `custom_settings` |
 | `ocio_gui` | `ocio_stock_write1`, `ocio_stock_write2` |
 
-`write_node_gui` submitted twice from one scene; since a case here exports one
-bundle, each submission became its own case.
+`write_node_gui` and `ocio_gui` each submitted twice from one scene; since a
+case here exports one bundle, each submission became its own case. The OCIO
+cases pin the `aces_1.2` stock config, as the Squish scene did.
 
 Remaining: `manual_attachments_gui`, `invalid_conda_gui`. Squish stays until they are ported.
 

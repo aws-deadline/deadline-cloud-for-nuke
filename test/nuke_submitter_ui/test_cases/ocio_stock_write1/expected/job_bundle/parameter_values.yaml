@@ -14,7 +14,7 @@ parameterValues:
 - name: TargetChunkDuration
   value: 0
 - name: OCIOConfigPath
-  value: <NUKE_OCIO_CONFIGS>/nuke-default/config.ocio
+  value: <NUKE_OCIO_CONFIGS>/aces_1.2/config.ocio
 - name: deadline:targetTaskRunStatus
   value: READY
 - name: deadline:maxFailedTasksCount
