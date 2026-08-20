@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,16 @@ _T0 = time.monotonic()
 PATH_PLACEHOLDER = "<REPO_ROOT>"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# OCIO-managed scenes reference Nuke's stock config, whose path carries the
+# install location, the exact Nuke version and the platform's layout. Only the
+# tail (which config, which files) is worth pinning.
+OCIO_CONFIGS_PLACEHOLDER = "<NUKE_OCIO_CONFIGS>"
+# Applied at comparison time and when writing goldens, so committed files are
+# already canonical. Quotes are excluded so a quoted YAML scalar keeps them.
+_PATH_REGEX_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    (r"[^\s'\"]*/OCIOConfigs/configs", OCIO_CONFIGS_PLACEHOLDER),
+)
+
 
 def log(message: str) -> None:
     elapsed = time.monotonic() - _T0
@@ -33,7 +44,8 @@ def nuke_bundle_normalization() -> BundleNormalization:
     """Normalization applied to BOTH bundles before structural comparison.
 
     * Machine-specific absolute paths: committed goldens carry
-      ``PATH_PLACEHOLDER`` where the resolved repo root appears.
+      ``PATH_PLACEHOLDER`` where the resolved repo root appears, and
+      ``OCIO_CONFIGS_PLACEHOLDER`` where Nuke's stock OCIO config tree does.
     * Conda package pins: the integration's own version and the Nuke minor
       version churn with releases; both sides are mapped to a canonical
       form so goldens don't need updating on every version bump. Ordering
@@ -42,7 +54,8 @@ def nuke_bundle_normalization() -> BundleNormalization:
     """
     return BundleNormalization(
         replacements={PATH_PLACEHOLDER: str(_REPO_ROOT)},
-        regex_replacements=(
+        regex_replacements=_PATH_REGEX_REPLACEMENTS
+        + (
             (
                 r"nuke=\d+\.\d+ nuke-openjd=\d+\.\d+\.\*",
                 "nuke=VERSION nuke-openjd=VERSION",
@@ -87,7 +100,8 @@ def write_goldens_from_actual(actual_dir: Path, expected_dir: Path) -> None:
     # sidecar, which are not golden material.
     for name in ("template.yaml", "parameter_values.yaml", "asset_references.yaml"):
         text = (actual_dir / name).read_text(encoding="utf-8")
-        (expected_dir / name).write_text(
-            text.replace(str(_REPO_ROOT), PATH_PLACEHOLDER), encoding="utf-8"
-        )
+        text = text.replace(str(_REPO_ROOT), PATH_PLACEHOLDER)
+        for pattern, replacement in _PATH_REGEX_REPLACEMENTS:
+            text = re.sub(pattern, replacement, text)
+        (expected_dir / name).write_text(text, encoding="utf-8")
         log(f"golden written: {expected_dir / name}")

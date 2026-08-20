@@ -73,11 +73,12 @@ Ported Squish cases:
 | `write_node_limit_gui` | `write_node_frame_limit` |
 | `write_node_gui` | `write_node_selection_single`, `write_node_selection_all` |
 | `custom_settings_gui` | `custom_settings` |
+| `ocio_gui` | `ocio_stock_write1`, `ocio_stock_write2` |
 
 `write_node_gui` submitted twice from one scene; since a case here exports one
 bundle, each submission became its own case.
 
-Remaining: `manual_attachments_gui`, `ocio_gui`, `invalid_conda_gui`. Squish stays until they are ported.
+Remaining: `manual_attachments_gui`, `invalid_conda_gui`. Squish stays until they are ported.
 
 Scenes are built programmatically rather than opening the Squish `.nk` sample
 files, so the suite needs no Git LFS assets and each case's inputs are
