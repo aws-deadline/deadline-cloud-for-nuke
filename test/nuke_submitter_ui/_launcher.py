@@ -52,7 +52,14 @@ ENV_OPEN_DELAY_MS = "NUKE_SUBMITTER_UI_OPEN_DELAY_MS"
 
 # Inherited AWS settings that would override the mock credentials or point
 # at restricted files (e.g. agent credential sandboxes).
-_SCRUBBED_ENV_VARS = ("AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE", "AWS_PROFILE")
+# OCIO is scrubbed because the submitter prefers an OCIO env var over the
+# scene's own config, so a host value would change what the OCIO cases test.
+_SCRUBBED_ENV_VARS = (
+    "AWS_CONFIG_FILE",
+    "AWS_SHARED_CREDENTIALS_FILE",
+    "AWS_PROFILE",
+    "OCIO",
+)
 
 
 def _version_key(path: Path) -> tuple[int, ...]:

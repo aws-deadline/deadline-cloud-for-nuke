@@ -1,0 +1,12 @@
+assetReferences:
+  inputs:
+    directories:
+    - <NUKE_OCIO_CONFIGS>/aces_1.2/luts
+    filenames:
+    - <NUKE_OCIO_CONFIGS>/aces_1.2/config.ocio
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/ocio_stock_write2/actual/ocio_stock_write2.nk
+  outputs:
+    directories:
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/ocio_stock_write2/actual/renders/write1
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/ocio_stock_write2/actual/renders/write2
+  referencedPaths: []
