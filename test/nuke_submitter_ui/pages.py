@@ -73,6 +73,14 @@ _TEXT_FRAME_RANGE = 1
 # Positional within the shared tab's "Job Properties" group, in document order
 # (1-based). That group lives in the shared client's UI, so its name is the
 # stable anchor and only the order inside it is positional.
+# The Conda queue environment's fields, on the shared tab, present only when
+# the queue serves that environment. Both are anonymous in the AX tree and
+# each label is a sibling static_text that FOLLOWS its field, so they are
+# positional within the group.
+_GROUP_QUEUE_ENVIRONMENT_CONDA = "Queue Environment: Conda"
+_TEXT_CONDA_PACKAGES = 1
+_TEXT_CONDA_CHANNELS = 2
+
 _GROUP_JOB_PROPERTIES = "Job Properties"
 _SPIN_PRIORITY = 1
 _SPIN_MAX_FAILED_TASKS = 2
@@ -152,6 +160,28 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         return set_text_field(
             self.window, _DESCRIPTION_FIELD_AX_NAME, description, timeout=WIDGET_TIMEOUT
         )
+
+    def _conda_field(self, index: int) -> xa11y.Locator:
+        self.switch_to_shared_tab()
+        field = (
+            self.window.descendant(f'group[name="{_GROUP_QUEUE_ENVIRONMENT_CONDA}"]')
+            .descendant("text_field")
+            .nth(index)
+        )
+        field.wait_visible(timeout=WIDGET_TIMEOUT)
+        return field
+
+    def conda_packages(self) -> str:
+        return self._conda_field(_TEXT_CONDA_PACKAGES).element().value or ""
+
+    def set_conda_packages(self, packages: str) -> None:
+        self._conda_field(_TEXT_CONDA_PACKAGES).set_value(packages)
+
+    def conda_channels(self) -> str:
+        return self._conda_field(_TEXT_CONDA_CHANNELS).element().value or ""
+
+    def set_conda_channels(self, channels: str) -> None:
+        self._conda_field(_TEXT_CONDA_CHANNELS).set_value(channels)
 
     def wait_farm_resolved(self, farm_name: str, timeout: float = FARM_RESOLVE_TIMEOUT) -> None:
         """Wait until the farm display name appears in the dialog tree,

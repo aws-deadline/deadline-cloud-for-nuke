@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import time
 from datetime import datetime
@@ -16,6 +17,17 @@ from deadline_test_fixtures.job_bundle import (
 )
 
 _T0 = time.monotonic()
+
+# Mock backend latency, approximating the real service so timing races are not
+# hidden by a zero-latency mock.
+DEFAULT_MOCK_RESPONSE_DELAY_S = 0.3
+
+
+def mock_response_delay() -> float:
+    return float(
+        os.environ.get("MOCK_DEADLINE_RESPONSE_DELAY_S", str(DEFAULT_MOCK_RESPONSE_DELAY_S))
+    )
+
 
 # Placeholder used in committed expected/job_bundle/ files wherever the
 # resolved repo root appears (scene file, output dirs). Replaced with the
