@@ -1,0 +1,190 @@
+name: "Nuke xa11y Integration Tests - macOS"
+
+on:
+  push:
+    branches:
+      - mainline
+      - feature/ci-tests
+    paths-ignore:
+      - CHANGELOG.md
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      AWS_OIDC_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      INSTALLER_BUCKET:
+        required: true
+      INSTALLER_BUCKET_EXPECTED_OWNER:
+        required: true
+      NUKE_INSTALLER_S3_KEY:
+        required: true
+      NUKE_INSTALLER_SHA256:
+        required: true
+      LICENSE_ROLE_ARN:
+        required: true
+      BASTION_INSTANCE_TAG:
+        required: true
+
+concurrency:
+  group: nuke-integration-tests
+
+jobs:
+  IntegMacOS:
+    if: >-
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      (github.ref == 'refs/heads/mainline' ||
+      github.ref == 'refs/heads/feature/ci-tests')
+    name: xa11y Integration Tests (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      FOUNDRY_LICENSE_PORT: "6101"
+      foundry_LICENSE: "6101@127.0.0.1"
+      FN_NUKE_DISABLE_GPU_ACCELERATION: "1"
+      INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+      INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+      NUKE_INSTALLER_S3_KEY: ${{ secrets.NUKE_INSTALLER_S3_KEY }}
+      NUKE_INSTALLER_SHA256: ${{ secrets.NUKE_INSTALLER_SHA256 }}
+      NUKE_VERSION: "16.0v7"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install hatch
+        run: pip install "hatch==1.18.0"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Grant accessibility
+        run: |
+          set -euo pipefail
+          hatch env create integ-xa11y
+          XA11Y_PYTHON=$(hatch -e integ-xa11y run python -c "import os,sys; print(os.path.realpath(sys.executable))")
+          SETUP_PYTHON=$(python3 -c "import os,sys; print(os.path.realpath(sys.executable))")
+          for BIN_PATH in "$SETUP_PYTHON" "$XA11Y_PYTHON"; do
+            sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+              "INSERT OR REPLACE INTO access(service,client,client_type,auth_value,auth_reason,auth_version,csreq,policy_id,indirect_object_identifier_type,indirect_object_identifier,indirect_object_code_identity,flags,last_modified) \
+              VALUES('kTCCServiceAccessibility','${BIN_PATH}',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
+          done
+          sudo launchctl stop com.apple.tccd 2>/dev/null || true
+          sleep 2
+
+      - name: Install Nuke
+        run: |
+          set -euo pipefail
+          python ./pipeline/setup-runner.py \
+            --version "$NUKE_VERSION" \
+            --github-env "$GITHUB_ENV"
+
+      - name: Install Deadline Cloud submitter into Nuke
+        run: |
+          set -euo pipefail
+          test -x "$NUKE_EXECUTABLE"
+          test -x "$NUKE_PYTHON"
+          "$NUKE_PYTHON" -m pip install --user .
+          "$NUKE_PYTHON" -c \
+            "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('deadline.nuke_submitter') else 'deadline.nuke_submitter is not importable')"
+
+      - name: Bring up license tunnel and run xa11y tests
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+          BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+        run: |
+          set -euo pipefail
+          region=$(echo "$AWS_REGION" | tr -d '[:space:]')
+          licensePort=$(echo "$FOUNDRY_LICENSE_PORT" | tr -d '[:space:]')
+
+          # Update the version and both architecture checksums together.
+          ssmPluginVersion="1.2.835.0"
+          case "$(uname -m)" in
+            arm64)
+              ssmPluginArch="mac_arm64"
+              ssmPluginSha256="1392dde1e7c91c4e66996e8a8374c9be2a1907847cf96259311cf9c53fdff900"
+              ;;
+            x86_64)
+              ssmPluginArch="mac"
+              ssmPluginSha256="2e437c5a9ca54a600e11c1c8994d7e7a776ee16ea7c0bb26d0923882aceda4c4"
+              ;;
+            *) echo "ERROR: Unsupported macOS architecture: $(uname -m)"; exit 1 ;;
+          esac
+
+          curl --fail --silent --show-error --location \
+            "https://s3.amazonaws.com/session-manager-downloads/plugin/${ssmPluginVersion}/${ssmPluginArch}/session-manager-plugin.pkg" \
+            --output "$RUNNER_TEMP/ssm-plugin.pkg"
+          printf '%s  %s\n' "$ssmPluginSha256" "$RUNNER_TEMP/ssm-plugin.pkg" |
+            shasum -a 256 --check -
+          sudo installer -pkg "$RUNNER_TEMP/ssm-plugin.pkg" -target /
+
+          aws configure set profile.license.role_arn "$LICENSE_ROLE_ARN"
+          aws configure set profile.license.credential_source Environment
+          aws configure set profile.license.region "$region"
+
+          bastion=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=$BASTION_INSTANCE_TAG" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --profile license --region "$region" --output text)
+          if [ -z "$bastion" ] || [ "$bastion" = "None" ]; then
+            echo "ERROR: Bastion host not found"
+            exit 1
+          fi
+
+          aws ssm start-session \
+            --target "$bastion" \
+            --document-name DccInteg-PortForwardToLicenseServer \
+            --parameters "{\"portNumber\":[\"$licensePort\"],\"localPortNumber\":[\"$licensePort\"]}" \
+            --profile license --region "$region" > "$RUNNER_TEMP/ssm.log" 2>&1 &
+          echo "SSM_PROCESS_ID=$!" >> "$GITHUB_ENV"
+
+          ready=false
+          for _ in $(seq 1 12); do
+            sleep 5
+            if nc -z 127.0.0.1 "$licensePort" 2>/dev/null; then
+              ready=true
+              break
+            fi
+          done
+          if [ "$ready" != "true" ]; then
+            echo "ERROR: SSM port forward not up after 60 seconds"
+            cat "$RUNNER_TEMP/ssm.log" || true
+            exit 1
+          fi
+          echo "Foundry license tunnel is ready"
+
+          ssmSessionId=$(grep -oE 'SessionId: [A-Za-z0-9._-]+' "$RUNNER_TEMP/ssm.log" | head -1 | awk '{print $2}' || true)
+          echo "SSM_SESSION_ID=$ssmSessionId" >> "$GITHUB_ENV"
+
+          hatch run integ-xa11y:test
+
+      - name: Tear down
+        if: always()
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          region=$(echo "$AWS_REGION" | tr -d '[:space:]')
+          if [ -n "${SSM_SESSION_ID:-}" ]; then
+            aws ssm terminate-session --session-id "$SSM_SESSION_ID" \
+              --profile license --region "$region" 2>/dev/null || true
+          fi
+          if [ -n "${SSM_PROCESS_ID:-}" ]; then
+            kill "$SSM_PROCESS_ID" 2>/dev/null || true
+          fi
+          pkill -f "session-manager-plugin" 2>/dev/null || true

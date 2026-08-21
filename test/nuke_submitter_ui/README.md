@@ -12,19 +12,30 @@ ported.
 
 - A licensed GUI Nuke install, with this repo installed into Nuke's Python
   (see `DEVELOPMENT.md`). `NUKE_EXECUTABLE` overrides discovery.
-- Test dependencies: `pip install -r requirements-ui-testing.txt`
+- [Hatch](https://hatch.pypa.io/), which creates the test environment and
+  installs `requirements-ui-testing.txt`.
 - macOS: grant the terminal running pytest Accessibility permission
   (System Settings → Privacy & Security → Accessibility), then restart it.
 
 ## Running
 
 ```
-python -m pytest test/nuke_submitter_ui -o addopts= -q
+hatch run integ-xa11y:test
 ```
 
-`-o addopts=` clears the repo-wide pytest flags (coverage and xdist), which
-don't apply to GUI tests. The suite is excluded from the default run
+To run one case:
+
+```
+hatch run integ-xa11y:test test/nuke_submitter_ui -k custom_settings
+```
+
+The Hatch script clears the repo-wide pytest flags (coverage and xdist),
+which don't apply to GUI tests. The suite is excluded from the default run
 (`testpaths`) and skips when no Nuke installation is found.
+
+Repository maintainers can run the suite on the configured macOS runner by
+pushing a commit to the upstream repository's `feature/ci-tests` branch. The
+`Nuke xa11y Integration Tests - macOS` workflow starts automatically.
 
 Keep hands off the keyboard and mouse while tests run: they use real
 (synthetic) clicks and keystrokes, which land in whatever window has focus.
@@ -44,6 +55,22 @@ test_cases/<case>/
   expected/job_bundle/  # committed goldens (normalization: _utils.py)
   actual/               # runtime output; left behind on failure, gitignored
 ```
+
+## Adding a test case
+
+1. Create `test_cases/<case>/input/scene.py`. Build the scene inside Nuke and
+   save it to the path in `NUKE_SUBMITTER_UI_SCENE_FILE`.
+2. Add `input/configure.py` when the case must change submitter settings. It
+   must define `configure(dialog)` using the page objects in `pages.py`.
+3. Generate the expected job bundle:
+
+   ```
+   NUKE_SUBMITTER_UI_UPDATE_GOLDENS=1 hatch run integ-xa11y:test test/nuke_submitter_ui -k <case>
+   ```
+
+4. Review the generated files under `expected/job_bundle/`, then run the case
+   again without `NUKE_SUBMITTER_UI_UPDATE_GOLDENS`.
+5. Run `hatch run integ-xa11y:test` to verify the complete xa11y suite.
 
 Diagnostic env vars:
 
