@@ -1,0 +1,10 @@
+assetReferences:
+  inputs:
+    directories: []
+    filenames:
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/write_node_selection_all/actual/write_node_selection_all.nk
+  outputs:
+    directories:
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/write_node_selection_all/actual/renders/write1
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/write_node_selection_all/actual/renders/write2
+  referencedPaths: []

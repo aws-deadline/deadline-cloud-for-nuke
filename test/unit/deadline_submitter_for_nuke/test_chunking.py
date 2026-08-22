@@ -111,69 +111,67 @@ class TestJobTemplate:
 class TestSubmitterLogic:
     """Tests for parameter values with chunking."""
 
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.nuke")
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.nuke_ocio")
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.get_nuke_script_file")
-    def test_parameter_values_include_chunking(self, mock_script_file, mock_ocio, mock_nuke):
-        from deadline.nuke_submitter.deadline_submitter_for_nuke import (
-            _get_render_parameter_values,
-        )
+    @patch("deadline.nuke_submitter.submitter.get_project_path", return_value="/proj")
+    @patch("deadline.nuke_submitter.submitter.nuke")
+    @patch("deadline.nuke_submitter.submitter.nuke_ocio")
+    @patch("deadline.nuke_submitter.submitter.get_nuke_script_file", return_value="/proj/scene.nk")
+    def test_parameter_values_include_chunking(
+        self, mock_script_file, mock_ocio, mock_nuke, mock_project
+    ):
+        from deadline.nuke_submitter.submitter import NukeSubmitter
 
         mock_ocio.is_OCIO_enabled.return_value = False
         mock_nuke.root.return_value = MagicMock()
         mock_nuke.root.return_value.frameRange.return_value = "1-100"
 
-        settings = SubmitterUISettings()
-        settings.jobtype_specific_settings = RenderSettings(
-            chunk_size=25,
-            target_chunk_duration=600,
-        )
+        # Drive the real settings the submitter produces, then set the chunking
+        # fields the user would configure, rather than constructing settings by hand.
+        submitter = NukeSubmitter()
+        settings = submitter.get_settings()
+        settings.chunk_size = 25
+        settings.target_chunk_duration = 600
 
-        param_values = _get_render_parameter_values(settings, queue_parameters=[])
+        param_values = submitter.get_parameter_values(settings, queue_parameters=[])
 
         param_map = {p["name"]: p["value"] for p in param_values}
         assert param_map["ChunkSize"] == 25
         assert param_map["TargetChunkDuration"] == 600
 
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.nuke")
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.nuke_ocio")
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.get_nuke_script_file")
+    @patch("deadline.nuke_submitter.submitter.nuke")
+    @patch("deadline.nuke_submitter.submitter.nuke_ocio")
+    @patch("deadline.nuke_submitter.submitter.get_nuke_script_file")
     def test_parameter_values_default_chunking(self, mock_script_file, mock_ocio, mock_nuke):
         """Default chunk_size=1 and target_chunk_duration=0 are always passed."""
-        from deadline.nuke_submitter.deadline_submitter_for_nuke import (
-            _get_render_parameter_values,
-        )
+        from deadline.nuke_submitter.submitter import NukeSubmitter, NukeSubmitterSettings
 
         mock_ocio.is_OCIO_enabled.return_value = False
         mock_nuke.root.return_value = MagicMock()
         mock_nuke.root.return_value.frameRange.return_value = "1-100"
 
-        settings = SubmitterUISettings()
-        settings.jobtype_specific_settings = RenderSettings()
+        settings = NukeSubmitterSettings()
 
-        param_values = _get_render_parameter_values(settings, queue_parameters=[])
+        param_values = NukeSubmitter().get_parameter_values(settings, queue_parameters=[])
 
         param_map = {p["name"]: p["value"] for p in param_values}
         assert param_map["ChunkSize"] == 1
         assert param_map["TargetChunkDuration"] == 0
 
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.nuke")
-    @patch("deadline.nuke_submitter.deadline_submitter_for_nuke.nuke_ocio")
+    @patch("deadline.nuke_submitter.submitter.nuke")
+    @patch("deadline.nuke_submitter.submitter.nuke_ocio")
     def test_get_job_template_has_task_chunking(self, mock_ocio, mock_nuke):
         """The single template should always have TASK_CHUNKING."""
-        from deadline.nuke_submitter.deadline_submitter_for_nuke import _get_job_template
+        from deadline.nuke_submitter.submitter import NukeSubmitter, NukeSubmitterSettings
 
         mock_ocio.is_OCIO_enabled.return_value = False
         mock_nuke.views.return_value = []
         mock_nuke.root.return_value = MagicMock()
 
-        settings = SubmitterUISettings()
-        settings.jobtype_specific_settings = RenderSettings()
+        settings = NukeSubmitterSettings()
 
         with patch(
-            "deadline.nuke_submitter.deadline_submitter_for_nuke.find_all_write_nodes",
+            "deadline.nuke_submitter.submitter.find_all_write_nodes",
             return_value=[],
         ):
-            template = _get_job_template(settings)
+            template = NukeSubmitter().get_job_template(settings)
 
         assert "TASK_CHUNKING" in template.get("extensions", [])

@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 
-from deadline.nuke_submitter.deadline_submitter_for_nuke import (
+from deadline.nuke_submitter.submitter import (
     _add_ocio_path_to_job_template,
     _remove_ocio_path_from_job_template,
 )

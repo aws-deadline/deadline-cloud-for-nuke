@@ -1,3 +1,7 @@
+## 0.18.19 (2026-08-03)
+
+### Features
+* Added `NukeSubmitter` class implementing the unified `BaseSubmitter` ABC, providing headless, Qt-free programmatic access to job templates, parameters, and asset references for Nuke render submissions. (#320)
 ## 0.18.18 (2026-07-15)
 
 ### Features
