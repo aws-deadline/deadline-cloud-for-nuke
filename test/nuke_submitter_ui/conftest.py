@@ -28,6 +28,7 @@ from deadline_test_fixtures.deadline_mock import (
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _launcher import find_nuke_executable  # noqa: E402
+from _utils import mock_response_delay  # noqa: E402
 
 
 def pytest_collection_modifyitems(config, items):
@@ -74,7 +75,7 @@ def mock_deadline_server() -> Iterator[MockDeadlineServerProcess]:
     service's observed 200-600 ms, so timing races that a zero-latency mock
     would hide still surface. Override via MOCK_DEADLINE_RESPONSE_DELAY_S.
     """
-    delay = float(os.environ.get("MOCK_DEADLINE_RESPONSE_DELAY_S", "0.3"))
+    delay = mock_response_delay()
     server = MockDeadlineServerProcess(MockDeadlineScenario(response_delay_s=delay)).start()
     try:
         yield server

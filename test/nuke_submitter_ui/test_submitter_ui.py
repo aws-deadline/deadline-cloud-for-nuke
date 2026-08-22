@@ -14,12 +14,18 @@ from __future__ import annotations
 
 import importlib.util
 import os
+from contextlib import ExitStack
+from dataclasses import replace
 from pathlib import Path
 from shutil import rmtree
 from typing import Callable, Optional
 
 import pytest
-from deadline_test_fixtures.deadline_mock import write_deadline_config
+from deadline_test_fixtures.deadline_mock import (
+    MockDeadlineScenario,
+    MockDeadlineServerProcess,
+    write_deadline_config,
+)
 from deadline_test_fixtures.job_bundle import (
     JobBundleCase,
     assert_valid_job_bundle,
@@ -31,6 +37,7 @@ from _utils import (
     assert_bundle_matches_golden,
     copy_bundle_files_flat,
     log,
+    mock_response_delay,
     write_goldens_from_actual,
 )
 from pages import NukeSubmitterDialog
@@ -49,6 +56,35 @@ _CASES = sorted(
     for path in _CASES_ROOT.iterdir()
     if path.is_dir() and not path.name.startswith((".", "_"))
 )
+
+
+def _load_scenario(cases_root: Path, case: str) -> Optional[MockDeadlineScenario]:
+    """Load a case's optional input/scenario.py.
+
+    Cases share the session's mock backend, whose scenario has no queue
+    environments. A case needing more (a Conda queue environment, so the
+    dialog renders those fields) defines a top-level ``scenario()`` and gets
+    its own server. A broken scenario.py fails loudly rather than skipping.
+    """
+    scenario_path = cases_root / case / "input" / "scenario.py"
+    if not scenario_path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location(f"_scenario_{case}", scenario_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load scenario at {scenario_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    build = getattr(module, "scenario", None)
+    if not callable(build):
+        raise AttributeError(f"{scenario_path} must define a top-level scenario() function")
+    scenario = build()
+    if not isinstance(scenario, MockDeadlineScenario):
+        raise TypeError(f"{scenario_path}: scenario() must return a MockDeadlineScenario")
+    if not scenario.response_delay_s:
+        # Match the session server, so a per-case server is not silently
+        # zero-latency and hiding races.
+        scenario = replace(scenario, response_delay_s=mock_response_delay())
+    return scenario
 
 
 def _load_configurator(cases_root: Path, case: str) -> Optional[DialogConfigurator]:
@@ -119,40 +155,52 @@ def test_submitter_export_bundle(
     actual_dir = bundle_case.prepare_actual_dir()
     configure = _load_configurator(_CASES_ROOT, case)
 
-    config_path, job_history_dir = _write_case_config(tmp_path, mock_deadline_server.scenario)
-    env = build_nuke_environment(
-        deadline_endpoint_url=mock_deadline_server.base_url,
-        config_path=config_path,
-        work_dir=tmp_path,
-        scene_script=scene_script,
-        scene_file=actual_dir / f"{case}.nk",
-    )
+    with ExitStack() as stack:
+        case_scenario = _load_scenario(_CASES_ROOT, case)
+        if case_scenario is None:
+            server, backend = mock_deadline_server, mock_backend
+        else:
+            log(f"case {case}: starting a case-specific mock backend")
+            server = stack.enter_context(MockDeadlineServerProcess(case_scenario))
+            backend = server.backend
+            backend.reset()
 
-    log(f"case {case}: launching Nuke")
-    session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
-    try:
-        dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
-        dialog.wait_farm_resolved(_MOCK_FARM_NAME)
-        dialog.wait_settled()
+        config_path, job_history_dir = _write_case_config(tmp_path, server.scenario)
+        env = build_nuke_environment(
+            deadline_endpoint_url=server.base_url,
+            config_path=config_path,
+            work_dir=tmp_path,
+            scene_script=scene_script,
+            scene_file=actual_dir / f"{case}.nk",
+        )
 
-        if os.environ.get("NUKE_SUBMITTER_UI_DIALOG_DUMP") == "1":
-            dialog.dump_settings_tabs()
-            pytest.fail("NUKE_SUBMITTER_UI_DIALOG_DUMP=1: dumped settings tabs, skipping export")
+        log(f"case {case}: launching Nuke")
+        session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
+        try:
+            dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
+            dialog.wait_farm_resolved(_MOCK_FARM_NAME)
+            dialog.wait_settled()
 
-        if configure is not None:
-            log(f"case {case}: running configurator")
-            configure(dialog)
+            if os.environ.get("NUKE_SUBMITTER_UI_DIALOG_DUMP") == "1":
+                dialog.dump_settings_tabs()
+                pytest.fail(
+                    "NUKE_SUBMITTER_UI_DIALOG_DUMP=1: dumped settings tabs, skipping export"
+                )
 
-        log(f"case {case}: exporting bundle")
-        dialog.export_bundle()
-    finally:
-        session.close()
+            if configure is not None:
+                log(f"case {case}: running configurator")
+                configure(dialog)
 
-    exported_bundle = find_complete_job_bundle(job_history_dir)
-    assert exported_bundle is not None, f"no complete bundle found under {job_history_dir}"
-    copy_bundle_files_flat(exported_bundle, actual_dir)
+            log(f"case {case}: exporting bundle")
+            dialog.export_bundle()
+        finally:
+            session.close()
 
-    _assert_expected_mock_traffic(mock_backend)
+        exported_bundle = find_complete_job_bundle(job_history_dir)
+        assert exported_bundle is not None, f"no complete bundle found under {job_history_dir}"
+        copy_bundle_files_flat(exported_bundle, actual_dir)
+
+        _assert_expected_mock_traffic(backend)
 
     assert_valid_job_bundle(actual_dir / "template.yaml")
 

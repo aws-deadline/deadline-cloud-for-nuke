@@ -1,0 +1,9 @@
+assetReferences:
+  inputs:
+    directories: []
+    filenames:
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/conda_queue_environment/actual/conda_queue_environment.nk
+  outputs:
+    directories:
+    - <REPO_ROOT>/test/nuke_submitter_ui/test_cases/conda_queue_environment/actual/renders
+  referencedPaths: []
