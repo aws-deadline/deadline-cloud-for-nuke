@@ -1,6 +1,6 @@
 # Dependencies for the xa11y-driven GUI test suite in test/nuke_submitter_ui.
 # See test/nuke_submitter_ui/README.md for setup and usage.
-deadline-cloud-test-fixtures == 0.18.*
+deadline-cloud-test-fixtures >= 0.18.20
 xa11y == 0.13.*
 openjd-cli == 0.7.*
 # Verified activation of the Nuke app (see _launcher.py platform notes).

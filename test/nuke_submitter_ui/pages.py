@@ -44,7 +44,7 @@ from typing import Callable
 
 import xa11y
 from _utils import log
-from deadline_test_fixtures.xa11y import SharedSubmitterDialog
+from deadline_test_fixtures.xa11y import SharedSubmitterDialog, dismiss_bundle_saved_popup
 from deadline_test_fixtures.xa11y.controls import (
     TAB_JOB_SPECIFIC,
     TAB_SHARED,
@@ -118,7 +118,7 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         window: xa11y.Locator,
         ensure_frontmost: Callable[[], object] | None = None,
     ) -> None:
-        super().__init__(window)
+        super().__init__(window, app_root=app)
         self.app = app
         self.window = window
         self._ensure_frontmost = ensure_frontmost or (lambda: None)
@@ -487,31 +487,13 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     # ------------------------------------------------------------------
 
     def export_bundle(self, timeout: float = EXPORT_TIMEOUT) -> None:
-        """Press 'Export bundle' and dismiss the confirmation message box.
-
-        No file dialog is involved: the bundle is written to the configured
-        ``job_history_dir``. The confirmation QMessageBox is a separate
-        window whose AX name is empty on macOS, so it is matched by its
-        body text ("Saved the submission as a job bundle") before OK is
-        pressed — an app-wide bare OK match could hit an unrelated dialog.
-        """
+        """Save the bundle locally and dismiss the host-owned confirmation."""
         self._front()
-        self.button("Export bundle").press()
-        body = self.app.locator("static_text[name^='Saved the submission as a job bundle']")
-        ok = self.app.locator('button[name="OK"]')
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            self._front()
-            try:
-                if body.exists() and ok.exists():
-                    ok.press()
-                    return
-            except Exception:
-                # The message box may be mid-animation or the tree mid-churn
-                # after the export; poll again until the deadline.
-                pass
-            time.sleep(0.5)
-        raise TimeoutError(f"Export confirmation did not appear in {timeout}s\n{self.dump_tree()}")
+        self.save_bundle_locally(timeout=timeout)
+        if not dismiss_bundle_saved_popup(self.app.pid, timeout=timeout):
+            raise TimeoutError(
+                f"Bundle saved confirmation did not appear in {timeout}s\n{self.dump_tree()}"
+            )
 
     def dump_tree(self) -> str:
         self._front()
