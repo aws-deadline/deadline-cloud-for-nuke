@@ -72,16 +72,19 @@ def _load_configurator(cases_root: Path, case: str) -> Optional[DialogConfigurat
 
 
 def _write_case_config(tmp_path: Path, scenario) -> tuple[Path, Path]:
-    """Write the isolated deadline config; return (config_path, history_dir)."""
+    """Write the isolated deadline config; return (config_path, export_dir)."""
     config_path = tmp_path / "deadline_config"
     job_history_dir = tmp_path / "job_history"
+    export_dir = tmp_path / "exported_bundles"
+    export_dir.mkdir()
     write_deadline_config(
         config_path,
         farm_id=scenario.farm_id,
         queue_id=scenario.queue_id,
         job_history_dir=job_history_dir,
+        job_bundle_default_directory=export_dir,
     )
-    return config_path, job_history_dir
+    return config_path, export_dir
 
 
 def _assert_expected_mock_traffic(mock_backend) -> None:
@@ -119,7 +122,7 @@ def test_submitter_export_bundle(
     actual_dir = bundle_case.prepare_actual_dir()
     configure = _load_configurator(_CASES_ROOT, case)
 
-    config_path, job_history_dir = _write_case_config(tmp_path, mock_deadline_server.scenario)
+    config_path, export_dir = _write_case_config(tmp_path, mock_deadline_server.scenario)
     env = build_nuke_environment(
         deadline_endpoint_url=mock_deadline_server.base_url,
         config_path=config_path,
@@ -143,13 +146,13 @@ def test_submitter_export_bundle(
             log(f"case {case}: running configurator")
             configure(dialog)
 
-        log(f"case {case}: exporting bundle")
+        log(f"case {case}: saving bundle locally")
         dialog.export_bundle()
     finally:
         session.close()
 
-    exported_bundle = find_complete_job_bundle(job_history_dir)
-    assert exported_bundle is not None, f"no complete bundle found under {job_history_dir}"
+    exported_bundle = find_complete_job_bundle(export_dir)
+    assert exported_bundle is not None, f"no complete bundle found under {export_dir}"
     copy_bundle_files_flat(exported_bundle, actual_dir)
 
     _assert_expected_mock_traffic(mock_backend)
