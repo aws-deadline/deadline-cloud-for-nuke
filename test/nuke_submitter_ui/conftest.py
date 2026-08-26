@@ -6,7 +6,7 @@ Requirements, setup, case layout, and platform notes: see ``README.md`` in
 this directory. Canonical invocation (the suite is not part of the default
 unit-test run)::
 
-    python -m pytest test/nuke_submitter_ui -o addopts= -q
+    hatch run integ-xa11y:test
 
 Tests run fully offline against the out-of-process mock Deadline backend
 from ``deadline-cloud-test-fixtures``; no farm and no AWS credentials.
@@ -41,7 +41,7 @@ def pytest_collection_modifyitems(config, items):
     if items and config.pluginmanager.hasplugin("xdist") and config.getoption("numprocesses", 0):
         raise pytest.UsageError(
             "test/nuke_submitter_ui cannot run under pytest-xdist; use the "
-            "canonical command: python -m pytest test/nuke_submitter_ui -o addopts= -q"
+            "canonical command: hatch run integ-xa11y:test"
         )
 
 

@@ -27,6 +27,15 @@ python = ["3.9", "3.10", "3.11"]
 [envs.integ.scripts]
 test = "pytest --no-cov {args:test/*/integ}"
 
+[envs.integ-xa11y]
+python = "3.11"
+pre-install-commands = [
+  "pip install -r requirements-ui-testing.txt"
+]
+
+[envs.integ-xa11y.scripts]
+test = "python -m pytest {args:test/nuke_submitter_ui} -o addopts= -vv --durations=5"
+
 [envs.e2e.scripts]
 test = "pytest --no-cov {args:test/*/e2e}"
 

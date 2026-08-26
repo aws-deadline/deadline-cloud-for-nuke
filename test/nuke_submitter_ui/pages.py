@@ -30,17 +30,16 @@ the canonical write-up for the suite; other modules reference it:
   AX activation action (rows accept only ``focus``; pressing their text
   is a no-op), so selection uses ``show_menu`` plus physical input: a
   real click at the target row, falling back to arrow keys + Enter.
-* QSpinBox AX increment/decrement jump by 10% of the widget's range
-  (Qt maps them to PageUp/PageDown semantics), so exact values are
-  typed instead. A real click is required first because AX ``focus()``
-  does not make a Qt.Tool window key: click into the line edit,
-  double-click to select the number, type, commit with Tab, verify by
-  reading the value back.
+* QSpinBox AX increment/decrement and direct numeric writes are unreliable
+  on macOS. Focusing the control and sending physical Up/Down keys uses the
+  widget's single step. Every transition is verified before continuing.
 """
 
 from __future__ import annotations
 
+import re
 import time
+from functools import partial
 from typing import Callable
 
 import xa11y
@@ -61,6 +60,8 @@ WIDGET_TIMEOUT = 30.0
 FARM_RESOLVE_TIMEOUT = 30.0
 EXPORT_TIMEOUT = 60.0
 POPUP_TIMEOUT = 10.0
+_MAX_SPIN_KEY_PRESSES = 100
+_SPIN_VALUE_PATTERN = re.compile(r"-?\d+")
 
 # Positional indexes on the active Job-specific tab, in document order.
 # NOTE: xa11y Locator.nth is 1-BASED.
@@ -89,6 +90,18 @@ CHECKBOX_INCLUDE_GIZMOS = "Include gizmos in job bundle"
 _DESCRIPTION_FIELD_AX_NAME = "Job Properties"
 
 WRITE_NODES_ALL = "All write nodes"
+
+
+def _spin_value(element: xa11y.Element | None) -> int | None:
+    if element is None or element.value is None:
+        return None
+    match = _SPIN_VALUE_PATTERN.search(element.value)
+    return int(match.group()) if match else None
+
+
+def _spin_value_changed(element: xa11y.Element | None, *, previous: int) -> bool:
+    current = _spin_value(element)
+    return current is not None and current != previous
 
 
 class NukeSubmitterDialog(SharedSubmitterDialog):
@@ -377,49 +390,59 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         spin.wait_visible(timeout=WIDGET_TIMEOUT)
         return spin
 
-    def _type_into_spin(
+    def _set_spin_value(
         self,
         locate: Callable[[], xa11y.Locator],
         target: int,
         description: str,
-        attempts: int = 5,
     ) -> None:
-        """Type *target* into the spin box *locate* returns.
+        """Set a Qt spin box without using macOS's broken AX actions."""
+        self._front()
+        spin = locate()
+        current = _spin_value(spin.element())
+        if current is None:
+            raise AssertionError(f"{description} does not expose an integer value")
+        if current == target:
+            return
 
-        Typed rather than stepped: AX increment/decrement move by 10% of the
-        widget's range (see module notes), so most values are unreachable.
-        *locate* is a callable because the element must be re-resolved per
-        attempt, as the AX tree churns when frontmost state changes.
-        """
-        sim = xa11y.input_sim()
-        last_seen = "<never read>"
-        for _ in range(attempts):
+        input_sim = xa11y.input_sim()
+        observed_values = {current}
+        for _ in range(_MAX_SPIN_KEY_PRESSES):
+            key = "ArrowUp" if current < target else "ArrowDown"
             self._front()
+            spin = locate()
+            spin.focus()
+            spin.wait_focused(timeout=5.0)
+            input_sim.press(key)
             try:
-                element = locate().element()
-                bounds = element.bounds
-                text_spot = (int(bounds.x + bounds.width * 0.3), int(bounds.y + bounds.height / 2))
-                sim.click(text_spot)
-                time.sleep(0.3)
-                sim.double_click(text_spot)  # select the numeric content
-                time.sleep(0.2)
-                sim.type_text(str(target))
-                time.sleep(0.2)
-                sim.press("Tab")
-                time.sleep(0.5)
-                self._front()
-                last_seen = str(locate().element().value or "")
-                if last_seen == str(target):
-                    return
-            except Exception as exc:
-                last_seen = f"<error: {exc!r}>"
-                time.sleep(1.0)
-        raise AssertionError(f"{description} did not reach {target}; last: {last_seen}")
+                spin.wait_until(
+                    partial(_spin_value_changed, previous=current),
+                    timeout=5.0,
+                )
+            except xa11y.TimeoutError:
+                observed = _spin_value(spin.element())
+                raise AssertionError(
+                    f"{description} did not change from {current} after {key}; "
+                    f"stopped at {observed}"
+                ) from None
+            current = _spin_value(spin.element())
+            if current is None:
+                raise AssertionError(f"{description} stopped exposing an integer value")
+            if current == target:
+                return
+            if current in observed_values:
+                raise AssertionError(
+                    f"{description} cannot reach {target}; observed a value cycle at {current}"
+                )
+            observed_values.add(current)
 
-    def _set_spin(self, index: int, target: int, attempts: int = 5) -> None:
-        self._type_into_spin(
-            lambda: self._spin(index), target, f"Spin button {index}", attempts=attempts
+        raise AssertionError(
+            f"{description} did not reach {target} after {_MAX_SPIN_KEY_PRESSES} key presses; "
+            f"stopped at {current}"
         )
+
+    def _set_spin(self, index: int, target: int) -> None:
+        self._set_spin_value(lambda: self._spin(index), target, f"Spin button {index}")
 
     def _job_properties_spin(self, index: int) -> xa11y.Locator:
         """A spin box in the shared tab's Job Properties group."""
@@ -434,13 +457,13 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
 
     def _set_job_properties_spin(self, index: int, value: int, description: str) -> None:
         self.switch_to_shared_tab()
-        self._type_into_spin(lambda: self._job_properties_spin(index), value, description)
+        self._set_spin_value(lambda: self._job_properties_spin(index), value, description)
 
     def set_priority(self, value: int) -> None:
         """Set job priority.
 
-        Not the shared fixtures' ``set_priority``, which steps with AX
-        increment and so cannot land on most values here.
+        Not the shared fixtures' ``set_priority``, which uses the unreliable
+        macOS AX increment action.
         """
         self._set_job_properties_spin(_SPIN_PRIORITY, value, "Priority")
 

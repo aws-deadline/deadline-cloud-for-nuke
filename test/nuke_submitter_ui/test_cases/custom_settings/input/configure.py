@@ -6,10 +6,9 @@ Port of the Squish custom_settings_gui case: override the job properties
 (priority, max failed tasks, max retries per task) and enable continue-on
 -error, then let the golden bundle prove each value reached the submission.
 
-The values are deliberately not multiples of the spin boxes' AX step: the
-platform's increment/decrement jumps by 10% of a widget's range, so a
-stepping implementation could not produce 75 or 3 at all (see the spin-box
-note in pages.py). Typed entry is what makes these values reachable.
+The values exercise the physical arrow-key stepping used for macOS spin
+boxes. The AX increment action and direct numeric writes are unreliable;
+see the spin-box note in pages.py.
 """
 
 PRIORITY = 75

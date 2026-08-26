@@ -34,6 +34,23 @@ jobs:
     with:
       tag: ${{ needs.TagRelease.outputs.tag }}
 
+  Xa11yMacOS:
+    needs: [TagRelease, UnitTests]
+    name: xa11y Integration Tests (macOS)
+    uses: ./.github/workflows/integ_macos.yml
+    secrets:
+      AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+      INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+      NUKE_INSTALLER_S3_KEY: ${{ secrets.NUKE_INSTALLER_S3_KEY }}
+      NUKE_INSTALLER_SHA256: ${{ secrets.NUKE_INSTALLER_SHA256 }}
+      LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+      BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+    permissions:
+      id-token: write
+      contents: read
+
   ManualTestGate:
     needs: [TagRelease, BuildInstaller]
     runs-on: ubuntu-latest
@@ -42,7 +59,7 @@ jobs:
       - run: echo "Manual testing approved for ${{ needs.TagRelease.outputs.tag }}"
 
   PreRelease:
-      needs: [TagRelease, UnitTests]
+      needs: [TagRelease, UnitTests, Xa11yMacOS]
       uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
       permissions:
         id-token: write
