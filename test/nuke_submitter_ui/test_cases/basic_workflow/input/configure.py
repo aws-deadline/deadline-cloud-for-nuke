@@ -2,7 +2,7 @@
 
 """Dialog configurator for the basic_workflow case.
 
-Runs after the submitter dialog has settled and before Export bundle is
+Runs after the submitter dialog has settled and before Save bundle as is
 pressed. Receives the suite's NukeSubmitterDialog page object (see
 test/nuke_submitter_ui/pages.py), which encodes the platform workarounds
 for combos and spin boxes. Whatever this changes must be reflected in this
