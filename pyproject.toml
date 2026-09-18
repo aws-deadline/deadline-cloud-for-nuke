@@ -41,10 +41,23 @@ dependencies = [
     # botocore's floor exists for the macosx_10_9_x86_64 tag that script uses -- pip
     # walks back to a release with no usable crypto support, so console sign-in would
     # appear installed and silently not work. The adaptor never takes the console path
-    # anyway: it runs on a worker with host-provided credentials. The submitter's
-    # dependency bundle requests the extra in scripts/depsBundle.py instead.
+    # anyway: it runs on a worker with host-provided credentials. The submitter's install
+    # paths request the extra themselves: the dependency bundle in scripts/depsBundle.py,
+    # and direct pip installs through this package's own `console` extra (declared below).
     "deadline >= 0.60.4,< 0.61",
     "openjd-adaptor-runtime >= 0.7,< 0.10",
+]
+
+[project.optional-dependencies]
+# Covers installing this package directly with pip and getting console sign-in -- the
+# DEVELOPMENT.md submitter workflow installs this way, straight into Nuke's own Python
+# distribution, rather than through scripts/depsBundle.py's dependency bundle. An extra
+# rather than part of dependencies because those are also resolved into the adaptor
+# package, where awscrt is unusable and unavailable (see the comment above).
+# test_console_signin_dependencies.py keeps this restated range equal to the deadline pin
+# in dependencies.
+console = [
+    "deadline[console] >= 0.60.4,< 0.61",
 ]
 
 [project.urls]
