@@ -61,8 +61,10 @@ def supported_versions() -> list[str]:
     versions = sorted(depsBundle.SUPPORTED_PYTHON_VERSIONS, key=_version_key)
     assert len(versions) >= 2, "a filename collision needs at least two supported versions"
     assert _version_key(versions[-1]) >= FIRST_AWSCRT_ABI3_VERSION, (
-        "no supported version gets an abi3 awscrt wheel; the collision these tests guard "
-        "cannot occur"
+        "no supported version gets an abi3 awscrt wheel; the base-environment-vs-native-tree "
+        "collision these tests guard cannot occur. This does not by itself require two abi3 "
+        "trees -- see test_colliding_abi3_artifact_prefers_the_first_tree_over_later_ones for "
+        "the tree-vs-tree case, which today's supported set has only one version for."
     )
     return versions
 
@@ -107,7 +109,14 @@ def test_colliding_abi3_artifact_comes_from_the_lowest_supported_abi(
     A copy built for a newer Python links against symbols an older one does not export, so
     it fails to import there -- botocore then leaves its crypto binding unset and AWS
     Console sign-in reports that sign-in is needed, indefinitely. The base environment's
-    host-resolved copy must lose to the tree built for the lowest supported abi3 version.
+    host-resolved copy must lose to a native tree.
+
+    With today's supported set only one version (3.11) gets an abi3 wheel, so this proves
+    only that a native tree beats the base environment, not that the lowest of several
+    colliding native trees wins -- it would pass identically under a merge that kept the
+    *last* tree instead of the first. That tree-vs-tree half of the rule is exercised
+    directly, independent of SUPPORTED_PYTHON_VERSIONS, by
+    test_colliding_abi3_artifact_prefers_the_first_tree_over_later_ones below.
     """
     lowest_abi3_version = next(
         version
@@ -124,6 +133,37 @@ def test_colliding_abi3_artifact_comes_from_the_lowest_supported_abi(
         f"{ABI3_ARTIFACT} was built for Python {shipped}, so it cannot be imported by "
         f"Python {lowest_abi3_version}; the copy built for the lowest supported abi3 "
         f"version is the one every supported interpreter can load"
+    )
+
+
+def test_colliding_abi3_artifact_prefers_the_first_tree_over_later_ones(tmp_path):
+    """Tree-vs-tree collision on the abi3 name, driven over an explicit version list.
+
+    Today's supported set produces only one abi3-era tree (3.11), so
+    test_colliding_abi3_artifact_comes_from_the_lowest_supported_abi above never collides
+    two *native* trees on the abi3 name -- it would also pass under a merge that kept the
+    last writer instead of the first. This drives _copy_native_to_base_env directly over
+    two synthetic abi3 trees so the tree-vs-tree rule is pinned independently of what
+    SUPPORTED_PYTHON_VERSIONS happens to hold: the first (lowest-version) tree must win,
+    because a last-writer merge would ship the copy built for the newer Python, which the
+    older one cannot import.
+    """
+    base_env = tmp_path / "base_env"
+    _write(base_env / ABI3_ARTIFACT, HOST_SENTINEL)
+
+    native_paths = []
+    for version in ("3.11", "3.12"):
+        tree = tmp_path / "native" / _tag(version)
+        native_paths.append(tree)
+        _write(tree / ABI3_ARTIFACT, version)
+
+    depsBundle._copy_native_to_base_env(base_env, native_paths)
+
+    shipped = (base_env / ABI3_ARTIFACT).read_text()
+    assert shipped == "3.11", (
+        f"{ABI3_ARTIFACT} came from Python {shipped}; the merge must keep the first "
+        f"(lowest-version) native tree's copy, the only one every supported abi3 "
+        f"interpreter can load"
     )
 
 
