@@ -165,6 +165,22 @@ def _copy_native_to_base_env(base_env: Path, native_dependency_paths: list[Path]
     ``_awscrt.abi3.so``, so those copies differ and only one can ship; abi3 is forward
     compatible, which makes the one built for the lowest supported abi3 Python the only
     copy that loads on all of them, and taking the first tree is what keeps it.
+
+    The overwrite below is deliberately unconditional rather than scoped to compiled
+    suffixes (``.so``/``.pyd``/``.dylib``). Each native tree is a full ``pip install
+    --no-deps`` of one package, so it also carries that package's pure-Python modules and
+    ``.dist-info/`` directory, and both get overwritten too -- not just the extension
+    module this function is reasoned about above. The pure-Python files are harmless: their
+    versions are pinned from the base environment (see ``_download_native_dependencies``),
+    so the bytes a native tree overwrites with are identical to what was already there. The
+    ``.dist-info`` metadata is not byte-identical -- ``WHEEL`` ends up declaring the lowest
+    supported interpreter's tag and ``RECORD`` lists only that tree's artifact, even though
+    the merged bundle carries every supported version's ``.so``. That is accepted: the
+    bundle is a flat directory placed on ``PYTHONPATH``, nothing pip-manages or introspects
+    at runtime, so no code path reads that metadata back. Scoping the overwrite to compiled
+    suffixes would avoid the skew but adds a second rule to reason about and would miss any
+    non-``.so`` data file a future native dependency ships; content verification for cases
+    like that belongs to the planned shared bundler, not to this per-repo script.
     """
     copied: set[Path] = set()
     for native_dependency_path in native_dependency_paths:
