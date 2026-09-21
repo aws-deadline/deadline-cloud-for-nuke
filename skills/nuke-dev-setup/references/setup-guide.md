@@ -111,27 +111,41 @@ Verify build artifacts exist.
 
 **Action:** Install the package and the deadline-cloud client library into Nuke's bundled Python. Run these from the repo root directory.
 
+**Note:** The `[console]` extra is required here. This installs straight into Nuke's own
+Python distribution rather than through `scripts/depsBundle.py`'s dependency bundle, so
+without it `awscrt` is absent and AWS Console sign-in silently does not work.
+
 **Windows:**
 ```powershell
-& "<NUKE_DIR>\python.exe" -m pip install -e .
-& "<NUKE_DIR>\python.exe" -m pip install -e <path-to-deadline-cloud>
+& "<NUKE_DIR>\python.exe" -m pip install -e ".[console]"
+& "<NUKE_DIR>\python.exe" -m pip install -e "<path-to-deadline-cloud>[console]"
 ```
 
 If `deadline-cloud` is not cloned locally, install from PyPI:
 ```powershell
-& "<NUKE_DIR>\python.exe" -m pip install deadline
+& "<NUKE_DIR>\python.exe" -m pip install "deadline[console]"
 ```
 
 **Linux:**
 ```bash
-<NUKE_DIR>/python -m pip install -e .
-<NUKE_DIR>/python -m pip install deadline
+<NUKE_DIR>/python -m pip install -e ".[console]"
+<NUKE_DIR>/python -m pip install -e "<path-to-deadline-cloud>[console]"
+```
+
+If `deadline-cloud` is not cloned locally, install from PyPI:
+```bash
+<NUKE_DIR>/python -m pip install "deadline[console]"
 ```
 
 **macOS:**
 ```bash
-<NUKE_DIR>/Nuke<VERSION>.app/Contents/MacOS/python -m pip install -e .
-<NUKE_DIR>/Nuke<VERSION>.app/Contents/MacOS/python -m pip install deadline
+<NUKE_DIR>/Nuke<VERSION>.app/Contents/MacOS/python -m pip install -e ".[console]"
+<NUKE_DIR>/Nuke<VERSION>.app/Contents/MacOS/python -m pip install -e "<path-to-deadline-cloud>[console]"
+```
+
+If `deadline-cloud` is not cloned locally, install from PyPI:
+```bash
+<NUKE_DIR>/Nuke<VERSION>.app/Contents/MacOS/python -m pip install "deadline[console]"
 ```
 
 **Note:** Admin/sudo may be required if Nuke is installed in a system directory.

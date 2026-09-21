@@ -80,23 +80,23 @@ WARNING: This workflow installs additional Python packages into your Nuke's pyth
 
    Windows (update the path as needed):
    ```
-   .\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud
+   .\python -m pip install -e "C:\Users\<username>\deadline-clients\deadline-cloud[console]"
    ```
 
    Mac (update the path as needed):
    ```
-   ./python -m pip install -e /Users/<username>/dev/deadline-clients/deadline-cloud
+   ./python -m pip install -e "/Users/<username>/dev/deadline-clients/deadline-cloud[console]"
    ```
-1. Run `.\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke` to install the Nuke Submitter in edit mode.
+1. Run `.\python -m pip install -e "C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke[console]"` to install the Nuke Submitter in edit mode. The `[console]` extra is required here: this installs straight into Nuke's own Python distribution rather than through `scripts/depsBundle.py`'s dependency bundle, so without it AWS Console sign-in silently would not work.
 
    Windows (update the path as needed):
    ```
-   .\python -m pip install -e C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke
+   .\python -m pip install -e "C:\Users\<username>\deadline-clients\deadline-cloud-for-nuke[console]"
    ```
 
    Mac (update the path as needed):
    ```
-   ./python -m pip install -e /Users/<username>/dev/deadline-clients/deadline-cloud-for-nuke
+   ./python -m pip install -e "/Users/<username>/dev/deadline-clients/deadline-cloud-for-nuke[console]"
    ```
 1. Put the `menu.py` file in the path Nuke searches for menu extensions. If you have already set your `NUKE_PATH` environment variable, append these paths to it instead of replacing it.
 
