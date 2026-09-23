@@ -37,7 +37,16 @@ jobs:
       (github.ref == 'refs/heads/mainline' ||
       github.ref == 'refs/heads/feature/ci-tests')
     name: xa11y Integration Tests (macOS)
-    runs-on: macos-latest
+    # Pinned, not macos-latest. This suite drives real synthetic input through the macOS
+    # accessibility API, so it is sensitive to the runner image in a way ordinary test jobs are
+    # not, and macos-latest is a moving target: the write-node combo stopped responding to both
+    # clicks and keystrokes when the image rolled from 20260728.0273 (last green, 2026-08-27) to
+    # 20260907.0351 (first red, 2026-09-21), with the repo, Nuke 16.0v7, xa11y 0.13.0 and the
+    # deadline/test-fixtures UI code all unchanged across that window.
+    #
+    # Note GitHub only pins the image's major label, not its patch version, so this reduces the
+    # exposure rather than removing it. Revisit macos-26 once the interaction is fixed for it.
+    runs-on: macos-15
     timeout-minutes: 60
     permissions:
       id-token: write
