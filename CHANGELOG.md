@@ -1,3 +1,7 @@
+## 0.18.20 (2026-09-23)
+
+### Bug Fixes
+* Fixed console sign-in credentials failing to authenticate in the Nuke submitter. The minimum `deadline` dependency has been raised to 0.60.4 with the `console` extra, ensuring `awscrt` is properly included and loadable. (#349)
 ## 0.18.19 (2026-08-03)
 
 ### Features
