@@ -164,8 +164,17 @@ def test_survivors_get_a_chance_to_exit_cleanly(tmp_path: Path) -> None:
     server's heartbeat expires.
     """
     farewell = tmp_path / "farewell"
-    graceful_child = f"/bin/sh -c 'trap \"echo bye > {farewell}; exit 0\" TERM; sleep 300'"
+    armed = tmp_path / "armed"
+    # The child reports readiness only after `trap` returns, so the marker
+    # file proves the handler is installed. Signalling the group before that
+    # races the shell's own startup: the default TERM disposition kills the
+    # child, nothing writes the farewell, and it looks like the sweep never
+    # sent SIGTERM.
+    graceful_child = (
+        f"/bin/sh -c 'trap \"echo bye > {farewell}; exit 0\" TERM; echo up > {armed}; sleep 300'"
+    )
     with _stand_in_for_nuke(tmp_path, graceful_child) as (process, group, child_pid):
+        assert _wait_until(armed.is_file), "precondition: the descendant armed its TERM handler"
         # Stop the leader alone, so nothing has signalled the group yet.
         process.terminate()
         process.wait(timeout=10)
@@ -175,7 +184,9 @@ def test_survivors_get_a_chance_to_exit_cleanly(tmp_path: Path) -> None:
         process_module.stop_process_tree(process, group)
 
         assert _wait_until(lambda: not _alive(child_pid)), "descendant outlived the teardown"
-        assert farewell.is_file(), "descendant was killed without being asked to stop first"
+        assert _wait_until(
+            farewell.is_file
+        ), "descendant was killed without being asked to stop first"
 
 
 @posix_only

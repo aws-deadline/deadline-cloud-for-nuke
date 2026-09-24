@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from unittest.mock import Mock, PropertyMock, call, patch
 
+import re
 import pytest
 import jsonschema  # type: ignore
 
 import deadline.nuke_adaptor.NukeAdaptor.adaptor as adaptor_module
+from openjd.adaptor_runtime.application_ipc import ActionsQueue
 from deadline.nuke_adaptor.NukeAdaptor import NukeAdaptor
 from deadline.nuke_adaptor.NukeAdaptor.adaptor import (
     _FIRST_NUKE_ACTIONS,
     _NUKE_INIT_KEYS,
     NukeNotRunningError,
+    _LICENSE_GUIDANCE,
 )
 
 
@@ -675,13 +679,24 @@ class TestNukeAdaptor_on_cleanup:
         init_data: dict,
     ) -> None:
         # GIVEN
-        ERROR_CALLBACK_INDEX = 3
+        # Locate the error callback by matching behaviour rather than by list
+        # position: a positional index silently breaks whenever a callback is
+        # added to regex_callbacks.
         init_data["continue_on_error"] = continue_on_error
         adaptor = NukeAdaptor(init_data)
         regex_callbacks = adaptor.regex_callbacks
-        error_regex = regex_callbacks[ERROR_CALLBACK_INDEX].regex_list[regex_index]
+        match = next(
+            (
+                m
+                for callback in regex_callbacks
+                for regex in callback.regex_list
+                if callback.callback == adaptor._handle_error
+                and (m := regex.search(stdout)) is not None
+            ),
+            None,
+        )
 
-        if match := error_regex.search(stdout):
+        if match:
             # WHEN
             adaptor._handle_error(match)
 
@@ -703,13 +718,23 @@ class TestNukeAdaptor_on_cleanup:
     def test_handle_version(self, init_data: dict, version_string: str, expected_version: str):
         """Tests that the _handle_version method returns the version correctly"""
         # GIVEN
-        VERSION_CALLBACK_INDEX = 4
+        # Locate the version callback by matching behaviour rather than by list
+        # position: a positional index silently breaks whenever a callback is
+        # added to regex_callbacks.
         adaptor = NukeAdaptor(init_data)
         regex_callbacks = adaptor.regex_callbacks
-        complete_regex = regex_callbacks[VERSION_CALLBACK_INDEX].regex_list[0]
+        match = next(
+            (
+                m
+                for callback in regex_callbacks
+                for regex in callback.regex_list
+                if callback.callback == adaptor._handle_version
+                and (m := regex.search(version_string)) is not None
+            ),
+            None,
+        )
 
         # WHEN
-        match = complete_regex.search(version_string)
         assert match is not None
         adaptor._handle_version(match)
 
@@ -749,6 +774,152 @@ class TestNukeAdaptor_on_cleanup:
 
         # THEN
         assert raised_err.match("Cannot render because Nuke is not running.")
+
+
+class TestNukeAdaptor_license_failure:
+    """Tests for unconditional licensing-failure detection."""
+
+    # Verbatim Foundry licence-failure lines. None match the generic
+    # error_regexes: "FOUNDRY LICENSE ERROR REPORT" has a space rather than a
+    # colon after "ERROR", and "RLM : " puts a space before the colon.
+    LICENSE_FAILURE_LINES = [
+        # Measured on an unlicensed Nuke 17.0v1, both present in every run.
+        "A license for nuke was not found",
+        "FOUNDRY LICENSE ERROR REPORT",
+        # A second Foundry failure shape, from a farm capture.
+        "RLM : A suitable license does not exist.",
+    ]
+
+    @staticmethod
+    def _expected_license_message(error_line: str) -> str:
+        # _LICENSE_GUIDANCE is sourced from the adaptor rather than restated, so
+        # this asserts the message structure without pinning the guidance wording.
+        return f"Nuke failed to acquire a license.\n{_LICENSE_GUIDANCE}Error: {error_line}"
+
+    @staticmethod
+    def _match_license_line(adaptor: NukeAdaptor, license_line: str) -> re.Match:
+        # Locate the licence callback by matching behaviour rather than by list
+        # position: a positional index silently breaks whenever a callback is
+        # added to regex_callbacks.
+        match = next(
+            (
+                m
+                for callback in adaptor.regex_callbacks
+                for regex in callback.regex_list
+                if callback.callback == adaptor._handle_license_error
+                and (m := regex.search(license_line)) is not None
+            ),
+            None,
+        )
+        assert match is not None, f"no licence regex matched: {license_line!r}"
+        return match
+
+    @pytest.mark.parametrize("license_line", LICENSE_FAILURE_LINES)
+    def test_license_handle_error(self, init_data: dict, license_line: str) -> None:
+        """
+        Tests that every measured licence-failure line is matched by a registered
+        callback and produces the standard actionable message.
+        """
+        # GIVEN
+        adaptor = NukeAdaptor(init_data)
+
+        # WHEN
+        match = self._match_license_line(adaptor, license_line)
+        adaptor._handle_license_error(match)
+
+        # THEN
+        assert str(adaptor._exc_info) == self._expected_license_message(match.group(0))
+
+    @pytest.mark.parametrize("license_line", LICENSE_FAILURE_LINES)
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
+    def test_license_failure_from_stdout_interrupts_startup(
+        self, mock_telemetry_client: Mock, init_data: dict, license_line: str
+    ) -> None:
+        """
+        Tests that a licence failure on stdout fails startup rather than waiting
+        for the initialization timeout.
+
+        continue_on_error is enabled to prove licence detection is unconditional.
+
+        The stand-in reports running once and then exits, so the wait loop ends
+        on _nuke_is_running without evaluating _has_exception. That is the
+        production ordering, and it is the only path that reaches on_start's
+        _exc_info check.
+        """
+        # GIVEN
+        init_data["continue_on_error"] = True
+        adaptor = NukeAdaptor(init_data)
+
+        def emit_license_error(*args, **kwargs):
+            kwargs["stdout_handler"].emit(
+                logging.LogRecord(
+                    name="nuke",
+                    level=logging.ERROR,
+                    pathname="",
+                    lineno=0,
+                    msg=license_line,
+                    args=(),
+                    exc_info=None,
+                )
+            )
+            process = Mock()
+            # Already exited, as Nuke has on a licence failure. The wait loop
+            # then ends on _nuke_is_running without evaluating _has_exception.
+            process.is_running = False
+            return process
+
+        # WHEN
+        with (
+            patch.object(adaptor, "_start_nuke_server_thread"),
+            # _action_queue is a class attribute, so a real populate would leave
+            # undrained actions behind for the rest of the session.
+            patch.object(NukeAdaptor, "_action_queue", new=ActionsQueue()),
+            patch(
+                "deadline.nuke_adaptor.NukeAdaptor.adaptor.LoggingSubprocess",
+                side_effect=emit_license_error,
+            ),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            adaptor.on_start()
+
+        # THEN
+        assert str(exc_info.value) == self._expected_license_message(license_line)
+
+    @pytest.mark.parametrize("license_line", LICENSE_FAILURE_LINES)
+    @patch("deadline.nuke_adaptor.NukeAdaptor.adaptor.NukeAdaptor._get_deadline_telemetry_client")
+    def test_license_failure_during_render_survives_early_exit(
+        self,
+        mock_telemetry_client: Mock,
+        init_data: dict,
+        run_data: dict,
+        license_line: str,
+    ) -> None:
+        """A license failure during rendering must survive Nuke's early exit.
+
+        Nuke exiting first short-circuits the loop's `not self._has_exception`,
+        which is the only thing that raises _exc_info, so on_run must raise it.
+        """
+        # GIVEN
+        adaptor = NukeAdaptor(init_data)
+        match = self._match_license_line(adaptor, license_line)
+        adaptor._handle_license_error(match)
+
+        client = Mock()
+        client.returncode = 1
+        # True for on_run's guard, then False so the loop exits without ever
+        # evaluating _has_exception -- the short-circuit this test is about.
+        type(client).is_running = PropertyMock(side_effect=[True, False, False])
+        adaptor._nuke_client = client
+
+        # WHEN
+        with (
+            patch.object(NukeAdaptor, "_action_queue", new=ActionsQueue()),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            adaptor.on_run(run_data)
+
+        # THEN
+        assert str(exc_info.value) == self._expected_license_message(match.group(0))
 
 
 class TestNukeAdaptor_on_cancel:

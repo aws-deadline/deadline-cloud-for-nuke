@@ -38,6 +38,17 @@ _NUKE_INIT_KEYS = {
     "write_nodes",
     "views",
 }
+_LICENSE_GUIDANCE = (
+    "If you are using bring your own license (BYOL), check your license configuration "
+    "and availability.\n"
+    "If you are using usage-based licensing (UBL) from AWS Deadline Cloud and need a "
+    "higher 'License sessions per license endpoint' limit, contact the AWS Deadline Cloud "
+    "team to request an increase.\n"
+    "For more information on UBL and BYOL: "
+    "https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/license.html\n"
+    "For service quotas: "
+    "https://docs.aws.amazon.com/deadline-cloud/latest/userguide/deadline-cloud-quotas.html\n"
+)
 
 
 def _check_for_exception(func: Callable) -> Callable:
@@ -166,6 +177,15 @@ class NukeAdaptor(Adaptor):
                 re.compile(".*Error :.*"),
                 re.compile(".*Eddy\\[ERROR\\].*"),
             ]
+            # License failures cannot recover non-interactively, so their
+            # detection is always registered. None of these match error_regexes
+            # above: "FOUNDRY LICENSE ERROR REPORT" has no colon after "ERROR",
+            # and the license manager lines put a space before it ("RLM : ").
+            license_error_regexes = [
+                re.compile(r".*A license for .* was not found.*", re.IGNORECASE),
+                re.compile(r".*FOUNDRY LICENSE ERROR REPORT.*", re.IGNORECASE),
+                re.compile(r".*RLM : A suitable license does not exist.*", re.IGNORECASE),
+            ]
             # Capture the major minor group (ie. 15.0), patch version (ie. v1) is an optional subgroup.
             version_regexes = [re.compile("NukeClient: Nuke Version ([0-9]+.[0-9]+)(v[0-9]+)?")]
             output_complete_regexes = [re.compile(r"Writing .+ took [0-9\.]+ seconds")]
@@ -175,6 +195,7 @@ class NukeAdaptor(Adaptor):
                 RegexCallback(output_complete_regexes, self._handle_output_complete)
             )
             callback_list.append(RegexCallback(error_regexes, self._handle_error))
+            callback_list.append(RegexCallback(license_error_regexes, self._handle_license_error))
             callback_list.append(RegexCallback(version_regexes, self._handle_version))
             self._regex_callbacks = callback_list
         return self._regex_callbacks
@@ -221,6 +242,22 @@ class NukeAdaptor(Adaptor):
         """
         if not self.continue_on_error:
             self._exc_info = RuntimeError(f"Nuke Encountered an Error: {match.group(0)}")
+
+    def _handle_license_error(self, match: re.Match) -> None:
+        """
+        Callback for stdout that indicates a fatal licensing failure. Sets the private
+        _exc_info variable which will be raised in the main thread, regardless
+        continue_on_error is true since Nuke strictly doesn't allow rendering without license
+
+        Args:
+            match (re.Match): The match object from the regex pattern that was matched the message
+        """
+        if self._exc_info is not None:
+            return  # Nuke prints several matching lines; keep the first.
+        message = (
+            "Nuke failed to acquire a license.\n" f"{_LICENSE_GUIDANCE}" f"Error: {match.group(0)}"
+        )
+        self._exc_info = RuntimeError(message)
 
     def _handle_version(self, match: re.Match) -> None:
         """
@@ -309,6 +346,10 @@ class NukeAdaptor(Adaptor):
         )
 
         if len(self._action_queue) > 0:
+            # The loop's `not self._has_exception` is skipped when Nuke exits
+            # first, so a recorded cause has to be raised here.
+            if self._exc_info is not None:
+                raise self._exc_info
             raise RuntimeError(
                 "Nuke encountered an error and was not able to complete initialization actions."
             )
@@ -348,6 +389,10 @@ class NukeAdaptor(Adaptor):
                 {"exit_code": exit_code, "exception_scope": "caught", "error_operation": "on_run"},
                 str(RuntimeError),
             )
+            # The loop's `not self._has_exception` is skipped when Nuke exits
+            # first, so a recorded cause has to be raised here.
+            if self._exc_info is not None:
+                raise self._exc_info
             raise RuntimeError(
                 "Nuke exited early and did not render successfully, please check render logs. "
                 f"Exit code {exit_code}"
