@@ -318,9 +318,7 @@ def test_state_is_read_from_the_last_paren(content: bytes, expected: bytes) -> N
     assert process_module.state_from_stat(content) == expected
 
 
-procfs_only = pytest.mark.skipif(
-    not Path("/proc/self/stat").is_file(), reason="needs procfs"
-)
+procfs_only = pytest.mark.skipif(not Path("/proc/self/stat").is_file(), reason="needs procfs")
 
 
 @procfs_only
@@ -334,7 +332,9 @@ def test_zombie_only_group_drains_without_spending_the_window(tmp_path: Path) ->
     with _stand_in_for_nuke(tmp_path, "sleep 300") as (process, group, child_pid):
         process_module.signal_process_group(group)
         process.wait(timeout=10)
-        assert _wait_until(lambda: process_module.process_is_zombie(child_pid) or not _alive(child_pid))
+        assert _wait_until(
+            lambda: process_module.process_is_zombie(child_pid) or not _alive(child_pid)
+        )
 
         assert process_module.group_has_members(group) is False
 
