@@ -328,6 +328,116 @@ def test_only_a_single_threaded_zombie_counts_as_finished(content: bytes, expect
     assert process_module.zombie_from_stat(content) is expected
 
 
+_GROUP = 424242
+
+
+def _drive_group_scan(monkeypatch: pytest.MonkeyPatch, entries, pgids, states) -> None:
+    """Run the group scan against a table instead of the real /proc.
+
+    Injected rather than staged, because the branches that matter here are the
+    ones a real host will not produce on demand: a procfs entry that exists but
+    cannot be read, or a pid that leaves between two syscalls. A value in the
+    tables may be an exception to raise.
+    """
+    real_listdir = os.listdir
+
+    def listdir(path=".", *args, **kwargs):
+        if path != "/proc":
+            return real_listdir(path, *args, **kwargs)
+        if isinstance(entries, BaseException):
+            raise entries
+        return list(entries)
+
+    def getpgid(pid: int) -> int:
+        outcome = pgids[pid]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    def read_is_zombie(pid: int) -> bool:
+        outcome = states[pid]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(process_module.os, "listdir", listdir)
+    monkeypatch.setattr(process_module.os, "getpgid", getpgid)
+    monkeypatch.setattr(process_module, "_read_is_zombie", read_is_zombie)
+
+
+@posix_only
+@pytest.mark.parametrize(
+    "entries, pgids, states, drained",
+    [
+        # Positively read, so the shortcut may fire.
+        pytest.param(
+            ["10", "11"], {10: _GROUP, 11: _GROUP}, {10: True, 11: True}, True, id="all-zombies"
+        ),
+        pytest.param(
+            ["10", "11"], {10: _GROUP, 11: _GROUP}, {10: True, 11: False}, False, id="member-alive"
+        ),
+        # No member found at all. Nothing positively observed, so not drained --
+        # inverting this is the leak this suite must catch.
+        pytest.param(["10"], {10: 99}, {}, False, id="no-member-in-group"),
+        # Doubt about a non-member must not decide the group's fate.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: 99},
+            {10: True, 11: PermissionError()},
+            True,
+            id="non-member-unreadable",
+        ),
+        # Doubt about a confirmed member keeps the group populated.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: _GROUP},
+            {10: True, 11: PermissionError()},
+            False,
+            id="member-unreadable",
+        ),
+        # Paired with a readable zombie on purpose: alone, skipping the opaque
+        # pid and refusing to call the group drained are indistinguishable,
+        # since either way no member is found.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: PermissionError()},
+            {10: True},
+            False,
+            id="getpgid-refuses-beside-a-zombie",
+        ),
+        pytest.param(["10"], {10: _GROUP}, {10: IndexError()}, False, id="member-stat-unparsable"),
+        # Unambiguously gone, at either syscall: not a survivor.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: ProcessLookupError()},
+            {10: True},
+            True,
+            id="pid-gone-before-getpgid",
+        ),
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: _GROUP},
+            {10: True, 11: FileNotFoundError()},
+            True,
+            id="member-gone-after-getpgid",
+        ),
+        pytest.param(OSError(), {}, {}, False, id="no-procfs"),
+    ],
+)
+def test_the_drain_shortcut_fires_only_on_a_positively_read_zombie_group(
+    monkeypatch: pytest.MonkeyPatch, entries, pgids, states, drained: bool
+) -> None:
+    """Every clause of _group_is_only_zombies' fail-open contract.
+
+    Each False here is a group left populated, which costs one extra SIGKILL to
+    a group already believed ours. Each wrong True abandons the escalation and
+    strands the survivor.
+    """
+    _drive_group_scan(monkeypatch, entries, pgids, states)
+
+    assert process_module._group_is_only_zombies(_GROUP) is drained
+
+
 procfs_only = pytest.mark.skipif(not Path("/proc/self/stat").is_file(), reason="needs procfs")
 
 
