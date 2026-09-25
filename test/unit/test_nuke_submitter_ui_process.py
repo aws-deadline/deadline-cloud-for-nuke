@@ -57,7 +57,11 @@ def _alive(pid: int) -> bool:
     except PermissionError:
         # Exists, owned by somebody else.
         return True
-    return True
+    # A signal-0 probe cannot tell a running process from a zombie, and an
+    # orphan stays a zombie for as long as its reaper ignores it -- which pid 1
+    # does in a container, so a teardown that worked would read as one that
+    # leaked.
+    return not process_module.process_is_zombie(pid)
 
 
 def _wait_until(predicate, timeout: float = 10.0) -> bool:
@@ -295,3 +299,207 @@ def test_capture_returns_none_without_process_groups(monkeypatch: pytest.MonkeyP
     finally:
         process.kill()
         process.wait(timeout=5)
+
+
+# /proc/<pid>/stat is "pid (comm) state ppid pgrp session tty_nr tpgid flags
+# minflt cminflt majflt cmajflt utime stime cutime cstime priority nice
+# num_threads ...", so of the fields after comm, state is index 0 and
+# num_threads (field 20) is index 17.
+_LIVE = b"1053 (sleep) S 1052 1053 1053 0 -1 4194560 306 0 5 0 0 0 0 0 20 0 1"
+_ZOMBIE = b"1054 (sleep) Z 1 1053 1053 0 -1 4194560 306 0 5 0 0 0 0 0 20 0 1"
+# A comm holding the delimiter: splitting from the left reads field 3 as "0".
+_ZOMBIE_ODD_COMM = b"1055 (sh) 0 0) Z 1 1099 1099 0 -1 4194560 306 0 5 0 0 0 0 0 20 0 1"
+# Verified on Linux 6.1: a thread-group leader whose main thread called
+# pthread_exit while a sibling kept running reports Z with num_threads 2, and
+# ps calls it defunct, while the process is alive and working.
+_LEADER_EXITED = b"1056 (python3) Z 1 1056 1056 0 -1 4227148 306 0 5 0 0 0 0 0 20 0 2"
+
+
+@pytest.mark.parametrize(
+    "content, expected",
+    [
+        (_LIVE, False),
+        (_ZOMBIE, True),
+        (_ZOMBIE_ODD_COMM, True),
+        (_LEADER_EXITED, False),
+    ],
+)
+def test_only_a_single_threaded_zombie_counts_as_finished(content: bytes, expected: bool) -> None:
+    assert process_module.zombie_from_stat(content) is expected
+
+
+_GROUP = 424242
+
+
+def _drive_group_scan(monkeypatch: pytest.MonkeyPatch, entries, pgids, states) -> None:
+    """Run the group scan against a table instead of the real /proc.
+
+    Injected rather than staged, because the branches that matter here are the
+    ones a real host will not produce on demand: a procfs entry that exists but
+    cannot be read, or a pid that leaves between two syscalls. A value in the
+    tables may be an exception to raise.
+    """
+    real_listdir = os.listdir
+
+    def listdir(path=".", *args, **kwargs):
+        if path != "/proc":
+            return real_listdir(path, *args, **kwargs)
+        if isinstance(entries, BaseException):
+            raise entries
+        return list(entries)
+
+    def getpgid(pid: int) -> int:
+        outcome = pgids[pid]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    def read_is_zombie(pid: int) -> bool:
+        outcome = states[pid]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(process_module.os, "listdir", listdir)
+    monkeypatch.setattr(process_module.os, "getpgid", getpgid)
+    monkeypatch.setattr(process_module, "_read_is_zombie", read_is_zombie)
+
+
+@posix_only
+@pytest.mark.parametrize(
+    "entries, pgids, states, drained",
+    [
+        # Positively read, so the shortcut may fire.
+        pytest.param(
+            ["10", "11"], {10: _GROUP, 11: _GROUP}, {10: True, 11: True}, True, id="all-zombies"
+        ),
+        pytest.param(
+            ["10", "11"], {10: _GROUP, 11: _GROUP}, {10: True, 11: False}, False, id="member-alive"
+        ),
+        # No member found at all. Nothing positively observed, so not drained --
+        # inverting this is the leak this suite must catch.
+        pytest.param(["10"], {10: 99}, {}, False, id="no-member-in-group"),
+        # Doubt about a non-member must not decide the group's fate.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: 99},
+            {10: True, 11: PermissionError()},
+            True,
+            id="non-member-unreadable",
+        ),
+        # Doubt about a confirmed member keeps the group populated.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: _GROUP},
+            {10: True, 11: PermissionError()},
+            False,
+            id="member-unreadable",
+        ),
+        # Paired with a readable zombie on purpose: alone, skipping the opaque
+        # pid and refusing to call the group drained are indistinguishable,
+        # since either way no member is found.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: PermissionError()},
+            {10: True},
+            False,
+            id="getpgid-refuses-beside-a-zombie",
+        ),
+        pytest.param(["10"], {10: _GROUP}, {10: IndexError()}, False, id="member-stat-unparsable"),
+        # Unambiguously gone, at either syscall: not a survivor.
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: ProcessLookupError()},
+            {10: True},
+            True,
+            id="pid-gone-before-getpgid",
+        ),
+        pytest.param(
+            ["10", "11"],
+            {10: _GROUP, 11: _GROUP},
+            {10: True, 11: FileNotFoundError()},
+            True,
+            id="member-gone-after-getpgid",
+        ),
+        pytest.param(OSError(), {}, {}, False, id="no-procfs"),
+    ],
+)
+def test_the_drain_shortcut_fires_only_on_a_positively_read_zombie_group(
+    monkeypatch: pytest.MonkeyPatch, entries, pgids, states, drained: bool
+) -> None:
+    """Every clause of _group_is_only_zombies' fail-open contract.
+
+    Each False here is a group left populated, which costs one extra SIGKILL to
+    a group already believed ours. Each wrong True abandons the escalation and
+    strands the survivor.
+    """
+    _drive_group_scan(monkeypatch, entries, pgids, states)
+
+    assert process_module._group_is_only_zombies(_GROUP) is drained
+
+
+procfs_only = pytest.mark.skipif(not Path("/proc/self/stat").is_file(), reason="needs procfs")
+
+
+@pytest.fixture
+def zombie_group() -> Iterator[int]:
+    """A process group holding nothing but a zombie this process owns.
+
+    A direct child, so whether it stays unreaped is ours to decide rather than
+    the reaper above us. Staging it as a grandchild would only reproduce the
+    state where pid 1 declines to reap: elsewhere the child would be gone,
+    killpg would fail, and the callers below would answer from their
+    pre-existing branches without consulting the procfs rules at all.
+
+    Nothing here may call poll() or wait() until teardown, since either reaps
+    the zombie and dismantles the very state being staged.
+    """
+    process = subprocess.Popen(["/bin/true"], start_new_session=True)
+    try:
+        # start_new_session makes it a group leader, so its pid is the group id.
+        assert _wait_until(
+            lambda: process_module.process_is_zombie(process.pid)
+        ), "no zombie staged"
+        yield process.pid
+    finally:
+        process.wait(timeout=10)
+
+
+@procfs_only
+def test_zombie_only_group_drains_without_spending_the_window(zombie_group: int) -> None:
+    """The case this shortcut exists for: nothing alive, so do not wait."""
+    # The blind spot it works around: the group still answers a signal. The
+    # platform check is for a type check targeting Windows, which has no
+    # killpg; at runtime these tests never reach it, procfs being absent there.
+    if sys.platform != "win32":
+        os.killpg(zombie_group, 0)
+
+    assert process_module.group_has_members(zombie_group) is False
+
+    started = time.monotonic()
+    process_module.sweep_process_group(zombie_group, group_is_ours=True)
+    assert time.monotonic() - started < process_module.DRAIN_TIMEOUT / 2
+
+
+@procfs_only
+def test_a_zombie_is_not_a_recycled_group_id(zombie_group: int) -> None:
+    """The gate on the sweep's SIGKILL, which a false positive would abandon.
+
+    Once our leader is reaped its pid is free, and an unrelated short-lived
+    process can take it and exit unwaited. Reading that as a new owner would
+    skip the escalation while a real survivor still held the group.
+    """
+    assert process_module.group_id_was_recycled(zombie_group) is False
+
+
+@procfs_only
+def test_a_live_member_keeps_the_group_populated(leader_with_child) -> None:
+    """The guard against the drain shortcut firing on a group still running."""
+    process, group, child_pid = leader_with_child
+
+    assert process_module.group_has_members(group) is True
+
+    # Only the descendant left: still a live member, so still populated.
+    process.terminate()
+    process.wait(timeout=10)
+    assert process_module.group_has_members(group) is True

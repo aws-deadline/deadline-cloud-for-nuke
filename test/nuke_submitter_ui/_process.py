@@ -92,7 +92,100 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
         return False
     except PermissionError:
         return True  # exists, and owned by someone else
-    return True
+    # This gates the sweep's SIGKILL, so a zombie answering the probe is the
+    # expensive direction: an unrelated short-lived process can take the freed
+    # pid and exit unwaited, and reading it as a new owner would abandon the
+    # escalation while our frame server still holds the group.
+    return not process_is_zombie(group)
+
+
+def zombie_from_stat(content: bytes) -> bool:
+    """Whether /proc/<pid>/stat *content* describes a process left to be waited for.
+
+    comm is field 2 and may itself contain spaces and parens, so the fields
+    after it are located from the last ')' rather than by splitting the line.
+
+    State 'Z' alone is not enough. A thread-group leader whose main thread
+    exited while its siblings keep running is held in EXIT_ZOMBIE by the kernel
+    (delay_group_leader) and reports 'Z' here for as long as the process is
+    alive and working -- ps shows it as defunct. Reading that as finished would
+    skip the SIGKILL escalation on a live Nuke or frame server, both of which
+    are heavily threaded. num_threads (field 20) tells the two apart without a
+    second open(): a real zombie has exactly one.
+    """
+    fields = content.rpartition(b")")[2].split()
+    return fields[0] == b"Z" and fields[17] == b"1"
+
+
+def _read_is_zombie(pid: int) -> bool:
+    """Whether *pid* is a zombie, per procfs.
+
+    Raises FileNotFoundError if the process is gone, other OSError if its stat
+    is present but unreadable, and IndexError if the content does not parse.
+    """
+    with open(f"/proc/{pid}/stat", "rb") as stat:
+        return zombie_from_stat(stat.read())
+
+
+def process_is_zombie(pid: int) -> bool:
+    """Whether *pid* has exited but not yet been waited for.
+
+    Needs procfs, so this answers False on macOS. That costs nothing there:
+    launchd reaps an orphan before the first poll, so a zombie is never
+    observed in the first place. Anything unreadable also answers False, which
+    keeps the caller's reading of "still alive" for a process it cannot judge.
+    """
+    try:
+        return _read_is_zombie(pid)
+    except (OSError, IndexError):
+        return False
+
+
+def _group_is_only_zombies(group: int) -> bool:
+    """Whether every member of *group* was positively read as a zombie.
+
+    Membership comes from getpgid rather than from whether procfs could be
+    read, so doubt is scoped to actual members: an unreadable pid elsewhere on
+    the system cannot veto the answer, and only members cost an open().
+
+    False on any doubt about a member -- and when no member is found at all --
+    because the only cost of leaving the group considered populated is one
+    extra SIGKILL to a group we already believe is ours, while the cost of
+    wrongly calling it drained is skipping that escalation and stranding the
+    survivor this module exists to kill. A member can be unreadable while
+    killpg still succeeds: signal permission and procfs visibility are
+    separate checks.
+    """
+    if sys.platform == "win32":
+        # Unreachable via group_has_members, which returns earlier, but the
+        # guard is what lets a type check for Windows prune getpgid below.
+        return False
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return False
+    found_member = False
+    for name in entries:
+        if not name.isdigit():
+            continue
+        pid = int(name)
+        try:
+            if os.getpgid(pid) != group:
+                continue
+        except ProcessLookupError:
+            continue  # exited before we asked, so not a member
+        except OSError:
+            return False  # may be a member we cannot judge
+        found_member = True
+        try:
+            is_zombie = _read_is_zombie(pid)
+        except FileNotFoundError:
+            continue  # gone since getpgid, so not a survivor
+        except (OSError, IndexError):
+            return False  # confirmed member, unreadable state
+        if not is_zombie:
+            return False
+    return found_member
 
 
 def group_has_members(group: Optional[int]) -> bool:
@@ -104,7 +197,11 @@ def group_has_members(group: Optional[int]) -> bool:
     except (ProcessLookupError, PermissionError):
         # Empty, or not ours to act on.
         return False
-    return True
+    # killpg cannot tell a running member from an unreaped zombie, and an
+    # orphan stays a zombie for as long as its reaper ignores it -- which pid 1
+    # does in a container. Counting one as a member would make the drain below
+    # always spend its full timeout on a group that is already finished.
+    return not _group_is_only_zombies(group)
 
 
 def sweep_process_group(
