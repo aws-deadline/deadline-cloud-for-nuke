@@ -49,6 +49,23 @@ posix_only = pytest.mark.skipif(
 SHORT_DRAIN = 0.5
 
 
+def _zombie(pid: int) -> bool:
+    """Whether *pid* has exited but not yet been waited for.
+
+    Only reachable through procfs, so this answers False on macOS. That costs
+    nothing there: launchd reaps an orphan before the first poll, so a zombie
+    is never observed in the first place.
+    """
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as stat:
+            # comm is field 2 and may itself contain spaces and parens, so the
+            # state that follows it is found from the last ')' rather than by
+            # splitting the whole line.
+            return stat.read().rpartition(b")")[2].split()[0] == b"Z"
+    except (OSError, IndexError):
+        return False
+
+
 def _alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -57,7 +74,11 @@ def _alive(pid: int) -> bool:
     except PermissionError:
         # Exists, owned by somebody else.
         return True
-    return True
+    # A signal-0 probe cannot tell a running process from a zombie, and an
+    # orphan stays a zombie for as long as its reaper ignores it -- which pid 1
+    # does in a container, so a teardown that worked would read as one that
+    # leaked.
+    return not _zombie(pid)
 
 
 def _wait_until(predicate, timeout: float = 10.0) -> bool:
