@@ -95,19 +95,17 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
     return True
 
 
-def _state_and_pgid(pid: str) -> Optional[tuple[bytes, int]]:
-    """procfs state and process group for *pid*, or None if unreadable.
+def _read_state_and_pgid(pid: str) -> tuple[bytes, int]:
+    """procfs state and process group for *pid*.
 
     comm is field 2 and may itself contain spaces and parens, so the fields
     after it are found from the last ')' rather than by splitting the line.
+    Raises FileNotFoundError if the process is gone, OSError if its stat is
+    present but unreadable, and ValueError if the content does not parse.
     """
-    try:
-        with open(f"/proc/{pid}/stat", "rb") as stat:
-            fields = stat.read().rpartition(b")")[2].split()
-        return fields[0], int(fields[2])
-    except (OSError, IndexError, ValueError):
-        # Exited between the scan and the read, or no procfs.
-        return None
+    with open(f"/proc/{pid}/stat", "rb") as stat:
+        fields = stat.read().rpartition(b")")[2].split()
+    return fields[0], int(fields[2])
 
 
 def process_is_zombie(pid: int) -> bool:
@@ -115,25 +113,46 @@ def process_is_zombie(pid: int) -> bool:
 
     Needs procfs, so this answers False on macOS. That costs nothing there:
     launchd reaps an orphan before the first poll, so a zombie is never
-    observed in the first place.
+    observed in the first place. Anything unreadable also answers False, which
+    keeps the caller's reading of "still alive" for a process it cannot judge.
     """
-    state = _state_and_pgid(str(pid))
-    return state is not None and state[0] == b"Z"
+    try:
+        return _read_state_and_pgid(str(pid))[0] == b"Z"
+    except (OSError, IndexError, ValueError):
+        return False
 
 
-def _has_live_member(group: int) -> bool:
-    """Whether procfs shows a non-zombie process in *group*."""
+def _group_is_only_zombies(group: int) -> bool:
+    """Whether every member of *group* was positively read as a zombie.
+
+    False on any doubt -- no procfs, an unreadable entry, unparsable content,
+    or no member found at all -- because the only cost of leaving the group
+    considered populated is one extra SIGKILL to a group we already believe is
+    ours, while the cost of wrongly calling it drained is skipping that
+    escalation and stranding the survivor this module exists to kill. A live
+    member can be unreadable while killpg still succeeds: signal permission
+    and procfs visibility are separate checks.
+    """
     try:
         entries = os.listdir("/proc")
     except OSError:
-        return True  # no procfs; caller falls back to the killpg result
+        return False
+    found_member = False
     for name in entries:
         if not name.isdigit():
             continue
-        found = _state_and_pgid(name)
-        if found is not None and found[1] == group and found[0] != b"Z":
-            return True
-    return False
+        try:
+            state, pgid = _read_state_and_pgid(name)
+        except FileNotFoundError:
+            continue  # exited between the listing and the read, so not a member
+        except (OSError, IndexError, ValueError):
+            return False  # live but opaque
+        if pgid != group:
+            continue
+        found_member = True
+        if state != b"Z":
+            return False
+    return found_member
 
 
 def group_has_members(group: Optional[int]) -> bool:
@@ -149,7 +168,7 @@ def group_has_members(group: Optional[int]) -> bool:
     # orphan stays a zombie for as long as its reaper ignores it -- which pid 1
     # does in a container. Counting one as a member would make the drain below
     # always spend its full timeout on a group that is already finished.
-    return _has_live_member(group)
+    return not _group_is_only_zombies(group)
 
 
 def sweep_process_group(
