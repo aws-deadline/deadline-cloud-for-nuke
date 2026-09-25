@@ -95,17 +95,23 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
     return True
 
 
-def _read_state_and_pgid(pid: str) -> tuple[bytes, int]:
-    """procfs state and process group for *pid*.
+def state_from_stat(content: bytes) -> bytes:
+    """The state field of /proc/<pid>/stat *content*.
 
     comm is field 2 and may itself contain spaces and parens, so the fields
-    after it are found from the last ')' rather than by splitting the line.
-    Raises FileNotFoundError if the process is gone, OSError if its stat is
-    present but unreadable, and ValueError if the content does not parse.
+    after it are located from the last ')' rather than by splitting the line.
+    """
+    return content.rpartition(b")")[2].split()[0]
+
+
+def _read_state(pid: int) -> bytes:
+    """procfs state for *pid*.
+
+    Raises FileNotFoundError if the process is gone, other OSError if its stat
+    is present but unreadable, and IndexError if the content does not parse.
     """
     with open(f"/proc/{pid}/stat", "rb") as stat:
-        fields = stat.read().rpartition(b")")[2].split()
-    return fields[0], int(fields[2])
+        return state_from_stat(stat.read())
 
 
 def process_is_zombie(pid: int) -> bool:
@@ -117,21 +123,25 @@ def process_is_zombie(pid: int) -> bool:
     keeps the caller's reading of "still alive" for a process it cannot judge.
     """
     try:
-        return _read_state_and_pgid(str(pid))[0] == b"Z"
-    except (OSError, IndexError, ValueError):
+        return _read_state(pid) == b"Z"
+    except (OSError, IndexError):
         return False
 
 
 def _group_is_only_zombies(group: int) -> bool:
     """Whether every member of *group* was positively read as a zombie.
 
-    False on any doubt -- no procfs, an unreadable entry, unparsable content,
-    or no member found at all -- because the only cost of leaving the group
-    considered populated is one extra SIGKILL to a group we already believe is
-    ours, while the cost of wrongly calling it drained is skipping that
-    escalation and stranding the survivor this module exists to kill. A live
-    member can be unreadable while killpg still succeeds: signal permission
-    and procfs visibility are separate checks.
+    Membership comes from getpgid rather than from whether procfs could be
+    read, so doubt is scoped to actual members: an unreadable pid elsewhere on
+    the system cannot veto the answer, and only members cost an open().
+
+    False on any doubt about a member -- and when no member is found at all --
+    because the only cost of leaving the group considered populated is one
+    extra SIGKILL to a group we already believe is ours, while the cost of
+    wrongly calling it drained is skipping that escalation and stranding the
+    survivor this module exists to kill. A member can be unreadable while
+    killpg still succeeds: signal permission and procfs visibility are
+    separate checks.
     """
     try:
         entries = os.listdir("/proc")
@@ -141,15 +151,21 @@ def _group_is_only_zombies(group: int) -> bool:
     for name in entries:
         if not name.isdigit():
             continue
+        pid = int(name)
         try:
-            state, pgid = _read_state_and_pgid(name)
-        except FileNotFoundError:
-            continue  # exited between the listing and the read, so not a member
-        except (OSError, IndexError, ValueError):
-            return False  # live but opaque
-        if pgid != group:
-            continue
+            if os.getpgid(pid) != group:
+                continue
+        except ProcessLookupError:
+            continue  # exited before we asked, so not a member
+        except OSError:
+            return False  # may be a member we cannot judge
         found_member = True
+        try:
+            state = _read_state(pid)
+        except FileNotFoundError:
+            continue  # gone since getpgid, so not a survivor
+        except (OSError, IndexError):
+            return False  # confirmed member, unreadable state
         if state != b"Z":
             return False
     return found_member

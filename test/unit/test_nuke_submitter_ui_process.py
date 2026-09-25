@@ -299,3 +299,58 @@ def test_capture_returns_none_without_process_groups(monkeypatch: pytest.MonkeyP
     finally:
         process.kill()
         process.wait(timeout=5)
+
+
+@pytest.mark.parametrize(
+    "content, expected",
+    [
+        (b"1053 (sleep) S 1052 1053 1053 0 -1 4194560 0", b"S"),
+        (b"1054 (sleep) Z 1 1053 1053 0 -1 0 0", b"Z"),
+        # comm is arbitrary bytes chosen by the process, so a name holding the
+        # delimiter would misparse if fields were split from the left: this one
+        # yields "0" rather than "Z", and a member read as a state we do not
+        # recognise is treated as alive, keeping the full drain.
+        (b"1055 (sh) 0 0) Z 1 1099 1099 0 -1 0 0", b"Z"),
+        (b"1056 (has space) R 1 1056 1056 0 -1 0 0", b"R"),
+    ],
+)
+def test_state_is_read_from_the_last_paren(content: bytes, expected: bytes) -> None:
+    assert process_module.state_from_stat(content) == expected
+
+
+procfs_only = pytest.mark.skipif(
+    not Path("/proc/self/stat").is_file(), reason="needs procfs"
+)
+
+
+@procfs_only
+def test_zombie_only_group_drains_without_spending_the_window(tmp_path: Path) -> None:
+    """The case this optimization exists for: nothing alive, so do not wait.
+
+    A container's pid 1 does not reap the orphaned descendant, so the group
+    keeps answering killpg(0) long after it is finished. Staged here by
+    reaping the leader ourselves and leaving the child unwaited.
+    """
+    with _stand_in_for_nuke(tmp_path, "sleep 300") as (process, group, child_pid):
+        process_module.signal_process_group(group)
+        process.wait(timeout=10)
+        assert _wait_until(lambda: process_module.process_is_zombie(child_pid) or not _alive(child_pid))
+
+        assert process_module.group_has_members(group) is False
+
+        started = time.monotonic()
+        process_module.sweep_process_group(group, group_is_ours=True)
+        assert time.monotonic() - started < process_module.DRAIN_TIMEOUT / 2
+
+
+@procfs_only
+def test_a_live_member_keeps_the_group_populated(leader_with_child) -> None:
+    """The guard against the drain shortcut firing on a group still running."""
+    process, group, child_pid = leader_with_child
+
+    assert process_module.group_has_members(group) is True
+
+    # Only the descendant left: still a live member, so still populated.
+    process.terminate()
+    process.wait(timeout=10)
+    assert process_module.group_has_members(group) is True
