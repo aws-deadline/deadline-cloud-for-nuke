@@ -156,6 +156,10 @@ def _group_is_only_zombies(group: int) -> bool:
     killpg still succeeds: signal permission and procfs visibility are
     separate checks.
     """
+    if sys.platform == "win32":
+        # Unreachable via group_has_members, which returns earlier, but the
+        # guard is what lets a type check for Windows prune getpgid below.
+        return False
     try:
         entries = os.listdir("/proc")
     except OSError:

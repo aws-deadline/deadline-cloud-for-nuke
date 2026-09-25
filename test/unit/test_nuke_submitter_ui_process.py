@@ -358,8 +358,11 @@ def zombie_group() -> Iterator[int]:
 @procfs_only
 def test_zombie_only_group_drains_without_spending_the_window(zombie_group: int) -> None:
     """The case this shortcut exists for: nothing alive, so do not wait."""
-    # The blind spot it works around: the group still answers a signal.
-    os.killpg(zombie_group, 0)
+    # The blind spot it works around: the group still answers a signal. The
+    # platform check is for a type check targeting Windows, which has no
+    # killpg; at runtime these tests never reach it, procfs being absent there.
+    if sys.platform != "win32":
+        os.killpg(zombie_group, 0)
 
     assert process_module.group_has_members(zombie_group) is False
 
