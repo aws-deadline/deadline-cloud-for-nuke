@@ -331,40 +331,52 @@ def test_only_a_single_threaded_zombie_counts_as_finished(content: bytes, expect
 procfs_only = pytest.mark.skipif(not Path("/proc/self/stat").is_file(), reason="needs procfs")
 
 
-@contextmanager
-def _zombie_group() -> Iterator[int]:
-    """Yields a process group holding nothing but an unwaited zombie.
+@pytest.fixture
+def zombie_group() -> Iterator[int]:
+    """A process group holding nothing but a zombie this process owns.
 
-    Forked here rather than staged through _stand_in_for_nuke so this process
-    is the parent that never waits. Relying on an orphan instead would only
-    reproduce it where pid 1 does not reap, so on a systemd host the child
-    would be gone, killpg would fail, and group_has_members would answer from
-    its pre-existing branch without consulting the procfs rules at all.
+    A direct child, so whether it stays unreaped is ours to decide rather than
+    the reaper above us. Staging it as a grandchild would only reproduce the
+    state where pid 1 declines to reap: elsewhere the child would be gone,
+    killpg would fail, and the callers below would answer from their
+    pre-existing branches without consulting the procfs rules at all.
+
+    Nothing here may call poll() or wait() until teardown, since either reaps
+    the zombie and dismantles the very state being staged.
     """
-    pid = os.fork()
-    if pid == 0:  # pragma: no cover - the child never returns
-        os.setpgid(0, 0)
-        os._exit(0)
+    process = subprocess.Popen(["/bin/true"], start_new_session=True)
     try:
-        # setpgid(0, 0) makes the child its own group leader, so pid is the id.
-        assert _wait_until(lambda: process_module.process_is_zombie(pid)), "no zombie staged"
-        yield pid
+        # start_new_session makes it a group leader, so its pid is the group id.
+        assert _wait_until(
+            lambda: process_module.process_is_zombie(process.pid)
+        ), "no zombie staged"
+        yield process.pid
     finally:
-        os.waitpid(pid, 0)
+        process.wait(timeout=10)
 
 
 @procfs_only
-def test_zombie_only_group_drains_without_spending_the_window() -> None:
+def test_zombie_only_group_drains_without_spending_the_window(zombie_group: int) -> None:
     """The case this shortcut exists for: nothing alive, so do not wait."""
-    with _zombie_group() as group:
-        # The blind spot it works around: the group still answers a signal.
-        os.killpg(group, 0)
+    # The blind spot it works around: the group still answers a signal.
+    os.killpg(zombie_group, 0)
 
-        assert process_module.group_has_members(group) is False
+    assert process_module.group_has_members(zombie_group) is False
 
-        started = time.monotonic()
-        process_module.sweep_process_group(group, group_is_ours=True)
-        assert time.monotonic() - started < process_module.DRAIN_TIMEOUT / 2
+    started = time.monotonic()
+    process_module.sweep_process_group(zombie_group, group_is_ours=True)
+    assert time.monotonic() - started < process_module.DRAIN_TIMEOUT / 2
+
+
+@procfs_only
+def test_a_zombie_is_not_a_recycled_group_id(zombie_group: int) -> None:
+    """The gate on the sweep's SIGKILL, which a false positive would abandon.
+
+    Once our leader is reaped its pid is free, and an unrelated short-lived
+    process can take it and exit unwaited. Reading that as a new owner would
+    skip the escalation while a real survivor still held the group.
+    """
+    assert process_module.group_id_was_recycled(zombie_group) is False
 
 
 @procfs_only

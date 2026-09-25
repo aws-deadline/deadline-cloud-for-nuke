@@ -92,7 +92,11 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
         return False
     except PermissionError:
         return True  # exists, and owned by someone else
-    return True
+    # This gates the sweep's SIGKILL, so a zombie answering the probe is the
+    # expensive direction: an unrelated short-lived process can take the freed
+    # pid and exit unwaited, and reading it as a new owner would abandon the
+    # escalation while our frame server still holds the group.
+    return not process_is_zombie(group)
 
 
 def zombie_from_stat(content: bytes) -> bool:
