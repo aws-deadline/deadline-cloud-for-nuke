@@ -95,23 +95,32 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
     return True
 
 
-def state_from_stat(content: bytes) -> bytes:
-    """The state field of /proc/<pid>/stat *content*.
+def zombie_from_stat(content: bytes) -> bool:
+    """Whether /proc/<pid>/stat *content* describes a process left to be waited for.
 
     comm is field 2 and may itself contain spaces and parens, so the fields
     after it are located from the last ')' rather than by splitting the line.
+
+    State 'Z' alone is not enough. A thread-group leader whose main thread
+    exited while its siblings keep running is held in EXIT_ZOMBIE by the kernel
+    (delay_group_leader) and reports 'Z' here for as long as the process is
+    alive and working -- ps shows it as defunct. Reading that as finished would
+    skip the SIGKILL escalation on a live Nuke or frame server, both of which
+    are heavily threaded. num_threads (field 20) tells the two apart without a
+    second open(): a real zombie has exactly one.
     """
-    return content.rpartition(b")")[2].split()[0]
+    fields = content.rpartition(b")")[2].split()
+    return fields[0] == b"Z" and fields[17] == b"1"
 
 
-def _read_state(pid: int) -> bytes:
-    """procfs state for *pid*.
+def _read_is_zombie(pid: int) -> bool:
+    """Whether *pid* is a zombie, per procfs.
 
     Raises FileNotFoundError if the process is gone, other OSError if its stat
     is present but unreadable, and IndexError if the content does not parse.
     """
     with open(f"/proc/{pid}/stat", "rb") as stat:
-        return state_from_stat(stat.read())
+        return zombie_from_stat(stat.read())
 
 
 def process_is_zombie(pid: int) -> bool:
@@ -123,7 +132,7 @@ def process_is_zombie(pid: int) -> bool:
     keeps the caller's reading of "still alive" for a process it cannot judge.
     """
     try:
-        return _read_state(pid) == b"Z"
+        return _read_is_zombie(pid)
     except (OSError, IndexError):
         return False
 
@@ -161,12 +170,12 @@ def _group_is_only_zombies(group: int) -> bool:
             return False  # may be a member we cannot judge
         found_member = True
         try:
-            state = _read_state(pid)
+            is_zombie = _read_is_zombie(pid)
         except FileNotFoundError:
             continue  # gone since getpgid, so not a survivor
         except (OSError, IndexError):
             return False  # confirmed member, unreadable state
-        if state != b"Z":
+        if not is_zombie:
             return False
     return found_member
 

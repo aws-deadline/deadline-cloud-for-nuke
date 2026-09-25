@@ -301,40 +301,64 @@ def test_capture_returns_none_without_process_groups(monkeypatch: pytest.MonkeyP
         process.wait(timeout=5)
 
 
+# /proc/<pid>/stat is "pid (comm) state ppid pgrp session tty_nr tpgid flags
+# minflt cminflt majflt cmajflt utime stime cutime cstime priority nice
+# num_threads ...", so of the fields after comm, state is index 0 and
+# num_threads (field 20) is index 17.
+_LIVE = b"1053 (sleep) S 1052 1053 1053 0 -1 4194560 306 0 5 0 0 0 0 0 20 0 1"
+_ZOMBIE = b"1054 (sleep) Z 1 1053 1053 0 -1 4194560 306 0 5 0 0 0 0 0 20 0 1"
+# A comm holding the delimiter: splitting from the left reads field 3 as "0".
+_ZOMBIE_ODD_COMM = b"1055 (sh) 0 0) Z 1 1099 1099 0 -1 4194560 306 0 5 0 0 0 0 0 20 0 1"
+# Verified on Linux 6.1: a thread-group leader whose main thread called
+# pthread_exit while a sibling kept running reports Z with num_threads 2, and
+# ps calls it defunct, while the process is alive and working.
+_LEADER_EXITED = b"1056 (python3) Z 1 1056 1056 0 -1 4227148 306 0 5 0 0 0 0 0 20 0 2"
+
+
 @pytest.mark.parametrize(
     "content, expected",
     [
-        (b"1053 (sleep) S 1052 1053 1053 0 -1 4194560 0", b"S"),
-        (b"1054 (sleep) Z 1 1053 1053 0 -1 0 0", b"Z"),
-        # comm is arbitrary bytes chosen by the process, so a name holding the
-        # delimiter would misparse if fields were split from the left: this one
-        # yields "0" rather than "Z", and a member read as a state we do not
-        # recognise is treated as alive, keeping the full drain.
-        (b"1055 (sh) 0 0) Z 1 1099 1099 0 -1 0 0", b"Z"),
-        (b"1056 (has space) R 1 1056 1056 0 -1 0 0", b"R"),
+        (_LIVE, False),
+        (_ZOMBIE, True),
+        (_ZOMBIE_ODD_COMM, True),
+        (_LEADER_EXITED, False),
     ],
 )
-def test_state_is_read_from_the_last_paren(content: bytes, expected: bytes) -> None:
-    assert process_module.state_from_stat(content) == expected
+def test_only_a_single_threaded_zombie_counts_as_finished(content: bytes, expected: bool) -> None:
+    assert process_module.zombie_from_stat(content) is expected
 
 
 procfs_only = pytest.mark.skipif(not Path("/proc/self/stat").is_file(), reason="needs procfs")
 
 
-@procfs_only
-def test_zombie_only_group_drains_without_spending_the_window(tmp_path: Path) -> None:
-    """The case this optimization exists for: nothing alive, so do not wait.
+@contextmanager
+def _zombie_group() -> Iterator[int]:
+    """Yields a process group holding nothing but an unwaited zombie.
 
-    A container's pid 1 does not reap the orphaned descendant, so the group
-    keeps answering killpg(0) long after it is finished. Staged here by
-    reaping the leader ourselves and leaving the child unwaited.
+    Forked here rather than staged through _stand_in_for_nuke so this process
+    is the parent that never waits. Relying on an orphan instead would only
+    reproduce it where pid 1 does not reap, so on a systemd host the child
+    would be gone, killpg would fail, and group_has_members would answer from
+    its pre-existing branch without consulting the procfs rules at all.
     """
-    with _stand_in_for_nuke(tmp_path, "sleep 300") as (process, group, child_pid):
-        process_module.signal_process_group(group)
-        process.wait(timeout=10)
-        assert _wait_until(
-            lambda: process_module.process_is_zombie(child_pid) or not _alive(child_pid)
-        )
+    pid = os.fork()
+    if pid == 0:  # pragma: no cover - the child never returns
+        os.setpgid(0, 0)
+        os._exit(0)
+    try:
+        # setpgid(0, 0) makes the child its own group leader, so pid is the id.
+        assert _wait_until(lambda: process_module.process_is_zombie(pid)), "no zombie staged"
+        yield pid
+    finally:
+        os.waitpid(pid, 0)
+
+
+@procfs_only
+def test_zombie_only_group_drains_without_spending_the_window() -> None:
+    """The case this shortcut exists for: nothing alive, so do not wait."""
+    with _zombie_group() as group:
+        # The blind spot it works around: the group still answers a signal.
+        os.killpg(group, 0)
 
         assert process_module.group_has_members(group) is False
 
