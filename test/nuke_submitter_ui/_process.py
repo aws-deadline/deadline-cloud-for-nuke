@@ -95,6 +95,47 @@ def group_id_was_recycled(group: Optional[int]) -> bool:
     return True
 
 
+def _state_and_pgid(pid: str) -> Optional[tuple[bytes, int]]:
+    """procfs state and process group for *pid*, or None if unreadable.
+
+    comm is field 2 and may itself contain spaces and parens, so the fields
+    after it are found from the last ')' rather than by splitting the line.
+    """
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as stat:
+            fields = stat.read().rpartition(b")")[2].split()
+        return fields[0], int(fields[2])
+    except (OSError, IndexError, ValueError):
+        # Exited between the scan and the read, or no procfs.
+        return None
+
+
+def process_is_zombie(pid: int) -> bool:
+    """Whether *pid* has exited but not yet been waited for.
+
+    Needs procfs, so this answers False on macOS. That costs nothing there:
+    launchd reaps an orphan before the first poll, so a zombie is never
+    observed in the first place.
+    """
+    state = _state_and_pgid(str(pid))
+    return state is not None and state[0] == b"Z"
+
+
+def _has_live_member(group: int) -> bool:
+    """Whether procfs shows a non-zombie process in *group*."""
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return True  # no procfs; caller falls back to the killpg result
+    for name in entries:
+        if not name.isdigit():
+            continue
+        found = _state_and_pgid(name)
+        if found is not None and found[1] == group and found[0] != b"Z":
+            return True
+    return False
+
+
 def group_has_members(group: Optional[int]) -> bool:
     """Whether *group* still holds a process we may signal."""
     if sys.platform == "win32" or group is None:
@@ -104,7 +145,11 @@ def group_has_members(group: Optional[int]) -> bool:
     except (ProcessLookupError, PermissionError):
         # Empty, or not ours to act on.
         return False
-    return True
+    # killpg cannot tell a running member from an unreaped zombie, and an
+    # orphan stays a zombie for as long as its reaper ignores it -- which pid 1
+    # does in a container. Counting one as a member would make the drain below
+    # always spend its full timeout on a group that is already finished.
+    return _has_live_member(group)
 
 
 def sweep_process_group(
