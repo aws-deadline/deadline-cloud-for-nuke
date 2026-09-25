@@ -1,3 +1,8 @@
+## 0.18.20 (2026-09-25)
+
+### Bug Fixes
+* Nuke license failures are now properly detected and reported with actionable guidance (BYOL/UBL), instead of the generic "Nuke encountered an error and was not able to complete initialization actions" message. (#351)
+* Console sign-in credentials now work correctly in the Nuke submitter. The minimum `deadline` dependency has been raised to 0.60.4 with the `console` extra, and a loadable `awscrt` is now shipped, fixing authentication failures when using console credentials. (#349)
 ## 0.18.19 (2026-08-03)
 
 ### Features
