@@ -61,8 +61,8 @@ from .submitter import (
 from .ui.components.asset_scan_warning_dialog import AssetScanWarningDialog
 from .ui.components.scene_settings_tab import SceneSettingsWidget
 
-g_render_submitter_dialog = None
-g_copycat_submitter_dialog = None
+g_render_submitter_dialog: Optional[SubmitJobToDeadlineDialog] = None
+g_copycat_submitter_dialog: Optional[SubmitJobToDeadlineDialog] = None
 
 
 def show_nuke_render_submitter(job_type: JobType) -> Optional[SubmitJobToDeadlineDialog]:
