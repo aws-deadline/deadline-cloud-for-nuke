@@ -101,6 +101,9 @@ packages = [
 
 [tool.mypy]
 check_untyped_defs = true
+# Defaults in mypy 2; set explicitly so mypy 1 (used on Python 3.9) checks the same way.
+local_partial_types = true
+strict_bytes = true
 show_error_codes = true
 pretty = true
 ignore_missing_imports = true
