@@ -4,7 +4,6 @@ import names
 import squish_helpers
 import squish
 
-
 """
 GUI test for submitting a Nuke job with custom settings to AWS Deadline Cloud.
 

@@ -3,7 +3,6 @@ import names
 import squish_helpers
 import squish
 
-
 """
 GUI test for validating Conda package validation in AWS Deadline Cloud submitter.
 

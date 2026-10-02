@@ -3,6 +3,7 @@
 """
 Functionality for creating a global logger for the Nuke submitter.
 """
+
 import logging
 import logging.handlers
 import os

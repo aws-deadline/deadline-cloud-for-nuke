@@ -18,6 +18,7 @@ Runs a set of job bundle tests defined in a folder structure.
             <reference output>
     ...
 """
+
 import os
 import tempfile
 from unittest import mock
@@ -52,7 +53,6 @@ from deadline.client.ui import gui_error_handler
 from deadline.client.ui.dialogs import submit_job_to_deadline_dialog
 from deadline.client.exceptions import DeadlineOperationError
 from .deadline_submitter_for_nuke import show_nuke_render_submitter
-
 
 # The following functions expose a DCC interface to the job bundle output test logic.
 

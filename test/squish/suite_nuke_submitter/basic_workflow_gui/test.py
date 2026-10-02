@@ -5,7 +5,6 @@ import squish_helpers
 import squish
 import sys
 
-
 # This file is a Squish test script for testing the basic workflow of submitting a Nuke job to Deadline Cloud.
 # It automates the process of launching Nuke, opening a script file, configuring AWS profile settings,
 # submitting a job to Deadline Cloud, and then closing Nuke.
