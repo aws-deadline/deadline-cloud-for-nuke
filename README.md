@@ -30,6 +30,44 @@ The submitter supports [task chunking][task-chunking], which groups multiple fra
 
 [task-chunking]: https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/build-job-bundle-chunking.html
 
+## Submission Hooks
+
+The Nuke submitter supports Deadline Cloud **submission hooks** — studio scripts that run at
+submission time: **pre-GUI** hooks pre-populate the submitter dialog before it opens, and
+**pre-/post-submission** hooks run before files are uploaded and after the job is created. Both
+submitter menu items run these hooks — **AWS Deadline → Submit to Deadline Cloud** and **AWS
+Deadline → Submit CopyCat Training to Deadline Cloud**.
+
+Enable environment-sourced hooks (from the directory named by `DEADLINE_HOOKS_DIR`), which are off
+by default:
+```
+deadline config set settings.allow_environment_hooks true
+```
+At pre-GUI time the Nuke submitter has no on-disk job bundle, so `DEADLINE_HOOKS_DIR` is its only
+pre-GUI hook source; pre-/post-submission hooks can additionally come from a bundle `hooks.yaml`
+(gated by `settings.allow_bundle_hooks`).
+
+For the `hooks.yaml` format, the hook stdin/stdout contract, the recognized `deadline:` job
+properties, and the confirmation-prompt / `settings.auto_accept` behavior, see the base client
+documentation: [docs/submission-hooks.md](https://github.com/aws-deadline/deadline-cloud/blob/mainline/docs/submission-hooks.md).
+
+A few things differ for the in-process Nuke submitter and are worth knowing before following that doc:
+
+- **What a pre-GUI hook can set:** `name`, `description`, the `deadline:` job properties, and queue
+  parameters your queue exposes (e.g. `CondaPackages`, `RezPackages`, `CondaChannels`). It cannot set
+  Nuke job-template parameters (frame range, write node, view, chunk size, etc.) — the submitter
+  rebuilds those from the dialog's scene settings at bundle-build time, so hook values for them are
+  silently ignored.
+- **No job-type distinction:** hooks run for both the render and CopyCat-training dialogs with the
+  same `submitterName` (`"nuke"`) and no job-type field, so a hook cannot tell them apart. Write it
+  to be job-type agnostic — e.g. extend the incoming `CondaPackages` rather than hardcoding a
+  render-only value (CopyCat jobs do not use `nuke-openjd`).
+- **Hook output is not surfaced in Nuke:** pre-GUI hook progress and failure diagnostics are not
+  streamed to the artist or shown in the Script Editor; they are written to
+  `~/.deadline/logs/submitters/nuke.log` (and `INFO`-level lines appear there only if the `deadline`
+  logger level is lowered). To iterate on a pre-GUI hook with visible output, run it under
+  `deadline bundle gui-submit`.
+
 ## Adaptor
 
 The Nuke Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Nuke and feed it commands. This gives the following benefits:
