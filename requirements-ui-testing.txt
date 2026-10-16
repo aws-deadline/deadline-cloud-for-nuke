@@ -2,7 +2,7 @@
 # See test/nuke_submitter_ui/README.md for setup and usage.
 deadline-cloud-test-fixtures >= 0.18.20, < 0.19
 xa11y == 0.15.*
-openjd-cli == 0.7.*
+openjd-cli == 0.8.*
 # Verified activation of the Nuke app (see _launcher.py platform notes).
 pyobjc-framework-Cocoa == 12.*; sys_platform == 'darwin'
 pytest == 9.1.*; python_version >= '3.10'
