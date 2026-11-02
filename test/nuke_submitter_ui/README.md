@@ -111,3 +111,48 @@ Remaining: `manual_attachments_gui`, `invalid_conda_gui`. Squish stays until the
 Scenes are built programmatically rather than opening the Squish `.nk` sample
 files, so the suite needs no Git LFS assets and each case's inputs are
 readable in its `scene.py`.
+
+## Interaction coverage
+
+Two focused cases reuse the basic scene and mock backend, with output kept in
+pytest's temporary directory. They inspect actual exported YAML rather than
+adding new golden bundles:
+
+| Case | Assertions |
+| --- | --- |
+| `test_manual_attachments_add_remove_and_export` | Add two real input files, remove one, add an output directory, and export. The asset references contain exactly the retained file, the scene, and both automatic and manual output directories. Paths contain spaces to exercise the picker. |
+| `test_empty_frame_override_validation_and_recovery` | Enable an empty frame override, assert the specific validation message, dismiss it, and check that no bundle was exported. Correct the range in the same dialog and validate the resulting OpenJD template and `Frames=7-9`. |
+
+These cases cover attachment editing and validation/recovery with little new
+infrastructure. The attachment case extends the old Squish add-only behavior
+with removal and exported-content assertions, but does not port its submission
+step. The old `invalid_conda_gui` types invalid names and then checks hardcoded
+default field values; it never asserts a validation message or package
+resolution. It is not evidence of invalid-Conda feedback coverage.
+
+Submission success and API failure/retry remain gaps. The allowed shared
+mock backend (inspected at `deadline-cloud-test-fixtures` 0.18.25) exposes
+resource-read routes, but no `CreateJob` route. These tests assert no
+`CreateJob` calls; adding submission coverage requires a separate mock
+submission design, including attachment transfer, rather than relying on
+real AWS or treating a local export as submission.
+
+### Required live verification for the interaction cases
+
+The interaction cases have not yet been run in licensed GUI Nuke. Collection
+and static checks cannot verify accessibility selectors or native file pickers.
+On a licensed Nuke 16.0v7 runner with the repository and declared dependencies
+installed into Nuke's Python, run:
+
+```
+hatch run integ-xa11y:test test/nuke_submitter_ui -k 'manual_attachments or empty_frame_override'
+hatch run integ-xa11y:test
+```
+
+Verify that both new cases **pass**, rather than skip. Check the macOS native
+Go to Folder sheet and the File name/Directory/Folder controls on Linux/Windows, the
+attachment row selection/removal, and the host-owned error message/OK button.
+The new picker selectors are based on the dialogs' source and platform
+conventions, and still require live confirmation. No golden update is needed.
+Record the runner OS, Nuke version, dependency versions and results before
+claiming GUI validation.
