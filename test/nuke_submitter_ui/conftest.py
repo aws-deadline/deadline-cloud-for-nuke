@@ -124,3 +124,44 @@ def interactive_submitter(nuke_executable, mock_deadline_server, mock_backend, t
         session.close()
         _assert_expected_mock_traffic(mock_backend)
         assert mock_backend.call_counts.get("CreateJob", 0) == 0
+
+
+@pytest.fixture
+def mock_submission_server(request):
+    from _submission_mock import submission_server
+
+    with submission_server(fail_first=getattr(request, "param", False)) as server:
+        yield server
+
+
+@pytest.fixture
+def submission_submitter(nuke_executable, mock_submission_server, tmp_path):
+    """Real Nuke + client submission to a shared-storage mock queue."""
+    from _launcher import build_nuke_environment, launch_nuke_with_submitter
+    from pages import NukeSubmitterDialog
+    from test_submitter_ui import _assert_expected_mock_traffic, _write_case_config
+
+    scenario, backend = mock_submission_server
+    config_path, _ = _write_case_config(tmp_path, scenario)
+    env = build_nuke_environment(
+        deadline_endpoint_url=backend.base_url,
+        config_path=config_path,
+        work_dir=tmp_path,
+        scene_script=Path(__file__).parent / "test_cases/basic_workflow/input/scene.py",
+        scene_file=tmp_path / "submission.nk",
+    )
+    # Any unexpected AWS service requests must also hit loopback and fail.
+    for key in list(env):
+        if key.startswith("AWS_ENDPOINT_URL_"):
+            del env[key]
+    env["AWS_ENDPOINT_URL"] = backend.base_url
+    env["AWS_IGNORE_CONFIGURED_ENDPOINT_URLS"] = "false"
+    session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
+    try:
+        dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
+        dialog.wait_farm_resolved("TestFarm")
+        dialog.wait_settled()
+        yield dialog, backend
+    finally:
+        session.close()
+        _assert_expected_mock_traffic(backend)
