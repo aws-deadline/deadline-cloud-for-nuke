@@ -10,7 +10,7 @@ The runner choice and session setup come from:
 - [Foundry's Nuke 16 Linux requirements](https://learn.foundry.com/nuke/16.0/content/getting_started/installation/linux.html):
   Rocky 9 is qualified, and `libnuma` is required.
 - [Deadline Cloud's Nuke 16 packaging recipe](https://github.com/aws-deadline/deadline-cloud-samples/blob/mainline/conda_recipes/nuke-16.0/recipe/build.sh):
-  the Linux `.tgz` contains a `.run` installer; `--prefix` names its parent
+  the Linux `.tgz` contains a `.run` installer; `--prefix=DIR` names its parent
   directory and `--accept-foundry-eula` enables unattended installation.
 - [xa11y 0.15.0's Linux harness](https://github.com/xa11y/xa11y/blob/v0.15.0/scripts/run_integ_tests.sh)
   and [accessibility setup](https://github.com/xa11y/xa11y/blob/v0.15.0/scripts/setup_linux_a11y.sh):

@@ -69,7 +69,7 @@ def test_linux_installer_uses_prefix_parent_without_extracting_paths(setup, tmp_
     monkeypatch.setattr(setup, "run", run)
     monkeypatch.setattr(setup.os, "geteuid", lambda: 0)
     setup.install_from_tgz(archive, setup.nuke_installation("16.0v7", "Linux"))
-    assert commands[0][1:] == ["--prefix", "/usr/local", "--accept-foundry-eula"]
+    assert commands[0][1:] == ["--prefix=/usr/local", "--accept-foundry-eula"]
     assert not Path(commands[0][0]).exists()  # staging removed
     assert not (tmp_path / "outside.run").exists()
 
