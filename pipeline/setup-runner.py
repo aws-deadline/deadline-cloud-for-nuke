@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-"""Install Nuke on an ephemeral macOS integration-test runner."""
+"""Install Nuke on an ephemeral macOS or Linux integration-test runner."""
 
 import argparse
 import hashlib
@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,13 +30,24 @@ class NukeInstallation:
     python: Path
 
 
-def nuke_installation(version: str) -> NukeInstallation:
-    """Build the expected macOS installation paths for *version*."""
+def nuke_installation(version: str, system: str = "Darwin") -> NukeInstallation:
+    """Build the expected installation paths for *version* and *system*."""
     version = version.strip()
     if not _NUKE_VERSION_PATTERN.fullmatch(version):
         raise ValueError("Nuke version must have the form MAJOR.MINORvREVISION")
 
     major_minor = version.split("v", 1)[0]
+    if system == "Linux":
+        install_dir = Path("/usr/local") / f"Nuke{version}"
+        return NukeInstallation(
+            version,
+            install_dir,
+            install_dir,
+            install_dir / f"Nuke{major_minor}",
+            install_dir / "python",
+        )
+    if system != "Darwin":
+        raise RuntimeError("Nuke integration-test setup supports only macOS and Linux")
     install_dir = Path("/Applications") / f"Nuke{version}"
     app = install_dir / f"Nuke{version}.app"
     return NukeInstallation(
@@ -48,11 +60,22 @@ def nuke_installation(version: str) -> NukeInstallation:
 
 
 def run(
-    command: List[str], check: bool = True, input_data: Optional[bytes] = None
+    command: List[str],
+    check: bool = True,
+    input_data: Optional[bytes] = None,
+    quiet: bool = False,
 ) -> subprocess.CompletedProcess:
     """Run a command and return its result."""
-    print(f"Running: {subprocess.list2cmdline(command)}")
-    return subprocess.run(command, check=check, input=input_data)
+    if not quiet:
+        print(f"Running: {subprocess.list2cmdline(command)}")
+    return subprocess.run(
+        command,
+        check=check,
+        input=input_data,
+        stdout=subprocess.DEVNULL if quiet else None,
+        stderr=subprocess.DEVNULL if quiet else None,
+        env={**os.environ, "AWS_PAGER": ""},
+    )
 
 
 def required_environment_variable(name: str) -> str:
@@ -71,22 +94,28 @@ def download_installer(destination: Path) -> None:
     if not (expected_owner.isdigit() and len(expected_owner) == 12):
         raise ValueError("INSTALLER_BUCKET_EXPECTED_OWNER must be a 12-digit AWS account ID")
 
-    print(f"Downloading s3://{bucket}/{key} to {destination}")
-    run(
-        [
-            "aws",
-            "s3api",
-            "get-object",
-            "--bucket",
-            bucket,
-            "--key",
-            key,
-            "--expected-bucket-owner",
-            expected_owner,
-            "--no-cli-pager",
-            str(destination),
-        ]
-    )
+    print("Downloading the configured Nuke installer")
+    try:
+        run(
+            [
+                "aws",
+                "s3api",
+                "get-object",
+                "--bucket",
+                bucket,
+                "--key",
+                key,
+                "--expected-bucket-owner",
+                expected_owner,
+                str(destination),
+            ],
+            quiet=True,
+        )
+    except subprocess.CalledProcessError:
+        # CalledProcessError includes the command (and secret bucket/key/owner values).
+        raise RuntimeError(
+            "Nuke installer download failed; check installer access/configuration"
+        ) from None
 
 
 def verify_checksum(installer: Path) -> None:
@@ -102,7 +131,7 @@ def verify_checksum(installer: Path) -> None:
 
     actual = digest.hexdigest()
     if actual != expected:
-        raise ValueError(f"Installer checksum mismatch: expected {expected}, got {actual}")
+        raise ValueError("Installer checksum mismatch")
     print("Installer checksum verified")
 
 
@@ -143,6 +172,33 @@ def install_from_dmg(installer: Path, installation: NukeInstallation) -> None:
             run(["hdiutil", "detach", str(mount_point)], check=False)
         if mount_point.exists() and not mount_point.is_mount():
             shutil.rmtree(mount_point)
+
+
+def install_from_tgz(installer: Path, installation: NukeInstallation) -> None:
+    """Run the sole regular .run file in a checksum-verified Foundry Linux archive.
+
+    Foundry's installer adds Nuke<version> under --prefix, as used by the public
+    deadline-cloud-samples/conda_recipes/nuke-16.0/recipe/build.sh recipe.
+    Do not extract archive paths, links, or device nodes into the filesystem.
+    """
+    with tempfile.TemporaryDirectory(prefix="nuke-installer-") as directory:
+        executable = Path(directory) / "installer.run"
+        with tarfile.open(installer, "r:gz") as archive:
+            candidates = [member for member in archive.getmembers() if member.name.endswith(".run")]
+            if len(candidates) != 1 or not candidates[0].isfile():
+                raise ValueError("Linux archive must contain exactly one regular .run installer")
+            with archive.extractfile(candidates[0]) as source, executable.open("wb") as destination:
+                shutil.copyfileobj(source, destination)
+        executable.chmod(0o700)
+        command = [
+            str(executable),
+            "--prefix",
+            str(installation.install_dir.parent),
+            "--accept-foundry-eula",
+        ]
+        if os.geteuid() != 0:
+            command.insert(0, "sudo")
+        run(command)
 
 
 def verify_installation(installation: NukeInstallation) -> None:
@@ -191,25 +247,29 @@ def parse_args(arguments: Optional[List[str]] = None) -> argparse.Namespace:
 def main(arguments: Optional[List[str]] = None) -> None:
     """Install and verify the configured Nuke version."""
     args = parse_args(arguments)
-    installation = nuke_installation(args.version)
-
-    if platform.system() != "Darwin":
-        raise RuntimeError("Nuke integration-test setup currently supports only macOS")
+    system = platform.system()
+    installation = nuke_installation(args.version, system)
+    if system == "Linux" and platform.machine() != "x86_64":
+        raise RuntimeError("The Linux Nuke installer requires x86_64")
 
     if installation.executable.is_file() and installation.python.is_file():
         print(f"Nuke {installation.version} is already installed at {installation.install_dir}")
     else:
         runner_temp = Path(required_environment_variable("RUNNER_TEMP"))
         installer_key = required_environment_variable("NUKE_INSTALLER_S3_KEY")
-        installer_name = Path(installer_key).name
-        if not installer_name.lower().endswith(".dmg"):
-            raise ValueError("NUKE_INSTALLER_S3_KEY must identify a .dmg file")
+        extension = ".dmg" if system == "Darwin" else ".tgz"
+        if not installer_key.lower().endswith(extension):
+            raise ValueError(f"NUKE_INSTALLER_S3_KEY must identify a {extension} file")
 
-        installer = runner_temp / installer_name
+        # A fixed local name avoids leaking the secret S3 key through command output.
+        installer = runner_temp / f"nuke-installer{extension}"
         try:
             download_installer(installer)
             verify_checksum(installer)
-            install_from_dmg(installer, installation)
+            if system == "Darwin":
+                install_from_dmg(installer, installation)
+            else:
+                install_from_tgz(installer, installation)
         finally:
             installer.unlink(missing_ok=True)
 

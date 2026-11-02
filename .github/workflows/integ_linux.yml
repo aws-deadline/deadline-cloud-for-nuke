@@ -1,0 +1,152 @@
+name: "Nuke xa11y Integration Tests - Linux"
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - mainline
+      - feature/ci-tests
+    paths-ignore:
+      - CHANGELOG.md
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      AWS_OIDC_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      INSTALLER_BUCKET:
+        required: true
+      INSTALLER_BUCKET_EXPECTED_OWNER:
+        required: true
+      NUKE_LINUX_INSTALLER_S3_KEY:
+        required: true
+      NUKE_LINUX_INSTALLER_SHA256:
+        required: true
+      LICENSE_ROLE_ARN:
+        required: true
+      BASTION_INSTANCE_TAG:
+        required: true
+
+# Shared with macOS: one licensed GUI session across both workflows.
+concurrency:
+  group: nuke-integration-tests
+  cancel-in-progress: false
+
+jobs:
+  IntegLinux:
+    if: >-
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      (github.ref == 'refs/heads/mainline' ||
+      github.ref == 'refs/heads/feature/ci-tests')
+    name: xa11y Integration Tests (Rocky Linux 9, x86_64)
+    runs-on: ubuntu-24.04
+    # Foundry qualifies Rocky 9 for Nuke 16; Ubuntu is only the container host.
+    # quay.io/rockylinux/rockylinux:9 amd64 manifest verified 2026-11-02.
+    container:
+      image: quay.io/rockylinux/rockylinux@sha256:ed654c694190a670bb5c33f68995b862214fc96ffbdca95e07a8935ba0a3717d
+      options: --init # Reap orphaned desktop/Nuke helpers on the ephemeral runner.
+    timeout-minutes: 60
+    permissions:
+      id-token: write # Assume the existing installer/license CI role through OIDC.
+      contents: read # Check out the test code; no repository writes.
+    defaults:
+      run:
+        shell: bash
+    env:
+      FOUNDRY_LICENSE_PORT: "6101"
+      foundry_LICENSE: "6101@127.0.0.1"
+      FN_NUKE_DISABLE_GPU_ACCELERATION: "1"
+      NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS: "1"
+      NUKE_VERSION: "16.0v7"
+      INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+      INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+      # Deliberately no fallback to the macOS DMG secrets.
+      NUKE_INSTALLER_S3_KEY: ${{ secrets.NUKE_LINUX_INSTALLER_S3_KEY }}
+      NUKE_INSTALLER_SHA256: ${{ secrets.NUKE_LINUX_INSTALLER_SHA256 }}
+      GUI_ARTIFACT_DIR: ${{ github.workspace }}/build/linux-gui
+
+    steps:
+      - name: Bootstrap checkout dependencies
+        run: dnf install -y git tar gzip
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate Linux installer configuration
+        run: |
+          set -euo pipefail
+          # Only report missing/invalid names, never values.
+          [[ -n "$INSTALLER_BUCKET" ]] || { echo "INSTALLER_BUCKET is required"; exit 1; }
+          [[ "$INSTALLER_BUCKET_EXPECTED_OWNER" =~ ^[0-9]{12}$ ]] ||
+            { echo "INSTALLER_BUCKET_EXPECTED_OWNER must be a 12-digit account ID"; exit 1; }
+          [[ "$NUKE_INSTALLER_S3_KEY" == *.tgz ]] ||
+            { echo "NUKE_LINUX_INSTALLER_S3_KEY must identify the Linux .tgz archive"; exit 1; }
+          [[ "$NUKE_INSTALLER_SHA256" =~ ^[0-9a-fA-F]{64}$ ]] ||
+            { echo "NUKE_LINUX_INSTALLER_SHA256 must be a SHA-256 digest"; exit 1; }
+
+      - name: Install Linux GUI and test dependencies
+        run: bash pipeline/setup-linux-gui.sh
+
+      - name: Create xa11y test environment
+        run: hatch env create integ-xa11y
+
+      - name: Verify desktop and accessibility without a Nuke license
+        run: |
+          bash pipeline/run-linux-gui.sh \
+            hatch -e integ-xa11y run python pipeline/linux-gui-smoke.py
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Install Nuke
+        run: |
+          python3.11 pipeline/setup-runner.py --version "$NUKE_VERSION" --github-env "$GITHUB_ENV"
+
+      - name: Install Deadline Cloud submitter into Nuke
+        run: |
+          set -euo pipefail
+          test -x "$NUKE_EXECUTABLE"
+          test -x "$NUKE_PYTHON"
+          "$NUKE_PYTHON" -m pip install --user .
+          "$NUKE_PYTHON" -c \
+            "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('deadline.nuke_submitter') else 'deadline.nuke_submitter is not importable')"
+
+      - name: Bring up license tunnel and run serial xa11y tests
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+          BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+        run: |
+          bash pipeline/run-linux-gui.sh python3.11 pipeline/license-tunnel.py -- \
+            hatch run integ-xa11y:test test/nuke_submitter_ui \
+            --basetemp="$GUI_ARTIFACT_DIR/pytest-tmp" \
+            --junitxml="$GUI_ARTIFACT_DIR/results.xml"
+
+      - name: Tear down license session and surviving GUI processes
+        if: always()
+        run: |
+          status=0
+          if command -v python3.11 >/dev/null; then
+            python3.11 pipeline/license-tunnel.py --cleanup || status=$?
+          fi
+          pkill -KILL -x "Nuke${NUKE_VERSION%v*}" 2>/dev/null || true
+          exit "$status"
+
+      - name: Upload GUI failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nuke-linux-gui-failure
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            build/linux-gui/
+            test/nuke_submitter_ui/test_cases/**/actual/

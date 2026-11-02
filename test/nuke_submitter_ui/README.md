@@ -16,6 +16,10 @@ ported.
   installs `requirements-ui-testing.txt`.
 - macOS: grant the terminal running pytest Accessibility permission
   (System Settings → Privacy & Security → Accessibility), then restart it.
+- Linux: run in an X11 desktop session with a window manager and AT-SPI2
+  enabled on the same D-Bus session as pytest and Nuke. See
+  [Linux CI setup](../../pipeline/README-linux-gui.md) for the Rocky 9 harness,
+  unlicensed smoke check, and required installer/license configuration.
 
 ## Running
 
@@ -36,6 +40,9 @@ which don't apply to GUI tests. The suite is excluded from the default run
 Repository maintainers can run the suite on the configured macOS runner by
 pushing a commit to the upstream repository's `feature/ci-tests` branch. The
 `Nuke xa11y Integration Tests - macOS` workflow starts automatically.
+The Linux workflow uses the same trusted branches and license concurrency
+group, with separate Linux installer secrets. Linux submitter selectors
+still require validation against a licensed Nuke installation.
 
 Keep hands off the keyboard and mouse while tests run: they use real
 (synthetic) clicks and keystrokes, which land in whatever window has focus.
