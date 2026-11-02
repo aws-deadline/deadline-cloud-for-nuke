@@ -41,7 +41,7 @@ def test_platform_paths_and_version_validation(setup):
     assert mac.executable == Path("/Applications/Nuke16.0v7/Nuke16.0v7.app/Contents/MacOS/Nuke16.0")
     linux = setup.nuke_installation("16.0v7", "Linux")
     assert linux.executable == Path("/usr/local/Nuke16.0v7/Nuke16.0")
-    assert linux.python == Path("/usr/local/Nuke16.0v7/python")
+    assert linux.python == Path("/usr/local/Nuke16.0v7/python3")
     for version in ("../16.0v7", "16.0v7\nother=value", "16"):
         with pytest.raises(ValueError):
             setup.nuke_installation(version, "Linux")

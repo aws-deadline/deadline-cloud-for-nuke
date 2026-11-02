@@ -44,7 +44,7 @@ def nuke_installation(version: str, system: str = "Darwin") -> NukeInstallation:
             install_dir,
             install_dir,
             install_dir / f"Nuke{major_minor}",
-            install_dir / "python",
+            install_dir / "python3",
         )
     if system != "Darwin":
         raise RuntimeError("Nuke integration-test setup supports only macOS and Linux")
