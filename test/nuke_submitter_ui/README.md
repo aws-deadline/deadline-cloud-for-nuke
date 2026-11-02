@@ -137,28 +137,58 @@ step. The old `invalid_conda_gui` types invalid names and then checks hardcoded
 default field values; it never asserts a validation message or package
 resolution. It is not evidence of invalid-Conda feedback coverage.
 
-Submission success and API failure/retry remain gaps. The allowed shared
-mock backend (inspected at `deadline-cloud-test-fixtures` 0.18.25) exposes
-resource-read routes, but no `CreateJob` route. These tests assert no
-`CreateJob` calls; adding submission coverage requires a separate mock
-submission design, including attachment transfer, rather than relying on
-real AWS or treating a local export as submission.
+The export/validation interaction cases assert no `CreateJob` calls.
+Submission now has its own focused mock and cases below.
 
-### Required live verification for the interaction cases
+## Submission coverage
 
-The interaction cases have not yet been run in licensed GUI Nuke. Collection
-and static checks cannot verify accessibility selectors or native file pickers.
+`_submission_mock.py` extends the shared mock locally with two HTTP routes:
+`CreateJob` validates and records the real client request, and `GetJob`
+transitions from `CREATE_IN_PROGRESS` to `CREATE_COMPLETE`. It runs in a
+separate spawned process, as required when native accessibility calls hold
+pytest's GIL. Each test gets a fresh server.
+
+The mock queue uses shared storage: it has no `jobAttachmentSettings`.
+This is a supported client path that sends a job without S3 transfers.
+The real Nuke scene, bundle builder, submission worker, client and botocore
+HTTP path run normally. Fake credentials, isolated configuration and
+loopback endpoint overrides keep the tests offline. The mock rejects
+attachment payloads and unexpected routes. S3 upload, rendering and
+rendered-output assertions remain outside this coverage.
+
+| Case | Assertions |
+| --- | --- |
+| `test_submission_success` | Press Submit; verify completion status, returned job ID, and dialog closure. Assert one `CreateJob`, polling through creation, and the requested name, priority and frame range in the HTTP payload. |
+| `test_submission_api_failure_and_retry` | Reject the first `CreateJob` with `ValidationException`; verify the error details and Close button, then retry from the same submitter. Assert two attempts and exactly one successfully created job, with the same settings. |
+| `test_real_client_submission_transport` (two variants) | Submit the existing evidence-based basic bundle through the real client in a subprocess, with and without the initial API rejection. Verify the same captured request assertions and polling. These checks require no Nuke and verify the HTTP mock contract; they do not verify the GUI. |
+
+Run the transport checks alone with:
+
+```
+hatch run integ-xa11y:test test/nuke_submitter_ui/test_submission_transport.py
+```
+
+Both transport variants passed locally on Linux with Python 3.11.18,
+`deadline` 0.60.11 and `deadline-cloud-test-fixtures` 0.18.25.
+
+### Required live verification for the new GUI cases
+
+The new interaction and submission GUI cases have not yet been run in licensed
+GUI Nuke. Collection and static checks cannot verify accessibility selectors
+or native file pickers.
 On a licensed Nuke 16.0v7 runner with the repository and declared dependencies
 installed into Nuke's Python, run:
 
 ```
-hatch run integ-xa11y:test test/nuke_submitter_ui -k 'manual_attachments or empty_frame_override'
+hatch run integ-xa11y:test test/nuke_submitter_ui -k 'manual_attachments or empty_frame_override or submission_success or submission_api_failure'
 hatch run integ-xa11y:test
 ```
 
-Verify that both new cases **pass**, rather than skip. Check the macOS native
+Verify that all four new GUI cases **pass**, rather than skip. Check the macOS native
 Go to Folder sheet and the File name/Directory/Folder controls on Linux/Windows, the
 attachment row selection/removal, and the host-owned error message/OK button.
+For submission, verify the progress window's completion label, job ID in
+the log, and OK/Close buttons, including same-dialog retry after failure.
 The new picker selectors are based on the dialogs' source and platform
 conventions, and still require live confirmation. No golden update is needed.
 Record the runner OS, Nuke version, dependency versions and results before

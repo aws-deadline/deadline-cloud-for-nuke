@@ -488,6 +488,56 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     # Actions
     # ------------------------------------------------------------------
 
+    def submit(self) -> None:
+        self._front()
+        submit = self.button("Submit")
+        submit.wait_enabled(timeout=WIDGET_TIMEOUT)
+        submit.press()
+
+    def _submission_progress(self) -> xa11y.Locator:
+        self._front()
+        progress = self.app.locator(
+            "dialog[name='AWS Deadline Cloud submission'], "
+            "window[name='AWS Deadline Cloud submission'], "
+            "sheet[name='AWS Deadline Cloud submission']"
+        )
+        progress.wait_visible(timeout=EXPORT_TIMEOUT)
+        return progress
+
+    def finish_submission(self, job_id: str) -> None:
+        """Verify success and the returned job ID before closing the progress UI."""
+        progress = self._submission_progress()
+        progress.descendant("static_text[name='Submission complete']").wait_visible(
+            timeout=EXPORT_TIMEOUT
+        )
+        progress.wait_until(
+            lambda element: element is not None and job_id in element.dump(),
+            timeout=EXPORT_TIMEOUT,
+        )
+        ok = progress.descendant("button[name='OK']")
+        ok.wait_enabled(timeout=WIDGET_TIMEOUT)
+        ok.press()
+        progress.wait_hidden(timeout=WIDGET_TIMEOUT)
+        # The Nuke submitter closes only after a successful submission.
+        self.window.wait_hidden(timeout=WIDGET_TIMEOUT)
+
+    def dismiss_submission_error(self, message: str) -> None:
+        """Assert API error details, then return to the still-open submitter."""
+        progress = self._submission_progress()
+        progress.wait_until(
+            lambda element: element is not None
+            and "Error occurred:" in element.dump()
+            and message in element.dump(),
+            timeout=EXPORT_TIMEOUT,
+        )
+        assert not progress.descendant("static_text[name='Submission complete']").exists()
+        close = progress.descendant("button[name='Close']")
+        close.wait_enabled(timeout=WIDGET_TIMEOUT)
+        close.press()
+        progress.wait_hidden(timeout=WIDGET_TIMEOUT)
+        self.window.wait_visible(timeout=WIDGET_TIMEOUT)
+        self.button("Submit").wait_enabled(timeout=WIDGET_TIMEOUT)
+
     def export_bundle(self, timeout: float = EXPORT_TIMEOUT) -> None:
         """Save the bundle locally and dismiss the host-owned confirmation."""
         self._front()
