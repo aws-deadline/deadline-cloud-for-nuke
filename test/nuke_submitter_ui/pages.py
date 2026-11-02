@@ -576,14 +576,20 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     def _choose_attachment_path(self, group: str, title: str, path: Path) -> None:
         """Use the real file picker, then verify its result in the attachment list.
 
-        macOS uses the native Go to Folder sheet. Linux/Windows pickers expose
-        a File name or Directory/Folder field. These new picker selectors need
-        verification on the licensed runner (see README).
+        Nuke can expose a Qt picker even on macOS. Prefer its path field when
+        present; use Go to Folder only for a native macOS picker.
         """
         self._attachment_group(group).descendant("button[name='Add...']").press()
         picker = self.app.locator(f'dialog[name="{title}"], window[name="{title}"], sheet')
         picker.wait_visible(timeout=WIDGET_TIMEOUT)
-        if sys.platform == "darwin":
+        field = picker.descendant(
+            "text_field[name^='File name'], "
+            "text_field[name^='Directory'], text_field[name^='Folder']"
+        )
+        if field.exists() or sys.platform != "darwin":
+            field.wait_visible(timeout=WIDGET_TIMEOUT)
+            field.set_value(str(path))
+        else:
             sim = xa11y.input_sim()
             sheets = self.app.locator("sheet")
             sheet_count = sheets.count()
@@ -600,18 +606,12 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             sim.press("Enter")
             # The navigation sheet closes before the picker can accept.
             sheets.wait_until(lambda _: sheets.count() == sheet_count, timeout=WIDGET_TIMEOUT)
-        else:
-            field = picker.descendant(
-                "text_field[name^='File name'], "
-                "text_field[name^='Directory'], text_field[name^='Folder']"
-            )
-            field.wait_visible(timeout=WIDGET_TIMEOUT)
-            field.set_value(str(path))
         accept = picker.descendant(
             "button[name='Open'], button[name='Choose'], button[name='Select Folder']"
         )
         accept.wait_enabled(timeout=WIDGET_TIMEOUT)
         accept.press()
+        picker.wait_hidden(timeout=WIDGET_TIMEOUT)
         self._wait_attachment_path(group, path, present=True)
 
     def _wait_attachment_path(self, group: str, path: Path, *, present: bool) -> None:
