@@ -59,7 +59,7 @@ jobs:
       foundry_LICENSE: "6101@127.0.0.1"
       FN_NUKE_DISABLE_GPU_ACCELERATION: "1"
       NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS: "1"
-      NUKE_VERSION: "16.0v7"
+      NUKE_VERSION: "16.0v9"
       INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
       INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
       # Deliberately no fallback to the macOS DMG secrets.

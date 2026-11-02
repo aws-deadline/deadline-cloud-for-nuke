@@ -1,7 +1,7 @@
 # Linux Nuke GUI integration CI
 
 `integ_linux.yml` runs the existing serial `test/nuke_submitter_ui` suite with
-Nuke 16.0v7 and xa11y 0.15.*. The container is Rocky Linux 9 x86_64, hosted by
+Nuke 16.0v9 and xa11y 0.15.*. The container is Rocky Linux 9 x86_64, hosted by
 GitHub's `ubuntu-24.04` runner. Ubuntu is the host, not the Nuke userspace.
 The Rocky image is pinned to its amd64 manifest digest.
 
@@ -32,7 +32,7 @@ or the reusable workflow caller:
 
 | Secret | Configuration |
 | --- | --- |
-| `NUKE_LINUX_INSTALLER_S3_KEY` | Existing, legitimate Nuke **16.0v7 Linux x86_64 `.tgz`** object in the installer bucket |
+| `NUKE_LINUX_INSTALLER_S3_KEY` | Existing, legitimate Nuke **16.0v9 Linux x86_64 `.tgz`** object in the installer bucket |
 | `NUKE_LINUX_INSTALLER_SHA256` | SHA-256 of that exact archive, verified from the legitimate installer |
 | `INSTALLER_BUCKET`, `INSTALLER_BUCKET_EXPECTED_OWNER` | Existing private installer bucket and its 12-digit owner account |
 | `AWS_OIDC_ROLE_ARN`, `AWS_REGION` | Existing CI role and region |
