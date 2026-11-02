@@ -192,8 +192,7 @@ def install_from_tgz(installer: Path, installation: NukeInstallation) -> None:
         executable.chmod(0o700)
         command = [
             str(executable),
-            "--prefix",
-            str(installation.install_dir.parent),
+            f"--prefix={installation.install_dir.parent}",
             "--accept-foundry-eula",
         ]
         if os.geteuid() != 0:
