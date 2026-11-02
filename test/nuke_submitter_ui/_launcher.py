@@ -140,7 +140,24 @@ def build_nuke_environment(
 
 
 def _activate_app(pid: int, timeout: float = ACTIVATE_TIMEOUT) -> bool:
-    """Bring *pid*'s app to the foreground, verified via the AX bridge."""
+    """Bring *pid*'s app to the foreground, verified via the platform bridge."""
+    if sys.platform.startswith("linux"):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                if xa11y.App.foreground(timeout=0).pid == pid:
+                    return True
+            except xa11y.XA11yError:
+                pass  # No foreground window yet; still try activating Nuke.
+            try:
+                windows = xa11y.App.by_pid(pid, timeout=0).windows()
+                if windows:
+                    windows[-1].activate()
+            except xa11y.XA11yError:
+                # AT-SPI and EWMH focus can lag while the window is being mapped.
+                pass
+            time.sleep(0.5)
+        return False
     if sys.platform != "darwin":
         return True
     from AppKit import (  # type: ignore[import-not-found]
@@ -193,7 +210,24 @@ class NukeSession:
         The group id is kept, not cleared: teardown is best effort and a retry
         needs it to reach any survivors.
         """
-        stop_process_tree(self.process, self.process_group)
+        try:
+            if os.environ.get("NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS") == "1":
+                # Capture while Nuke is alive: the test closes the session before
+                # pytest reports its failure. Diagnostics must never block cleanup.
+                try:
+                    (self.work_dir / "accessibility-tree.txt").write_text(
+                        self.app.dump(max_depth=15), encoding="utf-8"
+                    )
+                    xa11y.screenshot().save_png(str(self.work_dir / "nuke-screen.png"))
+                except Exception as error:
+                    try:
+                        (self.work_dir / "diagnostics-error.txt").write_text(
+                            str(error), encoding="utf-8"
+                        )
+                    except OSError:
+                        pass
+        finally:
+            stop_process_tree(self.process, self.process_group)
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
