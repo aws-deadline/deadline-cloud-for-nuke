@@ -62,6 +62,9 @@ passed a licensed Qt-driven export prototype in Nuke 16.0v9 on the Rocky runner.
 The backend now reuses all nine `test_submitter_ui.py` cases, their scene scripts,
 configurators, mock-traffic assertions, and existing golden-bundle comparisons.
 No goldens are regenerated as part of the backend change.
+Asset path collections are compared in normalized path order, matching Deadline's
+set-based asset model; missing, extra, or duplicate paths still fail comparison.
+Template steps and other ordered lists retain their order.
 
 `NUKE_SUBMITTER_UI_DRIVER=qt` selects the backend. The opener drives Qt mouse/key
 events on real widgets inside Nuke's GUI thread, then clicks the real local export

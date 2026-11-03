@@ -158,7 +158,10 @@ jobs:
           if [[ "$NUKE_SUBMITTER_UI_DRIVER" == qt ]]; then
             # The newer interactive validation/attachment/submission cases
             # require a separate Qt driver port; do not claim those as covered.
-            suite=(test/nuke_submitter_ui/test_submitter_ui.py)
+            suite=(
+              test/nuke_submitter_ui/test_submitter_ui.py
+              test/nuke_submitter_ui/test_bundle_normalization.py
+            )
             if [[ -f test/nuke_submitter_ui/test_submission_transport.py ]]; then
               suite+=(test/nuke_submitter_ui/test_submission_transport.py)
             fi

@@ -9,6 +9,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 from shutil import copy2
+from tempfile import TemporaryDirectory
+
+import yaml
 
 from deadline_test_fixtures.job_bundle import (
     BundleNormalization,
@@ -71,12 +74,47 @@ def nuke_bundle_normalization() -> BundleNormalization:
 
 
 def assert_bundle_matches_golden(expected_dir: Path, actual_dir: Path) -> None:
-    """Structural comparison of the exported bundle against the case golden."""
-    assert_job_bundles_equal(
-        expected_dir,
-        actual_dir,
-        normalization=nuke_bundle_normalization(),
-    )
+    """Compare bundles, sorting only the unordered asset path collections.
+
+    Deadline's AssetReferences stores these paths as sets. Sorting raw paths
+    before normalization is platform-dependent: /Applications sorts before a
+    repo path on macOS, whereas /usr/local sorts after /__w on Linux.
+    Template steps and every other ordered collection retain their order.
+    """
+    policy = nuke_bundle_normalization()
+
+    def path_key(value: str) -> str:
+        for old, new in policy.replacements.items():
+            value = value.replace(old, new)
+        for pattern, replacement in policy.regex_replacements:
+            value = re.sub(pattern, replacement, value)
+        return value.replace("\\", "/") if policy.normalize_path_separators else value
+
+    with TemporaryDirectory(prefix="nuke-bundle-comparison-") as temporary:
+        destinations = []
+        for label, source in (("expected", expected_dir), ("actual", actual_dir)):
+            destination = Path(temporary) / label
+            destination.mkdir()
+            destinations.append(destination)
+            for name in policy.files:
+                if not (source / name).is_file():
+                    raise AssertionError(f"Missing job-bundle file: {source / name}")
+                if name != "asset_references.yaml":
+                    copy2(source / name, destination / name)
+                    continue
+                document = yaml.safe_load((source / name).read_text(encoding="utf-8"))
+                assets = document["assetReferences"]
+                for group, field in (
+                    ("inputs", "filenames"),
+                    ("inputs", "directories"),
+                    ("outputs", "directories"),
+                ):
+                    if field in assets.get(group, {}):
+                        assets[group][field].sort(key=path_key)
+                if "referencedPaths" in assets:
+                    assets["referencedPaths"].sort(key=path_key)
+                (destination / name).write_text(yaml.safe_dump(document), encoding="utf-8")
+        assert_job_bundles_equal(*destinations, normalization=policy)
 
 
 def copy_bundle_files_flat(bundle_dir: Path, dest: Path) -> None:
