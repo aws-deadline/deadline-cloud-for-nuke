@@ -1,4 +1,4 @@
-# Nuke submitter UI tests (xa11y)
+# Nuke submitter UI tests
 
 GUI tests that drive the real submitter dialog inside GUI Nuke through the
 platform accessibility tree via [xa11y](https://github.com/xa11y/xa11y),
@@ -7,6 +7,12 @@ running fully offline against the mock Deadline backend from
 — no farm, no AWS credentials. This suite is the replacement path for the
 Squish suite in `test/squish/`, which stays until all of its cases are
 ported.
+
+The Linux CI export cases use Qt mouse/key events inside Nuke because the
+verified Linux installer does not expose an AT-SPI bridge. This backend reuses
+the nine case configurators and golden checks; it does not test OS accessibility.
+macOS keeps the xa11y backend. The Hatch environment retains its `integ-xa11y`
+name for both drivers.
 
 ## Requirements
 
@@ -41,8 +47,14 @@ Repository maintainers can run the suite on the configured macOS runner by
 pushing a commit to the upstream repository's `feature/ci-tests` branch. The
 `Nuke xa11y Integration Tests - macOS` workflow starts automatically.
 The Linux workflow uses the same trusted branches and license concurrency
-group, with separate Linux installer secrets. Linux submitter selectors
-still require validation against a licensed Nuke installation.
+group, with separate Linux installer secrets. Linux defaults to the Qt export backend. Run the same export cases locally with:
+
+```bash
+NUKE_SUBMITTER_UI_DRIVER=qt hatch run integ-xa11y:test test/nuke_submitter_ui/test_submitter_ui.py
+```
+
+The newer interactive validation, attachment, and submission cases on the test
+branch require a separate Qt port; Linux Qt CI does not claim those as covered.
 
 Keep hands off the keyboard and mouse while tests run: they use real
 (synthetic) clicks and keystrokes, which land in whatever window has focus.

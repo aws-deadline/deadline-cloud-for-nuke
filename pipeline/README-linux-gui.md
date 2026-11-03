@@ -1,7 +1,8 @@
 # Linux Nuke GUI integration CI
 
-`integ_linux.yml` runs the existing serial `test/nuke_submitter_ui` suite with
-Nuke 16.0v9 and xa11y 0.15.*. The container is Rocky Linux 9 x86_64, hosted by
+`integ_linux.yml` runs the nine existing serial export cases with
+Nuke 16.0v9, using an in-process Qt event driver by default. The macOS workflow
+continues to use xa11y 0.15.*. The container is Rocky Linux 9 x86_64, hosted by
 GitHub's `ubuntu-24.04` runner. Ubuntu is the host, not the Nuke userspace.
 The Rocky image is pinned to its amd64 manifest digest.
 
@@ -24,7 +25,7 @@ D-Bus session, an authenticated Xvfb display with TCP disabled, Openbox, and
 AT-SPI2. It checks XTest, window-manager readiness, and accessibility-bus readiness
 before starting the command. `linux-gui-smoke.py` proves accessibility discovery,
 window activation, and a synthetic pointer click against an unlicensed GTK app.
-After installation, a second unlicensed smoke test uses Nuke's bundled Python,
+When `ui_driver=xa11y` is selected, a second unlicensed smoke test uses Nuke's bundled Python,
 PySide6, Qt libraries, and platform plugin to verify AT-SPI discovery and a
 synthetic pointer click. It runs before the license tunnel and submitter suite.
 Neither smoke test validates Nuke-specific submitter selectors.
@@ -54,28 +55,36 @@ Running the xa11y GUI suite requires a Foundry-supported build exposing AT-SPI,
 or a separately evaluated automation approach. Replacing Nuke's Qt libraries
 with system libraries has not been validated and is not part of this workflow.
 
-## Experimental Qt-driven case
+## Qt event backend for the export cases
 
-Manual dispatch with `experimental_qt=true` runs only
-`test/nuke_submitter_ui/qt_probe.py`. It uses the existing licensed GUI Nuke,
-Rocky/Xvfb session, mock Deadline backend, and serialized license tunnel.
-It bypasses the AT-SPI preflight because the driver sends Qt mouse/key events
-inside Nuke's startup hook, without using xa11y discovery.
+[Run 41710453902](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41710453902)
+passed a licensed Qt-driven export prototype in Nuke 16.0v9 on the Rocky runner.
+The backend now reuses all nine `test_submitter_ui.py` cases, their scene scripts,
+configurators, mock-traffic assertions, and existing golden-bundle comparisons.
+No goldens are regenerated as part of the backend change.
 
-The experiment selects Write1, types a frame override of 1-10 into a scene
-whose range is 1-100, clicks the real local-export dialogs, and independently
-validates the resulting bundle and mock traffic. It does not replace the
-normal suite or validate OS-level input/accessibility. Its nonstandard filename
-keeps it out of normal pytest discovery. The prototype depends on Nuke shipping
-`PySide6.QtTest`; an unavailable module is reported by the opener.
+`NUKE_SUBMITTER_UI_DRIVER=qt` selects the backend. The opener drives Qt mouse/key
+events on real widgets inside Nuke's GUI thread, then clicks the real local export
+and confirmation dialogs. The parent pytest process independently validates the
+export. Results are published atomically, and failures retain the phase, traceback,
+dialog screenshot, Nuke logs, and actual bundle. Nuke remains licensed and each
+case uses a fresh, serialized GUI session.
+
+This verifies widget behavior and bundle contents; it does not verify OS input or
+accessibility. It depends on Nuke shipping `PySide6.QtTest`. The four newer
+interactive validation/attachment/submission cases on `feature/ci-tests` have not
+been ported to this backend. Qt CI explicitly runs the nine export cases and,
+when present, the two mock transport tests; those four GUI cases are not counted
+as covered. macOS continues to run its complete xa11y suite.
 
 ```bash
 gh workflow run integ_linux.yml --repo aws-deadline/deadline-cloud-for-nuke \
-  --ref feature/ci-tests -f experimental_qt=true
+  --ref feature/ci-tests -f ui_driver=qt
 ```
 
-Probe results, a dialog screenshot, and Nuke logs are retained in pytest's
-temporary directory and uploaded on failure.
+`ui_driver=xa11y` retains the accessibility preflight and complete xa11y suite
+for evaluating a future Foundry build with a working AT-SPI bridge. It is expected
+to fail the bundled Qt preflight with the current 16.0v9 installer.
 
 ## Required live-run configuration
 

@@ -27,6 +27,7 @@ from deadline_test_fixtures.job_bundle import (
 )
 
 from _launcher import build_nuke_environment, launch_nuke_with_submitter
+from _qt_launcher import export_with_qt
 from _utils import (
     assert_bundle_matches_golden,
     copy_bundle_files_flat,
@@ -120,7 +121,9 @@ def test_submitter_export_bundle(
     if not scene_script.is_file():
         pytest.fail(f"case {case!r} has no input/scene.py — malformed case folder")
     actual_dir = bundle_case.prepare_actual_dir()
-    configure = _load_configurator(_CASES_ROOT, case)
+    driver = os.environ.get("NUKE_SUBMITTER_UI_DRIVER", "xa11y")
+    if driver not in ("xa11y", "qt"):
+        pytest.fail(f"Unsupported NUKE_SUBMITTER_UI_DRIVER: {driver!r}")
 
     config_path, export_dir = _write_case_config(tmp_path, mock_deadline_server.scenario)
     env = build_nuke_environment(
@@ -132,24 +135,30 @@ def test_submitter_export_bundle(
     )
 
     log(f"case {case}: launching Nuke")
-    session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
-    try:
-        dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
-        dialog.wait_farm_resolved(_MOCK_FARM_NAME)
-        dialog.wait_settled()
+    if driver == "qt":
+        export_with_qt(nuke_executable, env, tmp_path, case_folder / "input" / "configure.py")
+    else:
+        configure = _load_configurator(_CASES_ROOT, case)
+        session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
+        try:
+            dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
+            dialog.wait_farm_resolved(_MOCK_FARM_NAME)
+            dialog.wait_settled()
 
-        if os.environ.get("NUKE_SUBMITTER_UI_DIALOG_DUMP") == "1":
-            dialog.dump_settings_tabs()
-            pytest.fail("NUKE_SUBMITTER_UI_DIALOG_DUMP=1: dumped settings tabs, skipping export")
+            if os.environ.get("NUKE_SUBMITTER_UI_DIALOG_DUMP") == "1":
+                dialog.dump_settings_tabs()
+                pytest.fail(
+                    "NUKE_SUBMITTER_UI_DIALOG_DUMP=1: dumped settings tabs, skipping export"
+                )
 
-        if configure is not None:
-            log(f"case {case}: running configurator")
-            configure(dialog)
+            if configure is not None:
+                log(f"case {case}: running configurator")
+                configure(dialog)
 
-        log(f"case {case}: saving bundle locally")
-        dialog.export_bundle()
-    finally:
-        session.close()
+            log(f"case {case}: saving bundle locally")
+            dialog.export_bundle()
+        finally:
+            session.close()
 
     exported_bundle = find_complete_job_bundle(export_dir)
     assert exported_bundle is not None, f"no complete bundle found under {export_dir}"

@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Callable
 
 import xa11y
+from _constants import WRITE_NODES_ALL  # noqa: F401 (public page-object constant)
 from _utils import log
 from deadline_test_fixtures.xa11y import SharedSubmitterDialog, dismiss_bundle_saved_popup
 from deadline_test_fixtures.xa11y.controls import (
@@ -90,8 +91,6 @@ CHECKBOX_INCLUDE_GIZMOS = "Include gizmos in job bundle"
 # The Description field's AX name is inherited from its QGroupBox — an
 # artifact of the missing naming pass, not a real name.
 _DESCRIPTION_FIELD_AX_NAME = "Job Properties"
-
-WRITE_NODES_ALL = "All write nodes"
 
 
 def _spin_value(element: xa11y.Element | None) -> int | None:

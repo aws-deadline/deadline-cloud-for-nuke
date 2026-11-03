@@ -90,8 +90,8 @@ def _open_submitter():
             _write_status("ERROR\nshow_nuke_render_submitter returned None\n")
             return
         if os.environ.get("NUKE_SUBMITTER_QT_RESULT"):
-            # Explicit opt-in experiment; ordinary xa11y cases use the same opener.
-            from qt_probe import start
+            # The selected Qt backend drives the same case configurators in Nuke.
+            from qt_driver import start
 
             start(dialog, os.environ["NUKE_SUBMITTER_QT_RESULT"])
         _write_status(
