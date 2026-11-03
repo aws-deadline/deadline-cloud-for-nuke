@@ -164,28 +164,36 @@ hatch run integ-xa11y:test test/nuke_submitter_ui/test_submission_transport.py
 Both transport variants passed locally on Linux with Python 3.11.18,
 `deadline` 0.60.11 and `deadline-cloud-test-fixtures` 0.18.25.
 
-### Required live verification for the new GUI cases
+### Live verification and remaining platform checks
 
 The [first licensed macOS CI run](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41544466504)
 on Nuke 16.0v7 passed both submission GUI cases and validation recovery
 (14 passed overall). The attachment case failed because Nuke exposed a Qt
-picker, rather than the assumed native macOS sheet. The helper now chooses
-the picker path from its exposed controls; attachment verification is pending
-a rerun. Collection and static checks cannot verify accessibility selectors.
-On a licensed Nuke 16.0v7 runner with the repository and declared dependencies
-installed into Nuke's Python, run:
+picker, rather than the assumed native macOS sheet. After the helper was
+updated to choose the picker path from its exposed controls, the
+[licensed macOS rerun](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41545926800)
+at commit `32b1344` passed all 15 tests with no skips in 255.09 seconds.
+All four new GUI cases and both real-client transport variants passed.
+The runner used macOS 15, Nuke 16.0v7, Python 3.11, `deadline` 0.60.11,
+`deadline-cloud-test-fixtures` 0.18.25 and `xa11y` 0.15.4.
+
+This confirms the Qt attachment picker, attachment row selection/removal,
+validation feedback and recovery, submission completion and same-dialog
+retry on that runner. The native macOS Go to Folder fallback and other
+platforms still require live verification. Collection and static checks
+cannot verify accessibility selectors. On a licensed runner with the
+repository and declared dependencies installed into Nuke's Python, run:
 
 ```
 hatch run integ-xa11y:test test/nuke_submitter_ui -k 'manual_attachments or empty_frame_override or submission_success or submission_api_failure'
 hatch run integ-xa11y:test
 ```
 
-Verify that all four new GUI cases **pass**, rather than skip. Check the native
-macOS Go to Folder sheet or Qt File name/Directory/Folder controls, the
+Verify that all four new GUI cases **pass**, rather than skip. Check the runner's
+native macOS Go to Folder sheet or Qt File name/Directory/Folder controls, the
 attachment row selection/removal, and the host-owned error message/OK button.
 For submission, verify the progress window's completion label, job ID in
 the log, and OK/Close buttons, including same-dialog retry after failure.
-The new picker selectors are based on the dialogs' source and platform
-conventions, and still require live confirmation. No golden update is needed.
+The Qt picker selectors passed the macOS rerun. No golden update was needed.
 Record the runner OS, Nuke version, dependency versions and results before
 claiming GUI validation.
