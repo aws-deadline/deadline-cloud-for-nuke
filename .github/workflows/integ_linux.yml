@@ -1,4 +1,4 @@
-name: "Nuke xa11y Integration Tests - Linux"
+name: "Nuke GUI Integration Tests - Linux"
 
 permissions: {}
 
@@ -11,15 +11,18 @@ on:
       - CHANGELOG.md
   workflow_dispatch:
     inputs:
-      experimental_qt:
-        description: Run the single experimental in-process Qt export case
-        type: boolean
-        default: false
+      ui_driver:
+        description: Qt runs the nine export cases; xa11y requires a working AT-SPI bridge
+        type: choice
+        options:
+          - qt
+          - xa11y
+        default: qt
   workflow_call:
     inputs:
-      experimental_qt:
-        type: boolean
-        default: false
+      ui_driver:
+        type: string
+        default: qt
     secrets:
       AWS_OIDC_ROLE_ARN:
         required: true
@@ -49,7 +52,7 @@ jobs:
       github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
       (github.ref == 'refs/heads/mainline' ||
       github.ref == 'refs/heads/feature/ci-tests')
-    name: xa11y Integration Tests (Rocky Linux 9, x86_64)
+    name: GUI Integration Tests (Rocky Linux 9, x86_64)
     runs-on: ubuntu-24.04
     # Foundry qualifies Rocky 9 for Nuke 16; Ubuntu is only the container host.
     # quay.io/rockylinux/rockylinux:9 amd64 manifest verified 2026-11-02.
@@ -75,6 +78,7 @@ jobs:
       NUKE_INSTALLER_S3_KEY: ${{ secrets.NUKE_LINUX_INSTALLER_S3_KEY }}
       NUKE_INSTALLER_SHA256: ${{ secrets.NUKE_LINUX_INSTALLER_SHA256 }}
       GUI_ARTIFACT_DIR: ${{ github.workspace }}/build/linux-gui
+      NUKE_SUBMITTER_UI_DRIVER: ${{ inputs.ui_driver || 'qt' }}
 
     steps:
       - name: Bootstrap checkout dependencies
@@ -88,6 +92,8 @@ jobs:
       - name: Validate Linux installer configuration
         run: |
           set -euo pipefail
+          [[ "$NUKE_SUBMITTER_UI_DRIVER" == qt || "$NUKE_SUBMITTER_UI_DRIVER" == xa11y ]] ||
+            { echo "ui_driver must be qt or xa11y"; exit 1; }
           # Only report missing/invalid names, never values.
           [[ -n "$INSTALLER_BUCKET" ]] || { echo "INSTALLER_BUCKET is required"; exit 1; }
           [[ "$INSTALLER_BUCKET_EXPECTED_OWNER" =~ ^[0-9]{12}$ ]] ||
@@ -120,7 +126,7 @@ jobs:
           python3.11 pipeline/setup-runner.py --version "$NUKE_VERSION" --github-env "$GITHUB_ENV"
 
       - name: Verify Nuke Qt accessibility without a license
-        if: ${{ !inputs.experimental_qt }}
+        if: ${{ inputs.ui_driver == 'xa11y' }}
         run: |
           bash pipeline/run-linux-gui.sh \
             hatch -e integ-xa11y run python pipeline/linux-gui-smoke.py \
@@ -134,20 +140,27 @@ jobs:
           "$NUKE_PYTHON" -m pip install --user .
           "$NUKE_PYTHON" -c \
             "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('deadline.nuke_submitter') else 'deadline.nuke_submitter is not importable')"
+          if [[ "$NUKE_SUBMITTER_UI_DRIVER" == qt ]]; then
+            "$NUKE_PYTHON" -c "from PySide6.QtTest import QTest"
+          fi
 
-      - name: Bring up license tunnel and run serial xa11y tests
+      - name: Bring up license tunnel and run serial GUI tests
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
           BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
-          EXPERIMENTAL_QT: ${{ inputs.experimental_qt || false }}
         run: |
-          suite=test/nuke_submitter_ui
-          if [[ "$EXPERIMENTAL_QT" == true ]]; then
-            suite=test/nuke_submitter_ui/qt_probe.py
+          suite=(test/nuke_submitter_ui)
+          if [[ "$NUKE_SUBMITTER_UI_DRIVER" == qt ]]; then
+            # The newer interactive validation/attachment/submission cases
+            # require a separate Qt driver port; do not claim those as covered.
+            suite=(test/nuke_submitter_ui/test_submitter_ui.py)
+            if [[ -f test/nuke_submitter_ui/test_submission_transport.py ]]; then
+              suite+=(test/nuke_submitter_ui/test_submission_transport.py)
+            fi
           fi
           bash pipeline/run-linux-gui.sh python3.11 pipeline/license-tunnel.py -- \
-            hatch run integ-xa11y:test "$suite" \
+            hatch run integ-xa11y:test "${suite[@]}" \
             --basetemp="$GUI_ARTIFACT_DIR/pytest-tmp" \
             --junitxml="$GUI_ARTIFACT_DIR/results.xml"
 

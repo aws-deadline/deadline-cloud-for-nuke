@@ -13,7 +13,7 @@ the selection would already be the default and nothing would be exercised.
 The default is checked first, before anything moves it.
 """
 
-from pages import WRITE_NODES_ALL
+from _constants import WRITE_NODES_ALL
 
 
 def configure(dialog) -> None:

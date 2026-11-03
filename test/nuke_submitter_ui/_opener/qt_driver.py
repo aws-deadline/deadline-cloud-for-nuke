@@ -1,23 +1,27 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-"""Experimental Qt event driver, executed inside licensed GUI Nuke.
+"""Qt event driver for the shared export cases, executed inside GUI Nuke.
 
 Uses widget mouse/key events, not AT-SPI or direct bundle-generation calls.
 The parent pytest process validates the exported bundle independently.
 """
 
+import importlib.util
 import json
+import os
 from pathlib import Path
+import sys
 import time
 import traceback
 
-from PySide6.QtCore import QPoint, Qt, QTimer, qVersion
+from PySide6.QtCore import Qt, QTimer, qVersion
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from deadline.client.ui.dialogs.export_bundle_dialog import ExportBundleDialog
+from qt_pages import QtSubmitterDialog
 
 
-class Probe:
+class ExportDriver:
     def __init__(self, dialog, result_file):
         self.dialog = dialog
         self.result_file = Path(result_file)
@@ -30,13 +34,20 @@ class Probe:
 
     def finish(self, error=None):
         self.timer.stop()
-        self.dialog.grab().save(str(self.result_file.with_suffix(".png")))
-        self.result_file.write_text(
+        try:
+            self.dialog.grab().save(str(self.result_file.with_suffix(".png")))
+        except Exception:
+            # A diagnostic failure must not hide the driver result from pytest.
+            self.result_file.with_suffix(".diagnostics.txt").write_text(traceback.format_exc())
+        # Publish atomically: the parent polls this file from another process.
+        pending = self.result_file.with_suffix(".pending")
+        pending.write_text(
             json.dumps(
                 {"ok": error is None, "phase": self.phase, "qt": qVersion(), "error": error}
             ),
             encoding="utf-8",
         )
+        pending.replace(self.result_file)
 
     def tick(self):
         try:
@@ -61,7 +72,7 @@ class Probe:
                 assert export._radio_local.isChecked(), "Local export was not selected"
                 export._name_edit.setFocus()
                 QTest.keyClick(export._name_edit, Qt.Key_A, Qt.ControlModifier)
-                QTest.keyClicks(export._name_edit, "qt-frame-range-probe")
+                QTest.keyClicks(export._name_edit, "qt-export")
                 QTest.mouseClick(export._export_button, Qt.LeftButton)
             elif self.phase == "waiting for saved confirmation":
                 popup = QApplication.activeModalWidget()
@@ -77,30 +88,19 @@ class Probe:
             self.finish(traceback.format_exc())
 
     def configure(self):
-        tabs = self.dialog.tabs
-        index = next(i for i in range(tabs.count()) if tabs.tabText(i) == "Job-specific settings")
-        bar = tabs.tabBar()
-        QTest.mouseClick(bar, Qt.LeftButton, pos=bar.tabRect(index).center())
-        assert tabs.currentIndex() == index, "Job-specific tab did not activate"
-        settings = self.dialog.job_settings
-        combo = settings.write_node_box
-        combo.setFocus()
-        QTest.keyClick(combo, Qt.Key_Home)
-        for _ in range(combo.findText("Write1")):
-            QTest.keyClick(combo, Qt.Key_Down)
-        assert combo.currentText() == "Write1", "Write1 was not selected"
-        checkbox = settings.frame_override_chck
-        if not checkbox.isChecked():
-            QTest.mouseClick(checkbox, Qt.LeftButton, pos=QPoint(10, checkbox.height() // 2))
-        assert checkbox.isChecked(), "Frame override did not toggle"
-        field = settings.frame_override_txt
-        assert field.isEnabled(), "Frame field did not become editable"
-        field.setFocus()
-        QTest.keyClick(field, Qt.Key_A, Qt.ControlModifier)
-        QTest.keyClicks(field, "1-10")
-        assert field.text() == "1-10", "Frame field did not receive key events"
+        path = Path(os.environ["NUKE_SUBMITTER_QT_CONFIGURATOR"])
+        if not path.is_file():
+            return  # Cases may deliberately use the dialog's unchanged defaults.
+        # Configurators can import dependency-free shared test constants.
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        spec = importlib.util.spec_from_file_location("_qt_case_configurator", path)
+        if spec is None or spec.loader is None:
+            raise ImportError("Could not load configurator: " + str(path))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.configure(QtSubmitterDialog(self.dialog))
 
 
 def start(dialog, result_file):
     # Retain Python callbacks for the lifetime of the real submitter dialog.
-    dialog._deadline_qt_probe = Probe(dialog, result_file)
+    dialog._deadline_qt_driver = ExportDriver(dialog, result_file)
