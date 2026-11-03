@@ -130,7 +130,8 @@ step. The old `invalid_conda_gui` types invalid names and then checks hardcoded
 default field values; it never asserts a validation message or package
 resolution. It is not evidence of invalid-Conda feedback coverage.
 
-The export/validation interaction cases assert no `CreateJob` calls.
+The export/validation interaction cases reject unmatched mock requests.
+Any `CreateJob` request would be unmatched because their mock has no submission route.
 Submission now has its own focused mock and cases below.
 
 ## Submission coverage

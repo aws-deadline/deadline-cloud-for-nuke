@@ -123,7 +123,6 @@ def interactive_submitter(nuke_executable, mock_deadline_server, mock_backend, t
     finally:
         session.close()
         _assert_expected_mock_traffic(mock_backend)
-        assert mock_backend.call_counts.get("CreateJob", 0) == 0
 
 
 @pytest.fixture
