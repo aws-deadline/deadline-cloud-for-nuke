@@ -110,6 +110,12 @@ jobs:
         run: |
           python3.11 pipeline/setup-runner.py --version "$NUKE_VERSION" --github-env "$GITHUB_ENV"
 
+      - name: Verify Nuke Qt accessibility without a license
+        run: |
+          bash pipeline/run-linux-gui.sh \
+            hatch -e integ-xa11y run python pipeline/linux-gui-smoke.py \
+            --qt-python "$NUKE_PYTHON" --qt-root "$(dirname "$NUKE_EXECUTABLE")"
+
       - name: Install Deadline Cloud submitter into Nuke
         run: |
           set -euo pipefail

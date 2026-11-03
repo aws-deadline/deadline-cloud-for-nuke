@@ -24,7 +24,35 @@ D-Bus session, an authenticated Xvfb display with TCP disabled, Openbox, and
 AT-SPI2. It checks XTest, window-manager readiness, and accessibility-bus readiness
 before starting the command. `linux-gui-smoke.py` proves accessibility discovery,
 window activation, and a synthetic pointer click against an unlicensed GTK app.
-This check does not prove that Nuke's Qt bridge or submitter selectors work.
+After installation, a second unlicensed smoke test uses Nuke's bundled Python,
+PySide6, Qt libraries, and platform plugin to verify AT-SPI discovery and a
+synthetic pointer click. It runs before the license tunnel and submitter suite.
+Neither smoke test validates Nuke-specific submitter selectors.
+
+## Current Linux accessibility blocker
+
+[Run 41544774137](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41544774137)
+installed Nuke 16.0v9 and established the license tunnel. Nuke logged a valid
+license expiry and the scene opener reported success. However, all 13 GUI cases
+failed or errored during accessibility application discovery; only the two
+mock transport tests passed.
+
+An unlicensed comparison in the same pinned Rocky container reproduced the
+failure with Nuke's bundled Qt 6.5.3. The Qt process connected to the session
+and accessibility buses but never registered with AT-SPI, even with an explicit
+`AT_SPI_BUS_ADDRESS`. Official PySide6/Qt 6.5.3 in the same session registered
+and accepted synthetic clicks. Nuke's `libQt6XcbQpa.so.6.5.3` lacked the
+`QSpiAccessibleBridge` symbol present in the official library.
+[Qt's XCB integration source](https://github.com/qt/qtbase/blob/v6.5.3/src/plugins/platforms/xcb/qxcbintegration.cpp)
+guards bridge creation with `QT_NO_ACCESSIBILITY_ATSPI_BRIDGE`.
+Together these findings indicate that this Nuke Qt build lacks the Linux
+AT-SPI bridge. Desktop dependencies, license permissions, or a Rocky host
+instead of a Rocky container do not address that build limitation.
+
+The bundled Qt preflight therefore fails for the verified 16.0v9 installer.
+Running the xa11y GUI suite requires a Foundry-supported build exposing AT-SPI,
+or a separately evaluated automation approach. Replacing Nuke's Qt libraries
+with system libraries has not been validated and is not part of this workflow.
 
 ## Required live-run configuration
 
@@ -77,8 +105,9 @@ as far as accessibility registration. The private license config and SSM log
 are outside the upload paths. Installer configuration values and checksum
 values are not printed by the setup helper.
 
-The first licensed run must verify all nine existing cases and Linux-specific
-role/name selectors. Use `NUKE_SUBMITTER_UI_DIALOG_DUMP=1` for a deliberate
+Once the Qt preflight passes, a licensed run must verify all nine original cases,
+any additional cases on the test branch, and Linux-specific role/name selectors.
+Use `NUKE_SUBMITTER_UI_DIALOG_DUMP=1` for a deliberate
 diagnostic run if selectors fail; do not regenerate goldens to hide a platform
 failure. macOS installation and its workflow remain available.
 
@@ -103,3 +132,11 @@ bash pipeline/run-linux-gui.sh hatch -e integ-xa11y run python pipeline/linux-gu
 Recheck the smoke test when updating the image, xa11y version, or desktop
 dependencies. Update the Session Manager plugin version and digest together
 from the official package.
+
+With a legitimate Nuke installation already available, check its Qt bridge
+without a license:
+
+```bash
+bash pipeline/run-linux-gui.sh hatch -e integ-xa11y run python pipeline/linux-gui-smoke.py \
+  --qt-python "$NUKE_PYTHON" --qt-root "$(dirname "$NUKE_EXECUTABLE")"
+```
