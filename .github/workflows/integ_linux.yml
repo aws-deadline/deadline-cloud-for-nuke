@@ -10,7 +10,16 @@ on:
     paths-ignore:
       - CHANGELOG.md
   workflow_dispatch:
+    inputs:
+      experimental_qt:
+        description: Run the single experimental in-process Qt export case
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      experimental_qt:
+        type: boolean
+        default: false
     secrets:
       AWS_OIDC_ROLE_ARN:
         required: true
@@ -111,6 +120,7 @@ jobs:
           python3.11 pipeline/setup-runner.py --version "$NUKE_VERSION" --github-env "$GITHUB_ENV"
 
       - name: Verify Nuke Qt accessibility without a license
+        if: ${{ !inputs.experimental_qt }}
         run: |
           bash pipeline/run-linux-gui.sh \
             hatch -e integ-xa11y run python pipeline/linux-gui-smoke.py \
@@ -130,9 +140,14 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
           BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+          EXPERIMENTAL_QT: ${{ inputs.experimental_qt || false }}
         run: |
+          suite=test/nuke_submitter_ui
+          if [[ "$EXPERIMENTAL_QT" == true ]]; then
+            suite=test/nuke_submitter_ui/qt_probe.py
+          fi
           bash pipeline/run-linux-gui.sh python3.11 pipeline/license-tunnel.py -- \
-            hatch run integ-xa11y:test test/nuke_submitter_ui \
+            hatch run integ-xa11y:test "$suite" \
             --basetemp="$GUI_ARTIFACT_DIR/pytest-tmp" \
             --junitxml="$GUI_ARTIFACT_DIR/results.xml"
 
