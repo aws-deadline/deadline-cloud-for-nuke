@@ -141,7 +141,11 @@ jobs:
           "$NUKE_PYTHON" -c \
             "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('deadline.nuke_submitter') else 'deadline.nuke_submitter is not importable')"
           if [[ "$NUKE_SUBMITTER_UI_DRIVER" == qt ]]; then
-            "$NUKE_PYTHON" -c "from PySide6.QtTest import QTest"
+            # Nuke adds these paths at GUI startup; standalone Python does not.
+            nuke_root="$(dirname "$NUKE_EXECUTABLE")"
+            PYTHONPATH="$nuke_root/pythonextensions/site-packages${PYTHONPATH:+:$PYTHONPATH}" \
+              LD_LIBRARY_PATH="$nuke_root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+              "$NUKE_PYTHON" -c "from PySide6.QtTest import QTest"
           fi
 
       - name: Bring up license tunnel and run serial GUI tests
