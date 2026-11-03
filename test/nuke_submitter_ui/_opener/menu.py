@@ -89,6 +89,11 @@ def _open_submitter():
             # an unrelated wait_visible timeout in the test.
             _write_status("ERROR\nshow_nuke_render_submitter returned None\n")
             return
+        if os.environ.get("NUKE_SUBMITTER_QT_RESULT"):
+            # Explicit opt-in experiment; ordinary xa11y cases use the same opener.
+            from qt_probe import start
+
+            start(dialog, os.environ["NUKE_SUBMITTER_QT_RESULT"])
         _write_status(
             "OK\n"
             f"qt_runtime={qVersion()}\n"

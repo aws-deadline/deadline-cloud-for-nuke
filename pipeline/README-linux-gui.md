@@ -54,6 +54,29 @@ Running the xa11y GUI suite requires a Foundry-supported build exposing AT-SPI,
 or a separately evaluated automation approach. Replacing Nuke's Qt libraries
 with system libraries has not been validated and is not part of this workflow.
 
+## Experimental Qt-driven case
+
+Manual dispatch with `experimental_qt=true` runs only
+`test/nuke_submitter_ui/qt_probe.py`. It uses the existing licensed GUI Nuke,
+Rocky/Xvfb session, mock Deadline backend, and serialized license tunnel.
+It bypasses the AT-SPI preflight because the driver sends Qt mouse/key events
+inside Nuke's startup hook, without using xa11y discovery.
+
+The experiment selects Write1, types a frame override of 1-10 into a scene
+whose range is 1-100, clicks the real local-export dialogs, and independently
+validates the resulting bundle and mock traffic. It does not replace the
+normal suite or validate OS-level input/accessibility. Its nonstandard filename
+keeps it out of normal pytest discovery. The prototype depends on Nuke shipping
+`PySide6.QtTest`; an unavailable module is reported by the opener.
+
+```bash
+gh workflow run integ_linux.yml --repo aws-deadline/deadline-cloud-for-nuke \
+  --ref feature/ci-tests -f experimental_qt=true
+```
+
+Probe results, a dialog screenshot, and Nuke logs are retained in pytest's
+temporary directory and uploaded on failure.
+
 ## Required live-run configuration
 
 Maintainers must supply the following secrets through repository configuration
