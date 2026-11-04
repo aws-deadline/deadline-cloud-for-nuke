@@ -23,7 +23,8 @@ nuke.root()["colorManagement"].setValue("OCIO")
 # installs, and explicitly select the shipped file-backed config on Nuke 17.
 stock_config = "nuke-default" if int(nuke.env["NukeVersionMajor"]) == 17 else "aces_1.2"
 choices = nuke.root()["OCIO_config"].values()
-if stock_config not in choices:
+# Nuke 16 appends tab-separated menu metadata to file-backed config names.
+if stock_config not in [choice.split("\t", 1)[0] for choice in choices]:
     raise RuntimeError(f"Required stock OCIO config {stock_config!r} is unavailable: {choices}")
 nuke.root()["OCIO_config"].setValue(stock_config)
 
