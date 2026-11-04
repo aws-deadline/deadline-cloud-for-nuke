@@ -489,7 +489,10 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         """Save the bundle locally and dismiss the host-owned confirmation."""
         self._front()
         self.save_bundle_locally(timeout=timeout)
-        if not dismiss_bundle_saved_popup(self.app.pid, timeout=timeout):
+        pid = self.app.pid
+        if pid is None:
+            raise RuntimeError("Cannot dismiss bundle saved confirmation without a Nuke process ID")
+        if not dismiss_bundle_saved_popup(pid, timeout=timeout):
             raise TimeoutError(
                 f"Bundle saved confirmation did not appear in {timeout}s\n{self.dump_tree()}"
             )

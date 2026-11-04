@@ -25,6 +25,7 @@ def launcher(monkeypatch):
     stub("_process", capture_process_group=Mock(), stop_process_tree=Mock())
     path = Path(__file__).resolve().parents[2] / "nuke_submitter_ui" / "_launcher.py"
     spec = importlib.util.spec_from_file_location("linux_launcher_test", path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)

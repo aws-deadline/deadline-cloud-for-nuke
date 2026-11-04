@@ -12,10 +12,13 @@ from unittest.mock import Mock
 
 import pytest
 
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX installer operations")
+
 
 def load_script(name):
     path = Path(__file__).resolve().parents[3] / "pipeline" / f"{name}.py"
     spec = importlib.util.spec_from_file_location(name.replace("-", "_"), path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -49,6 +52,7 @@ def test_platform_paths_and_version_validation(setup):
         setup.nuke_installation("16.0v7", "Windows")
 
 
+@posix_only
 def test_linux_installer_uses_prefix_parent_without_extracting_paths(setup, tmp_path, monkeypatch):
     archive = tmp_path / "installer.tgz"
     contents = b"#!/bin/sh\nexit 0\n"
@@ -144,6 +148,7 @@ def test_main_selects_installer_and_always_removes_download(
     assert not (tmp_path / f"nuke-installer{extension}").exists()
 
 
+@posix_only
 def test_dmg_detaches_on_copy_failure(setup, tmp_path, monkeypatch):
     installation = setup.nuke_installation("16.0v7")
     mount = tmp_path / "mount"
