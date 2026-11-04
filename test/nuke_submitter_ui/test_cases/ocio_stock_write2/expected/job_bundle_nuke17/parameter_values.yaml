@@ -1,0 +1,25 @@
+parameterValues:
+- name: Frames
+  value: 1-10
+- name: NukeScriptFile
+  value: <REPO_ROOT>/test/nuke_submitter_ui/test_cases/ocio_stock_write2/actual/ocio_stock_write2.nk
+- name: WriteNode
+  value: Write2
+- name: ProxyMode
+  value: 'false'
+- name: ContinueOnError
+  value: 'false'
+- name: ChunkSize
+  value: 1
+- name: TargetChunkDuration
+  value: 0
+- name: OCIOConfigPath
+  value: <NUKE_OCIO_CONFIGS>/nuke-default/config.ocio
+- name: deadline:targetTaskRunStatus
+  value: READY
+- name: deadline:maxFailedTasksCount
+  value: 20
+- name: deadline:maxRetriesPerTask
+  value: 5
+- name: deadline:priority
+  value: 50

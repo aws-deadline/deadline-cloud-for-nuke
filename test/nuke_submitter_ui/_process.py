@@ -17,9 +17,9 @@ still exists is still ours even after the leader has gone. The leader's pid
 becomes reusable once reaped, so a live process owning it means the id was
 reassigned and the group is somebody else's.
 
-Windows has no process groups, so teardown there stops the launched process
-only and leaves whatever it spawned. The suite does not run on Windows yet; a
-Job Object or ``taskkill /T`` would be the fix when it does.
+Windows has no POSIX process groups, so this module stops its root process.
+The GUI launcher additionally owns a Windows Job Object (``_windows_process``)
+and closes it after root teardown to reach any surviving descendants.
 """
 
 from __future__ import annotations

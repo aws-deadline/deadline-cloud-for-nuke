@@ -14,12 +14,13 @@ node versus all nodes changes in the bundle.
 """
 
 import os
+from pathlib import Path
 
 import nuke
 
 scene_file = os.environ["NUKE_SUBMITTER_UI_SCENE_FILE"]
 scene_dir = os.path.dirname(scene_file)
-renders_dir = os.path.join(scene_dir, "renders")
+renders_dir = Path(scene_dir, "renders").as_posix()
 
 nuke.root()["first_frame"].setValue(1)
 nuke.root()["last_frame"].setValue(10)
@@ -31,7 +32,7 @@ for node_name in ("Write1", "Write2"):
     # A directory per write node, so the exported asset references show
     # which nodes the submission actually covers.
     write_node["file"].setValue(
-        os.path.join(renders_dir, node_name.lower(), f"{node_name.lower()}.####.exr")
+        Path(renders_dir, node_name.lower(), f"{node_name.lower()}.####.exr").as_posix()
     )
 
 nuke.scriptSaveAs(scene_file, overwrite=1)

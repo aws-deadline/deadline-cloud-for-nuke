@@ -14,6 +14,7 @@ Frames parameter (5-10) can only be produced by that limit being honored.
 """
 
 import os
+from pathlib import Path
 
 import nuke
 
@@ -26,7 +27,9 @@ nuke.root()["last_frame"].setValue(100)
 color_wheel = nuke.nodes.ColorWheel()
 write_node = nuke.nodes.Write(name="Write1")
 write_node.setInput(0, color_wheel)
-write_node["file"].setValue(os.path.join(scene_dir, "renders", "write_node_frame_limit.####.exr"))
+write_node["file"].setValue(
+    Path(scene_dir, "renders", "write_node_frame_limit.####.exr").as_posix()
+)
 write_node["use_limit"].setValue(True)
 write_node["first"].setValue(5)
 write_node["last"].setValue(10)

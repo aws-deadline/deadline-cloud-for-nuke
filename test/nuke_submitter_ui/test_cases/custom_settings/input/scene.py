@@ -12,6 +12,7 @@ set in the dialog, so the scene is kept as plain as possible.
 """
 
 import os
+from pathlib import Path
 
 import nuke
 
@@ -24,6 +25,6 @@ nuke.root()["last_frame"].setValue(10)
 color_wheel = nuke.nodes.ColorWheel()
 write_node = nuke.nodes.Write(name="Write1")
 write_node.setInput(0, color_wheel)
-write_node["file"].setValue(os.path.join(scene_dir, "renders", "custom_settings.####.exr"))
+write_node["file"].setValue(Path(scene_dir, "renders", "custom_settings.####.exr").as_posix())
 
 nuke.scriptSaveAs(scene_file, overwrite=1)

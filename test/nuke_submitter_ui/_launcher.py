@@ -36,6 +36,7 @@ from deadline_test_fixtures.deadline_mock import build_mock_environment
 from deadline_test_fixtures.xa11y import find_accessibility_app
 
 from _process import capture_process_group, stop_process_tree
+from _windows_process import WindowsProcessJob
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OPENER_DIR = Path(__file__).resolve().parent / "_opener"
@@ -133,6 +134,11 @@ def build_nuke_environment(
     env[ENV_SCENE_FILE] = str(scene_file)
     env[ENV_SCENE_SCRIPT] = str(scene_script)
     env[ENV_OPEN_DELAY_MS] = str(open_delay_ms)
+    nuke_pythonpath = os.environ.get("NUKE_SUBMITTER_UI_PYTHONPATH")
+    if nuke_pythonpath:
+        env["PYTHONPATH"] = os.pathsep.join(
+            path for path in (nuke_pythonpath, env.get("PYTHONPATH", "")) if path
+        )
     # Required for the AT-SPI bridge on Linux; harmless elsewhere.
     env["QT_ACCESSIBILITY"] = "1"
     env["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
@@ -200,6 +206,7 @@ class NukeSession:
     opener_status: str
     # None on Windows, and when the lookup failed. See capture_process_group.
     process_group: Optional[int] = None
+    windows_job: Optional[WindowsProcessJob] = None
 
     def activate(self) -> bool:
         """(Re-)raise Nuke to the foreground (see pages.py platform notes)."""
@@ -228,7 +235,11 @@ class NukeSession:
                     except OSError:
                         pass
         finally:
-            stop_process_tree(self.process, self.process_group)
+            try:
+                stop_process_tree(self.process, self.process_group)
+            finally:
+                if self.windows_job is not None:
+                    self.windows_job.close()
 
     def tail_logs(self, max_chars: int = 2000) -> str:
         chunks = []
@@ -268,7 +279,10 @@ def launch_nuke_with_submitter(
     # While the child is known alive: see capture_process_group.
     process_group = capture_process_group(process)
     session: Optional[NukeSession] = None
+    windows_job: Optional[WindowsProcessJob] = None
     try:
+        if sys.platform == "win32":
+            windows_job = WindowsProcessJob(process)
         app = find_accessibility_app(process.pid, timeout=NUKE_STARTUP_TIMEOUT)
         session = NukeSession(
             process=process,
@@ -276,6 +290,7 @@ def launch_nuke_with_submitter(
             work_dir=work_dir,
             opener_status="",
             process_group=process_group,
+            windows_job=windows_job,
         )
 
         status_file = Path(env[ENV_STATUS_FILE])
@@ -302,5 +317,9 @@ def launch_nuke_with_submitter(
             session.close()
         else:
             # Failed before the session existed, so close() cannot do it.
-            stop_process_tree(process, process_group)
+            try:
+                stop_process_tree(process, process_group)
+            finally:
+                if windows_job is not None:
+                    windows_job.close()
         raise

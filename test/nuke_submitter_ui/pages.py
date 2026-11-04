@@ -6,7 +6,8 @@ Extends the shared-dialog page object from ``deadline-cloud-test-fixtures``
 with accessors for the Nuke ``SceneSettingsWidget`` (Job-specific settings
 tab).
 
-Platform notes — verified on macOS 15 / Nuke 16.0v7 (Qt 6.5.3). This is
+Platform notes — verified on macOS 15 / Nuke 16.0v7 and Windows Server 2022 /
+Nuke 17.1v2 (Qt 6.5.3). This is
 the canonical write-up for the suite; other modules reference it:
 
 * Qt.Tool windows: the submitter dialog is a ``Qt.Tool`` window, and
@@ -33,6 +34,11 @@ the canonical write-up for the suite; other modules reference it:
 * QSpinBox AX increment/decrement and direct numeric writes are unreliable
   on macOS. Focusing the control and sending physical Up/Down keys uses the
   widget's single step. Every transition is verified before continuing.
+* Windows UIA exposes the submitter as a nested ``dialog``, combo selections
+  as ``value``, and popup entries as ``list_item`` names. Open combos with a
+  physical click because ``show_menu`` is unsupported. The same physical
+  spin-box transitions work on the active Windows desktop. Windows has no
+  foreground-recovery hook here; keep that desktop dedicated to the tests.
 """
 
 from __future__ import annotations
@@ -133,7 +139,9 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     ) -> "NukeSubmitterDialog":
         if ensure_frontmost is not None:
             ensure_frontmost()
-        window = app.locator(f'window[name="{DIALOG_TITLE}"]')
+        # Windows UIA exposes the Qt.Tool submitter as a dialog nested under
+        # Nuke's main window; macOS exposes it as a window.
+        window = app.locator(f'window[name="{DIALOG_TITLE}"], dialog[name="{DIALOG_TITLE}"]')
         window.wait_visible(timeout=timeout)
         return cls(app, window, ensure_frontmost)
 
@@ -251,13 +259,16 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         return self._job_specific_combo(_COMBO_VIEWS)
 
     def selected_write_node(self, timeout: float = WIDGET_TIMEOUT) -> str:
-        """Current write-node selection (the combo's AX name mirrors it)."""
+        """Current selection: Windows exposes its value, macOS its name."""
         deadline = time.monotonic() + timeout
         last_error: Exception | None = None
         while time.monotonic() < deadline:
             self._front()
             try:
-                return self.write_nodes_combo().element().name or ""
+                element = self.write_nodes_combo().element()
+                if sys.platform == "win32":
+                    return element.value or element.name or ""
+                return element.name or ""
             except Exception as exc:
                 # Transient AX-tree churn (see module notes); retry.
                 last_error = exc
@@ -275,9 +286,14 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             rows: list[tuple[xa11y.Element, str]] = []
             seen: set[str] = set()
             try:
-                for row in self.app.locator("table_row").elements():
-                    label = next(
-                        (c.name or "" for c in row.children() if (c.name or "").strip()), ""
+                selector = "list_item" if sys.platform == "win32" else "table_row"
+                for row in self.app.locator(selector).elements():
+                    label = (
+                        (row.name or "")
+                        if sys.platform == "win32"
+                        else next(
+                            (c.name or "" for c in row.children() if (c.name or "").strip()), ""
+                        )
                     )
                     if label and label not in seen:
                         seen.add(label)
@@ -295,7 +311,12 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     ) -> tuple[list[tuple[xa11y.Element, str]], xa11y.Element]:
         """Open the write-node popup; return its rows and the row for *label*."""
         self._front()
-        self.write_nodes_combo().show_menu()
+        combo = self.write_nodes_combo()
+        if sys.platform == "win32":
+            # The Windows bridge does not support show_menu on Qt combos.
+            xa11y.input_sim().click(combo.element())
+        else:
+            combo.show_menu()
         rows = self._popup_rows()
         target = next((row for row, name in rows if name == label), None)
         if target is None:

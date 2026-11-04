@@ -74,8 +74,16 @@ test_cases/<case>/
   input/configure.py    # optional: configure(dialog) drives the dialog
                         #   (receives the NukeSubmitterDialog page object)
   expected/job_bundle/  # committed goldens (normalization: _utils.py)
+  expected/job_bundle_nuke17/  # optional OCIO asset/parameter overrides
   actual/               # runtime output; left behind on failure, gitignored
 ```
+
+The OCIO cases use Nuke 17 overrides for its shipped `nuke-default` config.
+Other versions retain the original `aces_1.2` expectations. The template stays
+shared. Automatic golden updates are disabled when an override applies; review
+and edit those two documents explicitly. Asset path collections are compared
+without ordering, since absolute installation paths sort differently across
+platforms; missing, duplicate, and changed assets still fail.
 
 ## Adding a test case
 
@@ -109,6 +117,58 @@ The accessibility-layer ground rules (Qt.Tool window visibility, anonymous
 widgets, combo popup and spin-box workarounds) are documented once,
 canonically, in the `pages.py` module docstring.
 
+### Windows desktop runner
+
+Verified on Windows Server 2022 / Nuke 17.1v2 / Qt 6.5.3 on 2026-11-04:
+all nine GUI cases and four bundle-comparison checks passed in active RDP Session 2,
+with no skips and native exit code 0. Teardown left no Nuke/frame-server workers.
+
+Use a clean, isolated checkout and a licensed Nuke installation with its bundled Python and existing Foundry
+licensing configuration. Foundry uses port 6101; C4D's ports 5054/7054 alone are
+insufficient. Verify the actual Foundry forwarding and license availability.
+The runner does not install Nuke or change licensing.
+
+From an unlocked RDP desktop, with no other DCC or agent using the desktop:
+
+```powershell
+$env:NUKE_EXECUTABLE = 'C:\Program Files\Nuke17.1v2\Nuke17.1.exe'
+$env:NUKE_PYTHON = 'C:\Program Files\Nuke17.1v2\python.exe'
+.\pipeline\run-nuke-ui-windows.ps1 -RunDirectory C:\Dev\nuke-ui-runs\unique-run
+```
+
+Use the paths for the actual installation. `-PreflightOnly` checks desktop
+access and installation paths without installing dependencies or launching Nuke;
+it does not prove that a license can be acquired. For a focused run, pass
+`-PytestArguments @('-k', 'basic_workflow')`.
+
+The runner rejects Session 0, unavailable input desktops, existing interactive
+DCC processes, and concurrent instances of this runner. It installs submitter
+dependencies into the new run directory using Nuke's Python, sets a dedicated
+`HATCH_DATA_DIR`, and records `runner.log`, `dependencies.log`, `pytest.log`,
+`results.xml`, and per-case Nuke logs under `pytest/`. Native stderr is captured
+with PowerShell's error preference set to `Continue`; pytest's native exit code
+is returned. Preserve failure artifacts before removing the run directory.
+Nuke inherits the isolated dependency directory through
+`NUKE_SUBMITTER_UI_PYTHONPATH`; do not put it in pytest's `PYTHONPATH`, which
+can bypass the test environment's pywin32 initialization. Windows processes
+are owned by a Job Object so teardown also stops frame-server workers that
+outlive the main GUI process.
+
+SSM can inspect the host and prepare source/dependencies, but GUI tests must run
+in the active desktop. Before using Task Scheduler, inspect `query user` and
+existing task definitions. A scoped temporary task must use the logged-in user's
+`InteractiveToken` (`LogonType Interactive` in PowerShell), and must be removed
+after its logs are preserved. Do not reuse another test's task or guess desktop
+credentials.
+
+A Windows CI runner must have an unlocked, dedicated interactive desktop and
+existing Nuke licensing. A runner installed as a Windows service runs in Session
+0 and is unsuitable. Before enabling automation, verify the complete suite in
+that runner's session, coordinate desktop ownership, and serialize licensed runs
+with the existing workflow's `nuke-integration-tests` concurrency group.
+PR-trigger access, installer provisioning, IAM, and secrets remain deferred.
+Windows foreground recovery is not implemented; a dedicated desktop is required.
+
 ## Status
 
 Ported Squish cases:
@@ -125,7 +185,8 @@ Ported Squish cases:
 
 `write_node_gui` and `ocio_gui` each submitted twice from one scene; since a
 case here exports one bundle, each submission became its own case. The OCIO
-cases pin the `aces_1.2` stock config, as the Squish scene did.
+cases pin `aces_1.2` on older installations and `nuke-default` on Nuke 17,
+which no longer ships the legacy ACES files.
 
 Remaining: `manual_attachments_gui`, `invalid_conda_gui`. Squish stays until they are ported.
 
