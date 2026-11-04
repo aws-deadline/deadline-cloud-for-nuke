@@ -29,7 +29,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Mapping, Optional, cast
+from typing import Mapping, Optional, cast
 
 import xa11y
 from deadline_test_fixtures.deadline_mock import build_mock_environment
@@ -151,7 +151,7 @@ def _activate_app(pid: int, timeout: float = ACTIVATE_TIMEOUT) -> bool:
                 pass  # No foreground window yet; still try activating Nuke.
             try:
                 # xa11y's stub shadows builtin list with App.list.
-                windows = cast("List[xa11y.Element]", xa11y.App.by_pid(pid, timeout=0).windows())
+                windows = cast("list[xa11y.Element]", xa11y.App.by_pid(pid, timeout=0).windows())
                 if windows:
                     windows[-1].activate()
             except xa11y.XA11yError:
@@ -226,6 +226,7 @@ class NukeSession:
                             str(error), encoding="utf-8"
                         )
                     except OSError:
+                        # Diagnostic output is best effort; always stop Nuke below.
                         pass
         finally:
             stop_process_tree(self.process, self.process_group)
