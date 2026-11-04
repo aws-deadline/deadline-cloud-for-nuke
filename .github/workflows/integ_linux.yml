@@ -110,7 +110,11 @@ jobs:
       - name: Create xa11y test environment
         run: hatch env create integ-xa11y
 
+      - name: Verify bundle normalization without a Nuke license
+        run: hatch run integ-xa11y:test test/nuke_submitter_ui/test_bundle_normalization.py
+
       - name: Verify desktop and accessibility without a Nuke license
+        if: ${{ inputs.ui_driver == 'xa11y' }}
         run: |
           bash pipeline/run-linux-gui.sh \
             hatch -e integ-xa11y run python pipeline/linux-gui-smoke.py
@@ -161,7 +165,6 @@ jobs:
             # require a separate Qt driver port; do not claim those as covered.
             suite=(
               test/nuke_submitter_ui/test_submitter_ui.py
-              test/nuke_submitter_ui/test_bundle_normalization.py
             )
             if [[ -f test/nuke_submitter_ui/test_submission_transport.py ]]; then
               suite+=(test/nuke_submitter_ui/test_submission_transport.py)

@@ -121,6 +121,6 @@ pids+=("$!")
 export XA11Y_A11Y_READY=1
 
 # timeout covers the command; traps collect artifacts and close the desktop on failure.
-timeout --signal=TERM --kill-after=20s 40m "$@" &
+timeout --signal=TERM --kill-after=90s 40m "$@" &
 pids+=("$!")
 wait "${pids[4]}"

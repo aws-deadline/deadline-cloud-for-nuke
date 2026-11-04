@@ -77,6 +77,18 @@ def stop_process(process):
     signal_group(process, signal.SIGKILL)
 
 
+def stop_tests(process):
+    if process is not None and process.poll() is None:
+        # Let pytest unwind the test's finally block and stop Nuke while the
+        # license tunnel is still available. Nuke has a separate process group.
+        signal_group(process, signal.SIGINT)
+        try:
+            process.wait(timeout=45)
+        except subprocess.TimeoutExpired:
+            pass
+    stop_process(process)
+
+
 def terminate_remote(log, environment):
     identifier = session_id(log)
     if identifier:
@@ -205,7 +217,7 @@ def main(arguments=None):
             return tests.returncode
     finally:
         # Complete all local cleanup even if AWS remote termination fails.
-        stop_process(tests)
+        stop_tests(tests)
         stop_process(tunnel)
         try:
             cleanup_state(log, config, environment)

@@ -136,6 +136,7 @@ def test_submitter_export_bundle(
 
     log(f"case {case}: launching Nuke")
     if driver == "qt":
+        env["NUKE_SUBMITTER_QT_FARM_NAME"] = _MOCK_FARM_NAME
         export_with_qt(nuke_executable, env, tmp_path, case_folder / "input" / "configure.py")
     else:
         configure = _load_configurator(_CASES_ROOT, case)

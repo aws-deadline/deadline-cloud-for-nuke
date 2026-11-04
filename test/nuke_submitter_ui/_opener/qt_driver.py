@@ -15,10 +15,11 @@ import traceback
 
 from PySide6.QtCore import Qt, QTimer, qVersion
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox
 
 from deadline.client.ui.dialogs.export_bundle_dialog import ExportBundleDialog
 from qt_pages import QtSubmitterDialog
+from qt_readiness import ready_for_configuration
 
 
 class ExportDriver:
@@ -54,7 +55,20 @@ class ExportDriver:
             if time.monotonic() >= self.deadline:
                 raise TimeoutError("Qt probe timed out: " + self.phase)
             if self.phase == "waiting for mock farm and queue":
-                if not self.dialog.submit_button.isEnabled():
+                settings = self.dialog.shared_job_settings
+                farm_name = os.environ["NUKE_SUBMITTER_QT_FARM_NAME"]
+                farm_resolved = any(
+                    farm_name in widget.text()
+                    for widget in settings.deadline_cloud_settings_box.findChildren(QLabel)
+                ) or any(
+                    farm_name in widget.currentText()
+                    for widget in settings.deadline_cloud_settings_box.findChildren(QComboBox)
+                )
+                if not ready_for_configuration(
+                    self.dialog.submit_button.isEnabled(),
+                    settings.queue_parameters_box.async_loading_state,
+                    farm_resolved,
+                ):
                     return
                 self.timer.stop()
                 self.configure()
