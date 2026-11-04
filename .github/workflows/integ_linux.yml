@@ -40,7 +40,7 @@ on:
         required: true
 
 # Direct dispatches hold the shared lock. The coordinator holds it for the
-# entire suite and gives each sequential child a distinct group to avoid deadlock.
+# entire suite and gives each parallel child a distinct group to avoid deadlock.
 concurrency:
   group: ${{ inputs.license_concurrency_group || 'nuke-integration-tests' }}
   cancel-in-progress: false
