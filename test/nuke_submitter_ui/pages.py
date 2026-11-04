@@ -627,8 +627,13 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             sim.press("Enter")
             # The navigation sheet closes before the picker can accept.
             sheets.wait_until(lambda _: sheets.count() == sheet_count, timeout=WIDGET_TIMEOUT)
-        accept = picker.descendant(
-            "button[name='Open'], button[name='Choose'], button[name='Select Folder']"
+        accept_selector = "button[name='Open'], button[name='Choose'], button[name='Select Folder']"
+        # The Windows native picker also exposes an Open button inside the
+        # file-type combo. Invoke the dialog's action button, not that dropdown.
+        accept = (
+            picker.child(accept_selector)
+            if sys.platform == "win32"
+            else picker.descendant(accept_selector)
         )
         accept.wait_enabled(timeout=WIDGET_TIMEOUT)
         accept.press()
