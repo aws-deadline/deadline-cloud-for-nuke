@@ -29,7 +29,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import List, Mapping, Optional, cast
 
 import xa11y
 from deadline_test_fixtures.deadline_mock import build_mock_environment
@@ -150,7 +150,8 @@ def _activate_app(pid: int, timeout: float = ACTIVATE_TIMEOUT) -> bool:
             except xa11y.XA11yError:
                 pass  # No foreground window yet; still try activating Nuke.
             try:
-                windows = xa11y.App.by_pid(pid, timeout=0).windows()
+                # xa11y's stub shadows builtin list with App.list.
+                windows = cast("List[xa11y.Element]", xa11y.App.by_pid(pid, timeout=0).windows())
                 if windows:
                     windows[-1].activate()
             except xa11y.XA11yError:

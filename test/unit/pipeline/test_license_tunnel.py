@@ -10,11 +10,14 @@ from unittest.mock import Mock
 
 import pytest
 
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX license tunnel lifecycle")
+
 
 @pytest.fixture
 def tunnel():
     path = Path(__file__).resolve().parents[3] / "pipeline" / "license-tunnel.py"
     spec = importlib.util.spec_from_file_location("license_tunnel", path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -49,6 +52,7 @@ def test_readiness_connects_on_loopback(tunnel):
         tunnel.wait_for_tunnel(Mock(poll=lambda: None), listener.getsockname()[1], timeout=1)
 
 
+@posix_only
 def test_failed_readiness_terminates_partial_session(configured, tmp_path, monkeypatch):
     calls = []
 
@@ -129,6 +133,7 @@ def test_test_failure_or_tunnel_loss_stops_both_processes(configured, monkeypatc
     assert [call.args[0] for call in stop.call_args_list] == [tests, ssm]
 
 
+@posix_only
 def test_stop_process_kills_group(tunnel):
     process = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(300)"],
@@ -143,6 +148,7 @@ def test_stop_process_kills_group(tunnel):
             process.wait()
 
 
+@posix_only
 def test_stop_process_does_not_signal_a_recycled_group_id(tunnel, monkeypatch):
     process = Mock(pid=123, returncode=0)
     monkeypatch.setattr(tunnel.os, "kill", Mock())  # another live process owns PID 123

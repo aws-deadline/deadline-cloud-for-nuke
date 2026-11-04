@@ -542,7 +542,8 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         self._front()
         self.save_bundle_locally(timeout=timeout)
         pid = self.app.pid
-        assert pid is not None, "Nuke accessibility application has no process ID"
+        if pid is None:
+            raise RuntimeError("Cannot dismiss bundle saved confirmation without a Nuke process ID")
         if not dismiss_bundle_saved_popup(pid, timeout=timeout):
             raise TimeoutError(
                 f"Bundle saved confirmation did not appear in {timeout}s\n{self.dump_tree()}"

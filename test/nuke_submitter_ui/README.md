@@ -45,9 +45,10 @@ which don't apply to GUI tests. The suite is excluded from the default run
 
 Repository maintainers can run the suite on the configured macOS runner by
 pushing a commit to the upstream repository's `feature/ci-tests` branch. The
-`Nuke xa11y Integration Tests - macOS` workflow starts automatically.
-The Linux workflow uses the same trusted branches and license concurrency
-group, with separate Linux installer secrets. Linux defaults to the Qt export backend. Run the same export cases locally with:
+`Nuke GUI Integration Tests` coordinator starts automatically and runs macOS,
+then Linux, under one shared license lock. The reusable platform workflows
+remain available for individual dispatches, with separate Linux installer
+secrets. Linux defaults to the Qt export backend. Run the same export cases locally with:
 
 ```bash
 NUKE_SUBMITTER_UI_DRIVER=qt hatch run integ-xa11y:test test/nuke_submitter_ui/test_submitter_ui.py
