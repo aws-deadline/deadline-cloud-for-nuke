@@ -45,8 +45,9 @@ which don't apply to GUI tests. The suite is excluded from the default run
 
 Repository maintainers can run the suite on the configured macOS runner by
 pushing a commit to the upstream repository's `feature/ci-tests` branch. The
-`Nuke GUI Integration Tests` coordinator starts automatically and runs macOS,
-then Linux, under one shared license lock. The reusable platform workflows
+`Nuke GUI Integration Tests` coordinator starts automatically and runs macOS
+and Linux in parallel, with one GUI session per platform. The coordinator's shared
+concurrency group prevents other suites from overlapping it. The reusable platform workflows
 remain available for individual dispatches, with separate Linux installer
 secrets. Linux defaults to the Qt export backend. Run the same export cases locally with:
 

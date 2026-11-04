@@ -1,6 +1,6 @@
 # Linux Nuke GUI integration CI
 
-`integ_gui.yml` runs macOS and Linux sequentially on each eligible push.
+`integ_gui.yml` runs macOS and Linux in parallel on each eligible push.
 Its Linux worker, `integ_linux.yml`, runs the nine existing serial export cases with
 Nuke 16.0v9, using an in-process Qt event driver by default. The macOS workflow
 continues to use xa11y 0.15.*. The container is Rocky Linux 9 x86_64, hosted by
@@ -117,17 +117,20 @@ After legitimate installer configuration exists, maintainers can validate the
 change on an already trusted branch. Pull-request triggers remain deferred.
 
 The coordinator holds the `nuke-integration-tests` concurrency group for the
-entire macOS-then-Linux suite, with no cancellation of the active run. GitHub can
+entire parallel macOS/Linux suite, with no cancellation of the active run. GitHub can
 replace a pending suite when multiple pushes queue, but the two platforms from
-one push no longer compete for that pending slot. Linux runs after macOS even
-when macOS fails, unless the suite is explicitly cancelled.
+one push no longer compete for that pending slot. Each platform runs independently
+of the other's result, unless the suite is explicitly cancelled.
 The coordinator passes distinct child concurrency groups to the reusable
 platform workflows to avoid acquiring its own lock again. Direct platform
 dispatches and the existing macOS-only release call keep the shared group by
 default, so they cannot overlap the coordinated suite. Other callers must keep
 that default unless they already hold the shared lock themselves.
 This is not a FIFO queue.
-The suite runs without xdist and starts only one licensed GUI Nuke at a time.
+Each platform runs without xdist and starts only one licensed GUI Nuke at a time,
+so the coordinated suite uses at most two simultaneous GUI sessions. The shared
+Foundry license configuration lists 30 Nuke interactive seats expiring December 11,
+2026; these are shared with other developers and are not reserved for CI.
 
 ## Cleanup and diagnostics
 
