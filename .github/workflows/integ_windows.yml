@@ -1,0 +1,27 @@
+name: "Nuke GUI Integration Tests - Windows runner preflight"
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/ci-tests
+    paths:
+      - .github/workflows/integ_windows.yml
+      - pipeline/check-windows-gui-desktop.ps1
+
+jobs:
+  Desktop:
+    name: Windows hosted runner desktop access
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify unlocked interactive desktop
+        shell: pwsh
+        run: ./pipeline/check-windows-gui-desktop.ps1
