@@ -18,6 +18,7 @@ param(
     [string[]]$PytestArguments = @()
 )
 
+$testExit = $null
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sessionId = (Get-Process -Id $PID).SessionId

@@ -6,8 +6,8 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      installer_url:
-        description: Fresh HTTPS link to the verified Nuke 17.1v2 Windows ZIP; omit for desktop preflight only
+      installer_s3_key:
+        description: Shared installer bucket key for the verified Nuke 17.1v2 Windows ZIP; omit for desktop preflight only
         type: string
         required: false
   push:
@@ -30,10 +30,16 @@ jobs:
       - name: Verify unlocked interactive desktop
         shell: pwsh
         run: ./pipeline/check-windows-gui-desktop.ps1
+      - name: Mark preflight-only result
+        if: inputs.installer_s3_key == '' || github.ref != 'refs/heads/feature/ci-tests'
+        shell: pwsh
+        run: |
+          'Only Windows desktop preflight ran. No Nuke GUI test case ran; a full trial requires an installer S3 key and feature/ci-tests.' |
+            Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
   GUI:
     if: >-
-      github.event_name == 'workflow_dispatch' && inputs.installer_url != '' &&
+      github.event_name == 'workflow_dispatch' && inputs.installer_s3_key != '' &&
       github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
       github.ref == 'refs/heads/feature/ci-tests'
     needs: Desktop
@@ -62,32 +68,50 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.11"
       - name: Install Hatch
         shell: pwsh
         run: |
           python -m pip install "hatch==1.18.0"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Install verified Nuke archive
-        shell: pwsh
-        run: ./pipeline/install-nuke-windows.ps1
       - name: Configure existing AWS credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           mask-aws-account-id: true
-      - name: Start existing CI Foundry license connection
+      - name: Install verified Nuke archive from the shared CI bucket
+        shell: pwsh
+        env:
+          INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+          INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+          NUKE_INSTALLER_S3_KEY: ${{ inputs.installer_s3_key }}
+        run: ./pipeline/install-nuke-windows.ps1
+      - name: Run complete mock-backend GUI suite through existing CI license connection
         shell: pwsh
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
           BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
-        run: ./pipeline/windows-license-tunnel.ps1
-      - name: Run complete mock-backend GUI suite
-        shell: pwsh
         run: |
-          ./pipeline/run-nuke-ui-windows.ps1 -RunDirectory "$env:RUNNER_TEMP\nuke-windows-gui" -PytestArguments @('-s')
+          $testExit = 1
+          $credentials = @{}
+          try {
+            ./pipeline/windows-license-tunnel.ps1
+            if ($LASTEXITCODE -ne 0) { throw 'License connection setup failed.' }
+            foreach ($name in 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_CONFIG_FILE', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN') {
+              $credentials[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+              [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            }
+            ./pipeline/run-nuke-ui-windows.ps1 -RunDirectory "$env:RUNNER_TEMP\nuke-windows-gui" -PytestArguments @('-s')
+            $testExit = $LASTEXITCODE
+          } finally {
+            foreach ($name in $credentials.Keys) {
+              [Environment]::SetEnvironmentVariable($name, $credentials[$name], 'Process')
+            }
+            ./pipeline/windows-license-tunnel.ps1 -Cleanup
+          }
+          exit $testExit
       - name: Tear down owned license session
         if: always()
         shell: pwsh
@@ -125,3 +149,5 @@ jobs:
             ${{ runner.temp }}/nuke-windows-gui/pytest.log
             ${{ runner.temp }}/nuke-windows-gui/results.xml
             ${{ runner.temp }}/nuke-windows-gui/pytest/**/*.png
+            ${{ runner.temp }}/nuke-installer/install.log
+            ${{ runner.temp }}/nuke-windows-license-status.txt

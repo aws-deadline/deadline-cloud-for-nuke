@@ -276,25 +276,25 @@ claiming GUI validation.
 
 `integ_windows.yml` checks `windows-2022` for an unlocked interactive desktop.
 The full GUI job is enabled only by a manual dispatch on `feature/ci-tests`
-with `installer_url`: a fresh HTTPS link to the verified Nuke 17.1v2 Windows
-archive. The installer script verifies SHA-256 and the MSI's Foundry signature
-before installation. It uses the EULA acceptance already authorized for this
-test setup.
+with `installer_s3_key` set to `nuke/17/Nuke17.1v2-win-x86_64.zip`.
+It downloads from the same `INSTALLER_BUCKET` as Linux and macOS, using the
+existing CI OIDC role and expected bucket owner. The installer script verifies
+SHA-256 and the MSI's Foundry signature before installation. It uses the EULA
+acceptance already authorized for this test setup.
 
 The GUI job shares the existing licensed-run concurrency group and CI license
 role. It installs submitter dependencies into temporary artifacts, runs the
 complete mock-backend suite, and preserves JUnit results and logs. It does not
 enable PR triggers or change IAM or repository secrets.
 
-A dispatch without an installer URL runs only the desktop check. That result
-does not establish Nuke licensing or GUI test success. For a full trial, provide
-the dispatch inputs through a private JSON file rather than putting a signed
-URL in shell history:
+A dispatch without an installer key runs only the desktop check. That result
+does not establish Nuke licensing or GUI test success. For a full trial:
 
 ```bash
-gh workflow run integ_windows.yml --ref feature/ci-tests --json < request.json
+gh workflow run integ_windows.yml --ref feature/ci-tests \
+  -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip
 ```
 
-`request.json` contains `{"installer_url": "https://..."}`. Keep the signed URL
-out of review reports and source control; the installer script masks it in
-workflow output.
+Before a full manual trial, check that no licensed workflow is already queued.
+GitHub concurrency groups allow one running and one pending member, and a new
+arrival can replace the pending member even with `cancel-in-progress: false`.

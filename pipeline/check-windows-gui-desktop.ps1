@@ -4,6 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $sessionId = (Get-Process -Id $PID).SessionId
 Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List
+Get-CimInstance Win32_VideoController | Select-Object Name, CurrentHorizontalResolution, CurrentVerticalResolution | Format-List
 Write-Output "Process session: $sessionId"
 Write-Output "UserInteractive: $([Environment]::UserInteractive)"
 & query.exe user

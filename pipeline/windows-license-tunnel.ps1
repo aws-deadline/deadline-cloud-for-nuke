@@ -8,6 +8,18 @@ $state = Join-Path $env:RUNNER_TEMP 'nuke-windows-license-state.json'
 $env:AWS_CONFIG_FILE = $config
 $env:AWS_PAGER = ''
 
+function Write-TunnelFailureCategory {
+    # Keep private SSM connection details out of uploaded GUI evidence.
+    $text = (Get-Content -LiteralPath $log, "$log.error" -Raw -ErrorAction SilentlyContinue) -join "`n"
+    $category = 'No recognized SSM error; inspect the private runner tunnel logs.'
+    foreach ($known in 'AccessDenied', 'ExpiredToken', 'TargetNotConnected', 'InvalidDocument', 'SessionManagerPlugin', 'UnauthorizedOperation') {
+        if ($text -match [regex]::Escape($known)) { $category = $known; break }
+    }
+    "License tunnel failure: $category" |
+        Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'nuke-windows-license-status.txt') |
+        Write-Output
+}
+
 if ($Cleanup) {
     try {
         if (Test-Path -LiteralPath $log) {
@@ -49,8 +61,8 @@ region = $env:AWS_REGION
 # Use the existing CI license role, bastion, document and Foundry RLM port.
 $instances = & aws ec2 describe-instances --profile license `
     --filters "Name=tag:Name,Values=$env:BASTION_INSTANCE_TAG" 'Name=instance-state-name,Values=running' `
-    --query 'Reservations[].Instances[].InstanceId' --output json 2>$null
-if ($LASTEXITCODE -ne 0) { throw 'License bastion lookup failed.' }
+    --query 'Reservations[].Instances[].InstanceId' --output json 2>"$log.error"
+if ($LASTEXITCODE -ne 0) { Write-TunnelFailureCategory; throw 'License bastion lookup failed.' }
 $bastions = @($instances | ConvertFrom-Json)
 if ($bastions.Count -ne 1 -or $bastions[0] -notmatch '^i-[0-9a-f]{8}([0-9a-f]{9})?$') {
     throw 'Expected exactly one running license bastion.'
@@ -62,20 +74,27 @@ $process = Start-Process aws -ArgumentList @(
     'ssm', 'start-session', '--target', $bastions[0],
     '--document-name', 'DccInteg-PortForwardToLicenseServer',
     '--parameters', 'portNumber=6101,localPortNumber=6101', '--profile', 'license'
-) -RedirectStandardOutput $log -RedirectStandardError "$log.error" -PassThru
+) -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError "$log.error" -PassThru
 @{pid = $process.Id; start_ticks = $process.StartTime.ToUniversalTime().Ticks} |
     ConvertTo-Json | Set-Content -LiteralPath $state
-for ($attempt = 0; $attempt -lt 60; $attempt++) {
-    if ($process.HasExited) { throw 'License tunnel exited before readiness.' }
+$deadline = [DateTime]::UtcNow.AddSeconds(60)
+while ([DateTime]::UtcNow -lt $deadline) {
+    if ($process.HasExited) {
+        Write-TunnelFailureCategory
+        throw 'License tunnel exited before readiness.'
+    }
     $client = New-Object System.Net.Sockets.TcpClient
     try {
-        $client.Connect('127.0.0.1', 6101)
-        Write-Output 'Foundry RLM tunnel is ready.'
-        exit 0
-    } catch [System.Net.Sockets.SocketException] {
-        Start-Sleep -Seconds 1
+        if ($client.ConnectAsync('127.0.0.1', 6101).Wait(1000) -and $client.Connected) {
+            Write-Output 'Foundry local license forwarder is listening.'
+            exit 0
+        }
+    } catch {
+        # A faulted ConnectAsync task wraps the socket error in AggregateException.
     } finally {
         $client.Dispose()
     }
+    Start-Sleep -Milliseconds 250
 }
+Write-TunnelFailureCategory
 throw 'The Foundry license tunnel did not become ready within 60 seconds.'

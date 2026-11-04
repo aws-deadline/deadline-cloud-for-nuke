@@ -4,24 +4,21 @@
 # This script is for ephemeral GitHub runners, not an existing DCC workstation.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$event = Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
-$installerUrl = [string]$event.inputs.installer_url
-if (-not $installerUrl) {
-    throw 'Supply an HTTPS download link for the verified Nuke 17.1v2 Windows archive.'
+foreach ($name in 'INSTALLER_BUCKET', 'INSTALLER_BUCKET_EXPECTED_OWNER', 'NUKE_INSTALLER_S3_KEY') {
+    if (-not [Environment]::GetEnvironmentVariable($name, 'Process')) { throw "Missing installer configuration: $name" }
 }
-Write-Output "::add-mask::$installerUrl"
-try { $uri = [uri]$installerUrl } catch { throw 'The installer download link is invalid.' }
-if (-not $uri.IsAbsoluteUri -or $uri.Scheme -ne 'https') {
-    throw 'The installer download link must use HTTPS.'
+if ($env:INSTALLER_BUCKET_EXPECTED_OWNER -notmatch '^\d{12}$') {
+    throw 'INSTALLER_BUCKET_EXPECTED_OWNER must be a 12-digit account ID.'
+}
+if ($env:NUKE_INSTALLER_S3_KEY -ne 'nuke/17/Nuke17.1v2-win-x86_64.zip') {
+    throw 'Select the verified Nuke 17.1v2 Windows archive key.'
 }
 $directory = Join-Path $env:RUNNER_TEMP 'nuke-installer'
 New-Item -ItemType Directory -Path $directory | Out-Null
 $archive = Join-Path $directory 'Nuke17.1v2-win-x86_64.zip'
-try {
-    Invoke-WebRequest -Uri $installerUrl -OutFile $archive
-} catch {
-    throw 'Installer download failed. Check access and signed-link expiry.'
-}
+& aws s3api get-object --bucket $env:INSTALLER_BUCKET --key $env:NUKE_INSTALLER_S3_KEY `
+    --expected-bucket-owner $env:INSTALLER_BUCKET_EXPECTED_OWNER $archive > $null
+if ($LASTEXITCODE -ne 0) { throw 'Installer download from the shared CI bucket failed.' }
 $expected = 'A0EC0C8D3A3B22E209FCCD3CE0F66748AF1BE412C55A88DC843D9DBDF6155D65'
 if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $expected) {
     throw 'Installer checksum differs from the verified workstation archive.'
