@@ -19,7 +19,7 @@ Use this skill when:
 
 ## Core Concepts
 
-**Platform:** Windows, Linux, or macOS. Nuke 15 or 16, Python 3.9+.
+**Platform:** Windows, Linux, or macOS. Nuke 15 or 16, Python 3.10+.
 
 **Build system:** Hatch (Python)
 
@@ -37,7 +37,7 @@ Follow the detailed step-by-step workflow in [references/setup-guide.md](referen
 
 Summary of steps:
 1. Detect OS (Windows, Linux, or macOS)
-2. Verify Python 3.9+
+2. Verify Python 3.10+
 3. Detect Nuke installation
 4. Install Hatch
 5. Build the package (`hatch build`)

@@ -26,7 +26,7 @@ from packaging.utils import canonicalize_name
 
 if sys.version_info >= (3, 11):
     import tomllib
-else:  # pragma: no cover - exercised on Python 3.9 and 3.10 only
+else:  # pragma: no cover - exercised on Python 3.10 only
     import tomli as tomllib
 
 SCRIPTS_DIR = Path(__file__).parents[3] / "scripts"
