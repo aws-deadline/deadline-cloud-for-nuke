@@ -271,3 +271,30 @@ The new picker selectors are based on the dialogs' source and platform
 conventions, and still require live confirmation. No golden update is needed.
 Record the runner OS, Nuke version, dependency versions and results before
 claiming GUI validation.
+
+## Windows GitHub runner trial
+
+`integ_windows.yml` checks `windows-2022` for an unlocked interactive desktop.
+The full GUI job is enabled only by a manual dispatch on `feature/ci-tests`
+with `installer_url`: a fresh HTTPS link to the verified Nuke 17.1v2 Windows
+archive. The installer script verifies SHA-256 and the MSI's Foundry signature
+before installation. It uses the EULA acceptance already authorized for this
+test setup.
+
+The GUI job shares the existing licensed-run concurrency group and CI license
+role. It installs submitter dependencies into temporary artifacts, runs the
+complete mock-backend suite, and preserves JUnit results and logs. It does not
+enable PR triggers or change IAM or repository secrets.
+
+A dispatch without an installer URL runs only the desktop check. That result
+does not establish Nuke licensing or GUI test success. For a full trial, provide
+the dispatch inputs through a private JSON file rather than putting a signed
+URL in shell history:
+
+```bash
+gh workflow run integ_windows.yml --ref feature/ci-tests --json < request.json
+```
+
+`request.json` contains `{"installer_url": "https://..."}`. Keep the signed URL
+out of review reports and source control; the installer script masks it in
+workflow output.

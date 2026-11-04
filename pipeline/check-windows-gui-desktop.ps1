@@ -32,3 +32,5 @@ if ($sessionId -eq 0 -or -not [Environment]::UserInteractive -or -not $available
     throw 'This runner cannot drive real xa11y GUI tests. An unlocked interactive Windows runner is required.'
 }
 Write-Output 'Desktop preflight passed. Nuke installation and licensed GUI test execution are still required.'
+# GitHub's PowerShell wrapper otherwise returns a native command's stale exit code.
+exit 0

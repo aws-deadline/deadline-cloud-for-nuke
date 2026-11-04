@@ -1,16 +1,21 @@
-name: "Nuke GUI Integration Tests - Windows runner preflight"
+name: "Nuke GUI Integration Tests - Windows"
 
 permissions:
   contents: read
 
 on:
   workflow_dispatch:
+    inputs:
+      installer_url:
+        description: Fresh HTTPS link to the verified Nuke 17.1v2 Windows ZIP; omit for desktop preflight only
+        type: string
+        required: false
   push:
     branches:
       - feature/ci-tests
     paths:
       - .github/workflows/integ_windows.yml
-      - pipeline/check-windows-gui-desktop.ps1
+      - pipeline/*windows*.ps1
 
 jobs:
   Desktop:
@@ -25,3 +30,98 @@ jobs:
       - name: Verify unlocked interactive desktop
         shell: pwsh
         run: ./pipeline/check-windows-gui-desktop.ps1
+
+  GUI:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.installer_url != '' &&
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      github.ref == 'refs/heads/feature/ci-tests'
+    needs: Desktop
+    name: xa11y GUI tests (Windows, Nuke 17.1v2)
+    runs-on: windows-2022
+    timeout-minutes: 45
+    # Share the existing license lock with macOS/Linux suites and release runs.
+    concurrency:
+      group: nuke-integration-tests
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      foundry_LICENSE: "6101@127.0.0.1"
+      FN_NUKE_DISABLE_GPU_ACCELERATION: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify this job's unlocked interactive desktop
+        shell: pwsh
+        run: ./pipeline/check-windows-gui-desktop.ps1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install Hatch
+        shell: pwsh
+        run: |
+          python -m pip install "hatch==1.18.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install verified Nuke archive
+        shell: pwsh
+        run: ./pipeline/install-nuke-windows.ps1
+      - name: Configure existing AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Start existing CI Foundry license connection
+        shell: pwsh
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+          BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+        run: ./pipeline/windows-license-tunnel.ps1
+      - name: Run complete mock-backend GUI suite
+        shell: pwsh
+        run: |
+          ./pipeline/run-nuke-ui-windows.ps1 -RunDirectory "$env:RUNNER_TEMP\nuke-windows-gui" -PytestArguments @('-s')
+      - name: Tear down owned license session
+        if: always()
+        shell: pwsh
+        run: ./pipeline/windows-license-tunnel.ps1 -Cleanup
+      - name: Report actual GUI counts and logs
+        if: always()
+        shell: pwsh
+        run: |
+          $root = "$env:RUNNER_TEMP\nuke-windows-gui"
+          if (Test-Path "$root\results.xml") {
+            [xml]$results = Get-Content "$root\results.xml" -Raw
+            $suite = $results.testsuites.testsuite
+            "Windows Nuke 17.1v2: tests=$($suite.tests), failures=$($suite.failures), errors=$($suite.errors), skipped=$($suite.skipped)" |
+              Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            'No Windows GUI results.xml was produced; GUI tests have not been verified.' |
+              Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+          foreach ($file in 'runner.log', 'dependencies.log', 'pytest.log') {
+            if (Test-Path "$root\$file") {
+              Write-Output "=== $file ==="
+              Get-Content "$root\$file" -Tail 120
+            }
+          }
+      - name: Preserve Windows GUI evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nuke-windows-gui-evidence
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/nuke-windows-gui/runner.log
+            ${{ runner.temp }}/nuke-windows-gui/dependencies.log
+            ${{ runner.temp }}/nuke-windows-gui/pytest.log
+            ${{ runner.temp }}/nuke-windows-gui/results.xml
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/*.png
