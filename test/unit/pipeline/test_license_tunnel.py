@@ -123,6 +123,8 @@ def test_test_failure_or_tunnel_loss_stops_both_processes(configured, monkeypatc
     tests = Mock(poll=lambda: None if lost_tunnel else 7, returncode=7)
     monkeypatch.setattr(configured.subprocess, "Popen", Mock(side_effect=[ssm, tests]))
     monkeypatch.setattr(configured, "wait_for_tunnel", Mock())
+    interrupt = Mock()
+    monkeypatch.setattr(configured, "signal_group", interrupt)
     stop = Mock()
     monkeypatch.setattr(configured, "stop_process", stop)
     if lost_tunnel:
@@ -131,6 +133,10 @@ def test_test_failure_or_tunnel_loss_stops_both_processes(configured, monkeypatc
     else:
         assert configured.main(["--", "unused-test-command"]) == 7
     assert [call.args[0] for call in stop.call_args_list] == [tests, ssm]
+    if lost_tunnel:
+        interrupt.assert_called_once_with(tests, configured.signal.SIGINT)
+    else:
+        interrupt.assert_not_called()
 
 
 @posix_only
@@ -156,3 +162,52 @@ def test_stop_process_does_not_signal_a_recycled_group_id(tunnel, monkeypatch):
     monkeypatch.setattr(tunnel.os, "killpg", kill_group)
     tunnel.stop_process(process)
     kill_group.assert_not_called()
+
+
+@posix_only
+def test_interruption_runs_test_cleanup_before_stopping_tunnel(tunnel, tmp_path):
+    import time
+
+    ready = tmp_path / "ready"
+    cleaned = tmp_path / "cleaned"
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import pathlib, sys, time\n"
+            "try:\n"
+            " pathlib.Path(sys.argv[1]).touch()\n"
+            " while True: time.sleep(1)\n"
+            "finally:\n"
+            " pathlib.Path(sys.argv[2]).touch()\n",
+            str(ready),
+            str(cleaned),
+        ],
+        start_new_session=True,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        deadline = time.monotonic() + 5
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert ready.exists()
+        tunnel.stop_tests(process)
+        assert cleaned.exists(), "SIGINT must let the test unwind its Nuke cleanup"
+        assert process.poll() is not None
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+def test_unresponsive_test_cleanup_escalates(tunnel, monkeypatch):
+    process = Mock(poll=lambda: None)
+    process.wait.side_effect = subprocess.TimeoutExpired("test", 45)
+    interrupt = Mock()
+    fallback = Mock()
+    monkeypatch.setattr(tunnel, "signal_group", interrupt)
+    monkeypatch.setattr(tunnel, "stop_process", fallback)
+    tunnel.stop_tests(process)
+    interrupt.assert_called_once_with(process, tunnel.signal.SIGINT)
+    process.wait.assert_called_once_with(timeout=45)
+    fallback.assert_called_once_with(process)

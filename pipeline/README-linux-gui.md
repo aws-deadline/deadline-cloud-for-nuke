@@ -138,21 +138,27 @@ The GUI command has a 40-minute limit within the job's 60-minute limit.
 On success, failure, or a catchable cancellation, traps close the display
 processes and any surviving Nuke process. The tunnel helper owns a process group,
 checks readiness and continuing tunnel liveness, stops its plugin and test
-processes, and terminates the remote SSM session. The `always()` teardown retries
+processes, and terminates the remote SSM session. On interruption it first sends
+SIGINT to pytest and allows 45 seconds for Nuke teardown before closing the tunnel.
+The outer timeout allows 90 seconds for that cleanup before forced termination.
+The `always()` teardown retries
 remote termination using private session state in `RUNNER_TEMP`.
 A runner forcibly destroyed before cleanup completes still depends on SSM's
 service-side session expiry.
 
 Failure artifacts retain desktop logs, the final PNG screenshot, pytest JUnit
 output and temporary directories (including Nuke startup logs), and failed
-case `actual/` bundles for seven days. CI sets
-`NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS=1` to save each session's accessibility
-tree and screenshot before Nuke closes, including startup failures that got
-as far as accessibility registration. The private license config and SSM log
+case `actual/` bundles for seven days. The default Qt driver writes each case's
+`qt-result.json` and `qt-result.png`. For xa11y sessions, CI sets
+`NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS=1` to save the accessibility tree and
+screenshot before Nuke closes, including startup failures that got as far as
+accessibility registration. The private license config and SSM log
 are outside the upload paths. Installer configuration values and checksum
 values are not printed by the setup helper.
 
-Once the Qt preflight passes, a licensed run must verify all nine original cases,
+The GTK/AT-SPI smoke and bundled-Qt AT-SPI preflight run only for the xa11y driver.
+The normalization regressions run before licensing in either mode.
+Once the bundled-Qt AT-SPI preflight passes, a licensed xa11y run must verify all nine original cases,
 any additional cases on the test branch, and Linux-specific role/name selectors.
 Use `NUKE_SUBMITTER_UI_DIALOG_DUMP=1` for a deliberate
 diagnostic run if selectors fail; do not regenerate goldens to hide a platform
