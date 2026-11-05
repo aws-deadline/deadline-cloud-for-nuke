@@ -10,6 +10,10 @@ on:
         description: Shared installer bucket key for the verified Nuke 17.1v2 Windows ZIP; omit for desktop preflight only
         type: string
         required: false
+      diagnose_startup:
+        description: Stop after the first failed case and preserve Nuke startup diagnostics
+        type: boolean
+        default: false
   push:
     branches:
       - feature/ci-tests
@@ -56,6 +60,7 @@ jobs:
     env:
       foundry_LICENSE: "6101@127.0.0.1"
       FN_NUKE_DISABLE_GPU_ACCELERATION: "1"
+      NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -93,6 +98,7 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
           BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+          DIAGNOSE_STARTUP: ${{ inputs.diagnose_startup }}
         run: |
           $testExit = 1
           $credentials = @{}
@@ -103,7 +109,9 @@ jobs:
               $credentials[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
               [Environment]::SetEnvironmentVariable($name, $null, 'Process')
             }
-            ./pipeline/run-nuke-ui-windows.ps1 -RunDirectory "$env:RUNNER_TEMP\nuke-windows-gui" -PytestArguments @('-s')
+            $pytestArguments = @('-s')
+            if ($env:DIAGNOSE_STARTUP -eq 'true') { $pytestArguments += '--maxfail=1' }
+            ./pipeline/run-nuke-ui-windows.ps1 -RunDirectory "$env:RUNNER_TEMP\nuke-windows-gui" -PytestArguments $pytestArguments
             $testExit = $LASTEXITCODE
           } finally {
             foreach ($name in $credentials.Keys) {
@@ -149,5 +157,9 @@ jobs:
             ${{ runner.temp }}/nuke-windows-gui/pytest.log
             ${{ runner.temp }}/nuke-windows-gui/results.xml
             ${{ runner.temp }}/nuke-windows-gui/pytest/**/*.png
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/nuke_*.log
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/accessibility-tree.txt
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/diagnostics-error.txt
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/opener_status.txt
             ${{ runner.temp }}/nuke-installer/install.log
             ${{ runner.temp }}/nuke-windows-license-status.txt
