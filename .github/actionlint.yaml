@@ -1,0 +1,3 @@
+self-hosted-runner:
+  labels:
+    - aws-deadline_windows-2025_gpu-t4-4-core

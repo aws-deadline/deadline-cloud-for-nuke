@@ -274,7 +274,10 @@ claiming GUI validation.
 
 ## Windows GitHub runner trial
 
-`integ_windows.yml` checks `windows-2022` for an unlocked interactive desktop.
+`integ_windows.yml` uses the same Windows GPU runner label as Cinema 4D:
+`aws-deadline_windows-2025_gpu-t4-4-core`. It checks for an unlocked interactive
+desktop before running tests. These GPU runners are billed and must be available
+to the Nuke repository.
 The full GUI job is enabled only by a manual dispatch on `feature/ci-tests`
 with `installer_s3_key` set to `nuke/17/Nuke17.1v2-win-x86_64.zip`.
 It downloads from the same `INSTALLER_BUCKET` as Linux and macOS, using the
