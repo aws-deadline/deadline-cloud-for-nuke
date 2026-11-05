@@ -6,6 +6,14 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
+      windows_runner:
+        description: Windows image to test; the C4D GPU runner requires repository access
+        type: choice
+        default: windows-2025
+        options:
+          - windows-2025
+          - windows-2022
+          - aws-deadline_windows-2025_gpu-t4-4-core
       installer_s3_key:
         description: Shared installer bucket key for the verified Nuke 17.1v2 Windows ZIP; omit for desktop preflight only
         type: string
@@ -24,7 +32,7 @@ on:
 jobs:
   Desktop:
     name: Windows hosted runner desktop access
-    runs-on: aws-deadline_windows-2025_gpu-t4-4-core
+    runs-on: ${{ inputs.windows_runner || 'windows-2025' }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -48,8 +56,8 @@ jobs:
       github.ref == 'refs/heads/feature/ci-tests'
     needs: Desktop
     name: xa11y GUI tests (Windows, Nuke 17.1v2)
-    # Reuse C4D's GPU runner: Nuke's GUI requires an OpenGL-capable driver.
-    runs-on: aws-deadline_windows-2025_gpu-t4-4-core
+    # Desktop access and Nuke startup must be verified for the selected image.
+    runs-on: ${{ inputs.windows_runner || 'windows-2025' }}
     timeout-minutes: 45
     # Share the existing license lock with macOS/Linux suites and release runs.
     concurrency:

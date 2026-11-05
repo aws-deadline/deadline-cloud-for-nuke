@@ -274,10 +274,12 @@ claiming GUI validation.
 
 ## Windows GitHub runner trial
 
-`integ_windows.yml` uses the same Windows GPU runner label as Cinema 4D:
-`aws-deadline_windows-2025_gpu-t4-4-core`. It checks for an unlocked interactive
-desktop before running tests. These GPU runners are billed and must be available
-to the Nuke repository.
+`integ_windows.yml` accepts a `windows_runner` choice, defaulting to
+`windows-2025`, with `windows-2022` and C4D's
+`aws-deadline_windows-2025_gpu-t4-4-core` as alternatives. It checks for an
+unlocked interactive desktop before running tests. The GPU runner is billed and
+requires repository access; the Nuke repository currently lacks that access.
+Standard Windows images must still demonstrate Nuke's required OpenGL support.
 The full GUI job is enabled only by a manual dispatch on `feature/ci-tests`
 with `installer_s3_key` set to `nuke/17/Nuke17.1v2-win-x86_64.zip`.
 It downloads from the same `INSTALLER_BUCKET` as Linux and macOS, using the
@@ -295,6 +297,7 @@ does not establish Nuke licensing or GUI test success. For a full trial:
 
 ```bash
 gh workflow run integ_windows.yml --ref feature/ci-tests \
+  -f windows_runner=windows-2025 \
   -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip
 ```
 
