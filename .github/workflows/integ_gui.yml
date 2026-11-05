@@ -1,0 +1,74 @@
+name: "Nuke GUI Integration Tests"
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - mainline
+      - feature/ci-tests
+    paths-ignore:
+      - CHANGELOG.md
+  workflow_dispatch:
+    inputs:
+      ui_driver:
+        description: Linux GUI driver
+        type: choice
+        options:
+          - qt
+          - xa11y
+        default: qt
+
+# Queue whole suites, so the two platforms never replace each other's pending
+# run. The two platforms run in parallel within one suite; standalone platform
+# dispatches and release macOS runs wait for the suite to finish.
+concurrency:
+  group: nuke-integration-tests
+  cancel-in-progress: false
+
+jobs:
+  MacOS:
+    if: >-
+      !cancelled() &&
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      (github.ref == 'refs/heads/mainline' ||
+      github.ref == 'refs/heads/feature/ci-tests')
+    # Match existing release calls and actionlint's supported local-call syntax.
+    uses: ./.github/workflows/integ_macos.yml # zizmor: ignore[self-repository]
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      license_concurrency_group: nuke-gui-child-${{ github.run_id }}-${{ github.run_attempt }}-macos
+    secrets:
+      AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+      INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+      NUKE_INSTALLER_S3_KEY: ${{ secrets.NUKE_INSTALLER_S3_KEY }}
+      NUKE_INSTALLER_SHA256: ${{ secrets.NUKE_INSTALLER_SHA256 }}
+      LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+      BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+
+  Linux:
+    if: >-
+      !cancelled() &&
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      (github.ref == 'refs/heads/mainline' ||
+      github.ref == 'refs/heads/feature/ci-tests')
+    uses: ./.github/workflows/integ_linux.yml # zizmor: ignore[self-repository]
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      license_concurrency_group: nuke-gui-child-${{ github.run_id }}-${{ github.run_attempt }}-linux
+      ui_driver: ${{ inputs.ui_driver || 'qt' }}
+    secrets:
+      AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+      INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+      NUKE_LINUX_INSTALLER_S3_KEY: ${{ secrets.NUKE_LINUX_INSTALLER_S3_KEY }}
+      NUKE_LINUX_INSTALLER_SHA256: ${{ secrets.NUKE_LINUX_INSTALLER_SHA256 }}
+      LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+      BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}

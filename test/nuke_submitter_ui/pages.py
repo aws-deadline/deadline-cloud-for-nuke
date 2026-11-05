@@ -89,8 +89,6 @@ CHECKBOX_INCLUDE_GIZMOS = "Include gizmos in job bundle"
 # artifact of the missing naming pass, not a real name.
 _DESCRIPTION_FIELD_AX_NAME = "Job Properties"
 
-WRITE_NODES_ALL = "All write nodes"
-
 
 def _spin_value(element: xa11y.Element | None) -> int | None:
     if element is None or element.value is None:
@@ -490,7 +488,10 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
         """Save the bundle locally and dismiss the host-owned confirmation."""
         self._front()
         self.save_bundle_locally(timeout=timeout)
-        if not dismiss_bundle_saved_popup(self.app.pid, timeout=timeout):
+        pid = self.app.pid
+        if pid is None:
+            raise RuntimeError("Cannot dismiss bundle saved confirmation without a Nuke process ID")
+        if not dismiss_bundle_saved_popup(pid, timeout=timeout):
             raise TimeoutError(
                 f"Bundle saved confirmation did not appear in {timeout}s\n{self.dump_tree()}"
             )
