@@ -304,3 +304,30 @@ gh workflow run integ_windows.yml --ref feature/ci-tests \
 Before a full manual trial, check that no licensed workflow is already queued.
 GitHub concurrency groups allow one running and one pending member, and a new
 arrival can replace the pending member even with `cancel-in-progress: false`.
+
+
+### Isolated software OpenGL trial
+
+Standard Windows 2022 and Windows 2025 runner trials both failed Nuke GUI startup
+with `You need OpenGL 2.1 or better`, despite successful desktop, installation,
+and licensing checks. An opt-in software trial extracts only `opengl32sw.dll`
+from the official PySide6-Essentials 6.5.3 Windows wheel, matching the verified
+Nuke 17.1v2 Qt runtime. Both the wheel and DLL SHA-256 values are pinned.
+
+The helper stores the library under the runner's temporary directory, probes its
+OpenGL version/vendor/renderer through a hidden native WGL context, and sets
+`QT_OPENGL=software` plus an absolute `QT_OPENGL_DLL` path for this job. It does
+not install PySide, replace installed Nuke DLLs, or change the workstation.
+The probe establishes the library's capability; only actual Nuke startup and
+test results establish whether Nuke uses it successfully.
+
+```bash
+gh workflow run integ_windows.yml --ref feature/ci-tests \
+  -f windows_runner=windows-2025 -f software_opengl=true \
+  -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip \
+  -f diagnose_startup=true
+```
+
+This startup trial stops on the first error. Run the full suite with
+`diagnose_startup=false` after demonstrating successful startup. The artifact
+includes `nuke-software-opengl/probe.json` and Nuke's graphics/startup logs.
