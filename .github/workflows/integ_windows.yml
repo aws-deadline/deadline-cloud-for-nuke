@@ -22,6 +22,10 @@ on:
         description: Trial Qt software OpenGL from a verified DLL in temporary storage
         type: boolean
         default: false
+      native_mesa:
+        description: Trial modern native Mesa OpenGL in a temporary copy of Nuke
+        type: boolean
+        default: false
       diagnose_startup:
         description: Stop after the first failed case and preserve Nuke startup diagnostics
         type: boolean
@@ -45,7 +49,14 @@ jobs:
           persist-credentials: false
       - name: Verify unlocked interactive desktop
         shell: pwsh
-        run: ./pipeline/check-windows-gui-desktop.ps1
+        env:
+          QT_SOFTWARE_TRIAL: ${{ inputs.software_opengl }}
+          NATIVE_MESA_TRIAL: ${{ inputs.native_mesa }}
+        run: |
+          if ($env:QT_SOFTWARE_TRIAL -eq 'true' -and $env:NATIVE_MESA_TRIAL -eq 'true') {
+            throw 'Select either the Qt software trial or the native Mesa trial.'
+          }
+          ./pipeline/check-windows-gui-desktop.ps1
       - name: Mark preflight-only result
         if: inputs.installer_s3_key == '' || github.ref != 'refs/heads/feature/ci-tests'
         shell: pwsh
@@ -111,6 +122,26 @@ jobs:
           INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
           NUKE_INSTALLER_S3_KEY: ${{ inputs.installer_s3_key }}
         run: ./pipeline/install-nuke-windows.ps1
+      - name: Prepare modern Mesa in an isolated Nuke runtime copy
+        if: inputs.native_mesa
+        shell: pwsh
+        run: |
+          # Release only this job's verified installation archive after install;
+          # preserve install.log and never remove any installed Nuke files.
+          Remove-Item -LiteralPath "$env:RUNNER_TEMP/nuke-installer/Nuke17.1v2-win-x86_64.msi"
+          $credentials = @{}
+          try {
+            foreach ($name in 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_CONFIG_FILE', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN') {
+              $credentials[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+              [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            }
+            python ./pipeline/prepare-native-mesa-windows.py --directory "$env:RUNNER_TEMP/nuke-native-mesa" --nuke-executable $env:NUKE_EXECUTABLE --github-env $env:GITHUB_ENV
+            if ($LASTEXITCODE -ne 0) { throw "Native Mesa preparation failed ($LASTEXITCODE)." }
+          } finally {
+            foreach ($name in $credentials.Keys) {
+              [Environment]::SetEnvironmentVariable($name, $credentials[$name], 'Process')
+            }
+          }
       - name: Run complete mock-backend GUI suite through existing CI license connection
         shell: pwsh
         env:
@@ -143,6 +174,14 @@ jobs:
         if: always()
         shell: pwsh
         run: ./pipeline/windows-license-tunnel.ps1 -Cleanup
+      - name: Verify original Nuke files after native Mesa trial
+        if: always() && inputs.native_mesa
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:RUNNER_TEMP/nuke-native-mesa/probe.json") {
+            python ./pipeline/prepare-native-mesa-windows.py --directory "$env:RUNNER_TEMP/nuke-native-mesa" --verify-original
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Report actual GUI counts and logs
         if: always()
         shell: pwsh
@@ -183,3 +222,4 @@ jobs:
             ${{ runner.temp }}/nuke-installer/install.log
             ${{ runner.temp }}/nuke-windows-license-status.txt
             ${{ runner.temp }}/nuke-software-opengl/probe.json
+            ${{ runner.temp }}/nuke-native-mesa/probe.json
