@@ -7,7 +7,7 @@ name = "deadline-cloud-for-nuke"
 dynamic = ["version"]
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 description = "The submitter and adaptor to enable Nuke support for AWS Deadline Cloud"
 authors = [
   {name = "Amazon Web Services"},
@@ -17,7 +17,6 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -101,7 +100,7 @@ packages = [
 
 [tool.mypy]
 check_untyped_defs = true
-# Defaults in mypy 2; set explicitly so mypy 1 (used on Python 3.9) checks the same way.
+# Set explicitly to keep typing behavior consistent across mypy versions.
 local_partial_types = true
 strict_bytes = true
 show_error_codes = true

@@ -36,7 +36,7 @@ class SubmissionBackend(MockDeadlineBackend):
         super().__init__(scenario)
         self.fail_first = fail_first
         self.attempts: list[dict[str, Any]] = []
-        self.jobs: dict[str, dict[str, Any]] = {}
+        self.submitted_jobs: dict[str, dict[str, Any]] = {}
         self.polls = 0
         self.input_shape = (
             botocore.session.get_session()
@@ -59,21 +59,21 @@ class SubmissionBackend(MockDeadlineBackend):
                     {"Error": {"Code": "ValidationException", "Message": FAILURE_MESSAGE}},
                     "CreateJob",
                 )
-            assert not self.jobs, "Expected a single successfully created job per test"
-            self.jobs[JOB_ID] = request
+            assert not self.submitted_jobs, "Expected a single successfully created job per test"
+            self.submitted_jobs[JOB_ID] = request
         return {"jobId": JOB_ID}
 
     @route("GET", "/farms/{farmId}/queues/{queueId}/jobs/{jobId}", "GetJob")
     def get_job(self, *, farmId: str, queueId: str, jobId: str) -> dict[str, Any]:
         self._queue_key(farmId, queueId, "GetJob")
         with self._lock:
-            if jobId not in self.jobs:
+            if jobId not in self.submitted_jobs:
                 raise ClientError(
                     {"Error": {"Code": "ResourceNotFoundException", "Message": "Unknown job"}},
                     "GetJob",
                 )
             self.polls += 1
-            request = self.jobs[jobId]
+            request = self.submitted_jobs[jobId]
             return {
                 "jobId": jobId,
                 "name": yaml.safe_load(request["template"])["name"],
@@ -88,7 +88,7 @@ class SubmissionBackend(MockDeadlineBackend):
         state = super().snapshot()
         with self._lock:
             state["submission_attempts"] = list(self.attempts)
-            state["created_job_ids"] = list(self.jobs)
+            state["created_job_ids"] = list(self.submitted_jobs)
         return state
 
 

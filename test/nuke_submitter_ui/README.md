@@ -1,4 +1,4 @@
-# Nuke submitter UI tests (xa11y)
+# Nuke submitter UI tests
 
 GUI tests that drive the real submitter dialog inside GUI Nuke through the
 platform accessibility tree via [xa11y](https://github.com/xa11y/xa11y),
@@ -8,6 +8,12 @@ running fully offline against the mock Deadline backend from
 Squish suite in `test/squish/`, which stays until all of its cases are
 ported.
 
+The Linux CI export cases use Qt mouse/key events inside Nuke because the
+verified Linux installer does not expose an AT-SPI bridge. This backend reuses
+the nine case configurators and golden checks; it does not test OS accessibility.
+macOS keeps the xa11y backend. The Hatch environment retains its `integ-xa11y`
+name for both drivers.
+
 ## Requirements
 
 - A licensed GUI Nuke install, with this repo installed into Nuke's Python
@@ -16,6 +22,10 @@ ported.
   installs `requirements-ui-testing.txt`.
 - macOS: grant the terminal running pytest Accessibility permission
   (System Settings → Privacy & Security → Accessibility), then restart it.
+- Linux: run in an X11 desktop session with a window manager and AT-SPI2
+  enabled on the same D-Bus session as pytest and Nuke. See
+  [Linux CI setup](../../pipeline/README-linux-gui.md) for the Rocky 9 harness,
+  unlicensed smoke check, and required installer/license configuration.
 
 ## Running
 
@@ -35,7 +45,18 @@ which don't apply to GUI tests. The suite is excluded from the default run
 
 Repository maintainers can run the suite on the configured macOS runner by
 pushing a commit to the upstream repository's `feature/ci-tests` branch. The
-`Nuke xa11y Integration Tests - macOS` workflow starts automatically.
+`Nuke GUI Integration Tests` coordinator starts automatically and runs macOS
+and Linux in parallel, with one GUI session per platform. The coordinator's shared
+concurrency group prevents other suites from overlapping it. The reusable platform workflows
+remain available for individual dispatches, with separate Linux installer
+secrets. Linux defaults to the Qt export backend. Run the same export cases locally with:
+
+```bash
+NUKE_SUBMITTER_UI_DRIVER=qt hatch run integ-xa11y:test test/nuke_submitter_ui/test_submitter_ui.py
+```
+
+The newer interactive validation, attachment, and submission cases on the test
+branch require a separate Qt port; Linux Qt CI does not claim those as covered.
 
 Keep hands off the keyboard and mouse while tests run: they use real
 (synthetic) clicks and keystrokes, which land in whatever window has focus.
