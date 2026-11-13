@@ -22,7 +22,7 @@ uname -s
 
 Store the OS for use in subsequent steps (paths and commands differ per platform).
 
-## Step 1: Verify Python 3.9+
+## Step 1: Verify Python 3.10+
 
 **Action:** Check Python version.
 
@@ -35,7 +35,7 @@ On Windows, also try:
 python --version
 ```
 
-**If missing or < 3.9:** Inform user to install Python 3.9+ from https://www.python.org/downloads/. Wait for confirmation.
+**If missing or < 3.10:** Inform user to install Python 3.10+ from https://www.python.org/downloads/. Wait for confirmation.
 
 ## Step 2: Detect Nuke Installation
 
