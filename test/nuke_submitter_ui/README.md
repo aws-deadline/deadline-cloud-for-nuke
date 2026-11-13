@@ -132,3 +132,90 @@ Remaining: `manual_attachments_gui`, `invalid_conda_gui`. Squish stays until the
 Scenes are built programmatically rather than opening the Squish `.nk` sample
 files, so the suite needs no Git LFS assets and each case's inputs are
 readable in its `scene.py`.
+
+## Interaction coverage
+
+Two focused cases reuse the basic scene and mock backend, with output kept in
+pytest's temporary directory. They inspect actual exported YAML rather than
+adding new golden bundles:
+
+| Case | Assertions |
+| --- | --- |
+| `test_manual_attachments_add_remove_and_export` | Add two real input files, remove one, add an output directory, and export. The asset references contain exactly the retained file, the scene, and both automatic and manual output directories. Paths contain spaces to exercise the picker. |
+| `test_empty_frame_override_validation_and_recovery` | Enable an empty frame override, assert the specific validation message, dismiss it, and check that no bundle was exported. Correct the range in the same dialog and validate the resulting OpenJD template and `Frames=7-9`. |
+
+These cases cover attachment editing and validation/recovery with little new
+infrastructure. The attachment case extends the old Squish add-only behavior
+with removal and exported-content assertions, but does not port its submission
+step. The old `invalid_conda_gui` types invalid names and then checks hardcoded
+default field values; it never asserts a validation message or package
+resolution. It is not evidence of invalid-Conda feedback coverage.
+
+The export/validation interaction cases reject unmatched mock requests.
+Any `CreateJob` request would be unmatched because their mock has no submission route.
+Submission now has its own focused mock and cases below.
+
+## Submission coverage
+
+`_submission_mock.py` extends the shared mock locally with two HTTP routes:
+`CreateJob` validates and records the real client request, and `GetJob`
+transitions from `CREATE_IN_PROGRESS` to `CREATE_COMPLETE`. It runs in a
+separate spawned process, as required when native accessibility calls hold
+pytest's GIL. Each test gets a fresh server.
+
+The mock queue uses shared storage: it has no `jobAttachmentSettings`.
+This is a supported client path that sends a job without S3 transfers.
+The real Nuke scene, bundle builder, submission worker, client and botocore
+HTTP path run normally. Fake credentials, isolated configuration and
+loopback endpoint overrides keep the tests offline. The mock rejects
+attachment payloads and unexpected routes. S3 upload, rendering and
+rendered-output assertions remain outside this coverage.
+
+| Case | Assertions |
+| --- | --- |
+| `test_submission_success` | Press Submit; verify completion status, returned job ID, and dialog closure. Assert one `CreateJob`, polling through creation, and the requested name, priority and frame range in the HTTP payload. |
+| `test_submission_api_failure_and_retry` | Reject the first `CreateJob` with `ValidationException`; verify the error details and Close button, then retry from the same submitter. Assert two attempts and exactly one successfully created job, with the same settings. |
+| `test_real_client_submission_transport` (two variants) | Submit the existing evidence-based basic bundle through the real client in a subprocess, with and without the initial API rejection. Verify the same captured request assertions and polling. These checks require no Nuke and verify the HTTP mock contract; they do not verify the GUI. |
+
+Run the transport checks alone with:
+
+```
+hatch run integ-xa11y:test test/nuke_submitter_ui/test_submission_transport.py
+```
+
+Both transport variants passed locally on Linux with Python 3.11.18,
+`deadline` 0.60.11 and `deadline-cloud-test-fixtures` 0.18.25.
+
+### Live verification and remaining platform checks
+
+The [first licensed macOS CI run](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41544466504)
+on Nuke 16.0v7 passed both submission GUI cases and validation recovery
+(14 passed overall). The attachment case failed because Nuke exposed a Qt
+picker, rather than the assumed native macOS sheet. After the helper was
+updated to choose the picker path from its exposed controls, the
+[licensed macOS rerun](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41545926800)
+at commit `32b1344` passed all 15 tests with no skips in 255.09 seconds.
+All four new GUI cases and both real-client transport variants passed.
+The runner used macOS 15, Nuke 16.0v7, Python 3.11, `deadline` 0.60.11,
+`deadline-cloud-test-fixtures` 0.18.25 and `xa11y` 0.15.4.
+
+This confirms the Qt attachment picker, attachment row selection/removal,
+validation feedback and recovery, submission completion and same-dialog
+retry on that runner. The native macOS Go to Folder fallback and other
+platforms still require live verification. Collection and static checks
+cannot verify accessibility selectors. On a licensed runner with the
+repository and declared dependencies installed into Nuke's Python, run:
+
+```
+hatch run integ-xa11y:test test/nuke_submitter_ui -k 'manual_attachments or empty_frame_override or submission_success or submission_api_failure'
+hatch run integ-xa11y:test
+```
+
+Verify that all four new GUI cases **pass**, rather than skip. Check the runner's
+native macOS Go to Folder sheet or Qt File name/Directory/Folder controls, the
+attachment row selection/removal, and the host-owned error message/OK button.
+For submission, verify the progress window's completion label, job ID in
+the log, and OK/Close buttons, including same-dialog retry after failure.
+The Qt picker selectors passed the macOS rerun. No golden update was needed.
+Record the runner OS, Nuke version, dependency versions and results before
+claiming GUI validation.
