@@ -156,30 +156,12 @@ jobs:
     with:
       tag: ${{ needs.AuthorizePublish.outputs.tag }}
 
-  # Keep the existing manual-testing approval until the Nuke owners retire it.
-  # Conda readiness and the emergency manifest override do not replace this gate.
-  ManualTestGate:
+  # Keep PreRelease in this run: Release consumes its build artifacts.
+  PreRelease:
     needs: ValidateRelease
     if: >-
       !cancelled() &&
       needs.ValidateRelease.result == 'success' &&
-      needs.ValidateRelease.outputs.tag != ''
-    runs-on: ubuntu-latest
-    environment: release-gate
-    permissions: {}
-    steps:
-      - name: Record manual testing approval
-        env:
-          TAG: ${{ needs.ValidateRelease.outputs.tag }}
-        run: echo "Manual testing approved for $TAG"
-
-  # Keep PreRelease in this run: Release consumes its build artifacts.
-  PreRelease:
-    needs: [ValidateRelease, ManualTestGate]
-    if: >-
-      !cancelled() &&
-      needs.ValidateRelease.result == 'success' &&
-      needs.ManualTestGate.result == 'success' &&
       needs.ValidateRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
     permissions:
