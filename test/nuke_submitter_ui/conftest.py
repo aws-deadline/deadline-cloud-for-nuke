@@ -88,3 +88,79 @@ def mock_backend(mock_deadline_server):
     backend = mock_deadline_server.backend
     backend.reset()
     return backend
+
+
+@pytest.fixture
+def interactive_submitter(nuke_executable, mock_deadline_server, mock_backend, tmp_path):
+    """Fresh dialog for interaction cases that assert actual bundle contents.
+
+    Reuse the proven basic scene and launch/config helpers, but keep output
+    in pytest's temporary directory: these cases do not compare goldens.
+    """
+    from _launcher import build_nuke_environment, launch_nuke_with_submitter
+    from pages import NukeSubmitterDialog
+    from test_submitter_ui import _assert_expected_mock_traffic, _write_case_config
+
+    scene_script = Path(__file__).parent / "test_cases/basic_workflow/input/scene.py"
+    scene_file = tmp_path / "interaction.nk"
+    config_path, export_dir = _write_case_config(tmp_path, mock_deadline_server.scenario)
+    env = build_nuke_environment(
+        deadline_endpoint_url=mock_deadline_server.base_url,
+        config_path=config_path,
+        work_dir=tmp_path,
+        scene_script=scene_script,
+        scene_file=scene_file,
+    )
+    session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
+    try:
+        dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
+        dialog.wait_farm_resolved("TestFarm")
+        dialog.wait_settled()
+        if os.environ.get("NUKE_SUBMITTER_UI_DIALOG_DUMP") == "1":
+            dialog.dump_settings_tabs()
+            pytest.fail("NUKE_SUBMITTER_UI_DIALOG_DUMP=1: dumped settings tabs, skipping actions")
+        yield dialog, export_dir, scene_file
+    finally:
+        session.close()
+        _assert_expected_mock_traffic(mock_backend)
+
+
+@pytest.fixture
+def mock_submission_server(request):
+    from _submission_mock import submission_server
+
+    with submission_server(fail_first=getattr(request, "param", False)) as server:
+        yield server
+
+
+@pytest.fixture
+def submission_submitter(nuke_executable, mock_submission_server, tmp_path):
+    """Real Nuke + client submission to a shared-storage mock queue."""
+    from _launcher import build_nuke_environment, launch_nuke_with_submitter
+    from pages import NukeSubmitterDialog
+    from test_submitter_ui import _assert_expected_mock_traffic, _write_case_config
+
+    scenario, backend = mock_submission_server
+    config_path, _ = _write_case_config(tmp_path, scenario)
+    env = build_nuke_environment(
+        deadline_endpoint_url=backend.base_url,
+        config_path=config_path,
+        work_dir=tmp_path,
+        scene_script=Path(__file__).parent / "test_cases/basic_workflow/input/scene.py",
+        scene_file=tmp_path / "submission.nk",
+    )
+    # Any unexpected AWS service requests must also hit loopback and fail.
+    for key in list(env):
+        if key.startswith("AWS_ENDPOINT_URL_"):
+            del env[key]
+    env["AWS_ENDPOINT_URL"] = backend.base_url
+    env["AWS_IGNORE_CONFIGURED_ENDPOINT_URLS"] = "false"
+    session = launch_nuke_with_submitter(nuke_executable, env, tmp_path)
+    try:
+        dialog = NukeSubmitterDialog.wait_for(session.app, ensure_frontmost=session.activate)
+        dialog.wait_farm_resolved("TestFarm")
+        dialog.wait_settled()
+        yield dialog, backend
+    finally:
+        session.close()
+        _assert_expected_mock_traffic(backend)

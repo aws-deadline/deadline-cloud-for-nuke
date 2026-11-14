@@ -38,8 +38,10 @@ the canonical write-up for the suite; other modules reference it:
 from __future__ import annotations
 
 import re
+import sys
 import time
 from functools import partial
+from pathlib import Path
 from typing import Callable
 
 import xa11y
@@ -88,8 +90,6 @@ CHECKBOX_INCLUDE_GIZMOS = "Include gizmos in job bundle"
 # The Description field's AX name is inherited from its QGroupBox — an
 # artifact of the missing naming pass, not a real name.
 _DESCRIPTION_FIELD_AX_NAME = "Job Properties"
-
-WRITE_NODES_ALL = "All write nodes"
 
 
 def _spin_value(element: xa11y.Element | None) -> int | None:
@@ -486,14 +486,161 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
     # Actions
     # ------------------------------------------------------------------
 
+    def submit(self) -> None:
+        self._front()
+        submit = self.button("Submit")
+        submit.wait_enabled(timeout=WIDGET_TIMEOUT)
+        submit.press()
+
+    def _submission_progress(self) -> xa11y.Locator:
+        self._front()
+        progress = self.app.locator(
+            "dialog[name='AWS Deadline Cloud submission'], "
+            "window[name='AWS Deadline Cloud submission'], "
+            "sheet[name='AWS Deadline Cloud submission']"
+        )
+        progress.wait_visible(timeout=EXPORT_TIMEOUT)
+        return progress
+
+    def finish_submission(self, job_id: str) -> None:
+        """Verify success and the returned job ID before closing the progress UI."""
+        progress = self._submission_progress()
+        progress.descendant("static_text[name='Submission complete']").wait_visible(
+            timeout=EXPORT_TIMEOUT
+        )
+        progress.wait_until(
+            lambda element: element is not None and job_id in element.dump(),
+            timeout=EXPORT_TIMEOUT,
+        )
+        ok = progress.descendant("button[name='OK']")
+        ok.wait_enabled(timeout=WIDGET_TIMEOUT)
+        ok.press()
+        progress.wait_hidden(timeout=WIDGET_TIMEOUT)
+        # The Nuke submitter closes only after a successful submission.
+        self.window.wait_hidden(timeout=WIDGET_TIMEOUT)
+
+    def dismiss_submission_error(self, message: str) -> None:
+        """Assert API error details, then return to the still-open submitter."""
+        progress = self._submission_progress()
+        progress.wait_until(
+            lambda element: element is not None
+            and "Error occurred:" in element.dump()
+            and message in element.dump(),
+            timeout=EXPORT_TIMEOUT,
+        )
+        assert not progress.descendant("static_text[name='Submission complete']").exists()
+        close = progress.descendant("button[name='Close']")
+        close.wait_enabled(timeout=WIDGET_TIMEOUT)
+        close.press()
+        progress.wait_hidden(timeout=WIDGET_TIMEOUT)
+        self.window.wait_visible(timeout=WIDGET_TIMEOUT)
+        self.button("Submit").wait_enabled(timeout=WIDGET_TIMEOUT)
+
     def export_bundle(self, timeout: float = EXPORT_TIMEOUT) -> None:
         """Save the bundle locally and dismiss the host-owned confirmation."""
         self._front()
         self.save_bundle_locally(timeout=timeout)
-        if not dismiss_bundle_saved_popup(self.app.pid, timeout=timeout):
+        pid = self.app.pid
+        if pid is None:
+            raise RuntimeError("Cannot dismiss bundle saved confirmation without a Nuke process ID")
+        if not dismiss_bundle_saved_popup(pid, timeout=timeout):
             raise TimeoutError(
                 f"Bundle saved confirmation did not appear in {timeout}s\n{self.dump_tree()}"
             )
+
+    def export_bundle_expect_error(self, message: str, timeout: float = EXPORT_TIMEOUT) -> None:
+        """Attempt a local export and assert the callback's validation feedback."""
+        self._front()
+        self.save_bundle_locally(timeout=timeout)
+        # Host-owned message boxes can have no accessible title on macOS.
+        # Match the body, as dismiss_bundle_saved_popup does, before pressing OK.
+        body = self.app.locator("static_text[name^='Failed to export bundle:']")
+        body.wait_visible(timeout=timeout)
+        assert message in (body.element().name or ""), self.app.dump()
+        ok = self.app.locator(
+            "dialog button[name='OK'], window button[name='OK'], sheet button[name='OK']"
+        )
+        ok.wait_enabled(timeout=timeout)
+        ok.press()
+        body.wait_hidden(timeout=timeout)
+        self.button("Save bundle as").wait_enabled(timeout=timeout)
+
+    def _attachment_group(self, name: str) -> xa11y.Locator:
+        self._front()
+        switch_to_tab(self.window, "Job attachments", timeout=WIDGET_TIMEOUT)
+        group = self.window.descendant(f'group[name="{name}"]')
+        group.wait_visible(timeout=WIDGET_TIMEOUT)
+        return group
+
+    def _choose_attachment_path(self, group: str, title: str, path: Path) -> None:
+        """Use the real file picker, then verify its result in the attachment list.
+
+        Nuke can expose a Qt picker even on macOS. Prefer its path field when
+        present; use Go to Folder only for a native macOS picker.
+        """
+        self._attachment_group(group).descendant("button[name='Add...']").press()
+        picker = self.app.locator(f'dialog[name="{title}"], window[name="{title}"], sheet')
+        picker.wait_visible(timeout=WIDGET_TIMEOUT)
+        field = picker.descendant(
+            "text_field[name^='File name'], "
+            "text_field[name^='Directory'], text_field[name^='Folder']"
+        )
+        if field.exists() or sys.platform != "darwin":
+            field.wait_visible(timeout=WIDGET_TIMEOUT)
+            field.set_value(str(path))
+        else:
+            sim = xa11y.input_sim()
+            sheets = self.app.locator("sheet")
+            sheet_count = sheets.count()
+            sim.chord("g", held=["Meta", "Shift"])
+            # Wait for the navigation sheet and its keyboard focus. Choosing
+            # the first text field could type into the outer picker's Search.
+            sheets.wait_until(
+                lambda _: sheets.count() > sheet_count
+                and any(field.focused for field in self.app.locator("sheet text_field").elements()),
+                timeout=WIDGET_TIMEOUT,
+            )
+            sim.chord("a", held=["Meta"])
+            sim.type_text(str(path))
+            sim.press("Enter")
+            # The navigation sheet closes before the picker can accept.
+            sheets.wait_until(lambda _: sheets.count() == sheet_count, timeout=WIDGET_TIMEOUT)
+        accept = picker.descendant(
+            "button[name='Open'], button[name='Choose'], button[name='Select Folder']"
+        )
+        accept.wait_enabled(timeout=WIDGET_TIMEOUT)
+        accept.press()
+        picker.wait_hidden(timeout=WIDGET_TIMEOUT)
+        self._wait_attachment_path(group, path, present=True)
+
+    def _wait_attachment_path(self, group: str, path: Path, *, present: bool) -> None:
+        self._attachment_group(group).wait_until(
+            lambda element: element is not None and ((str(path) in element.dump()) == present),
+            timeout=WIDGET_TIMEOUT,
+        )
+
+    def add_input_file(self, path: Path) -> None:
+        self._choose_attachment_path(
+            "Attach input files", "Select input files to attach to your job", path
+        )
+
+    def add_output_directory(self, path: Path) -> None:
+        self._choose_attachment_path(
+            "Specify output directories", "Select an output directory of your job", path
+        )
+
+    def remove_input_file(self, path: Path) -> None:
+        group = self._attachment_group("Attach input files")
+        self._wait_attachment_path("Attach input files", path, present=True)
+        # Qt lists expose rows or items depending on the platform. Click the
+        # path's text/row rather than assuming a platform-specific select action.
+        candidates = group.descendant("list_item, table_row, static_text").elements()
+        target = next((item for item in candidates if item.name == str(path)), None)
+        assert target is not None, f"Cannot select attachment {path}\n{group.element().dump()}"
+        xa11y.input_sim().click(target)
+        group.descendant("static_text[name$='1 selected']").wait_visible(timeout=WIDGET_TIMEOUT)
+        group.descendant("button[name='Remove selected']").press()
+        self._wait_attachment_path("Attach input files", path, present=False)
 
     def dump_tree(self) -> str:
         self._front()

@@ -1,12 +1,6 @@
 name: "Nuke xa11y Integration Tests - macOS"
 
 on:
-  push:
-    branches:
-      - mainline
-      - feature/ci-tests
-    paths-ignore:
-      - CHANGELOG.md
   workflow_dispatch:
     inputs:
       ref:
@@ -19,6 +13,10 @@ on:
         description: Git ref to test (for example, refs/tags/0.18.20)
         required: false
         type: string
+      license_concurrency_group:
+        description: Unique child group when called under the coordinator's shared license lock
+        type: string
+        default: nuke-integration-tests
     secrets:
       AWS_OIDC_ROLE_ARN:
         required: true
@@ -38,7 +36,8 @@ on:
         required: true
 
 concurrency:
-  group: nuke-integration-tests
+  group: ${{ inputs.license_concurrency_group || 'nuke-integration-tests' }}
+  cancel-in-progress: false
 
 jobs:
   IntegMacOS:

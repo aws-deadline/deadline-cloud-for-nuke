@@ -9,11 +9,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-SUPPORTED_PYTHON_VERSIONS = ["3.9", "3.10", "3.11"]
+SUPPORTED_PYTHON_VERSIONS = ["3.10", "3.11"]
 # Packages with compiled extension modules, fetched once per supported Python version so the
 # bundle carries a loadable artifact for each interpreter.
 #
-# awscrt: wheels are not uniformly abi3 -- 3.9/3.10 get a version-specific
+# awscrt: wheels are not uniformly abi3 -- 3.10 gets a version-specific
 # _awscrt.cpython-<tag>-<platform>.so, 3.11 gets the shared _awscrt.abi3.so.
 # pyyaml: ships a version-specific `_yaml` extension module and silently falls back to a
 # pure-Python parser when the artifact doesn't match, masking the same failure mode.

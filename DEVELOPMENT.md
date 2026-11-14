@@ -85,10 +85,13 @@ For recovery:
   that Publish run. Scheduled checks stop once the GitHub Release exists.
   PyPI uses `skip-existing` so reruns tolerate files that were already uploaded.
 
-The GUI workflow's standalone triggers remain pushes to `mainline` and
-`feature/ci-tests` (excluding changes limited to `CHANGELOG.md`), and manual
-dispatch. For a manual GUI run against a tag, select either allowed branch and
-set the `ref` input to `refs/tags/<tag>`.
+The **Nuke GUI Integration Tests** coordinator runs the macOS and Linux suites
+on pushes to `mainline` and `feature/ci-tests` (excluding changes limited to
+`CHANGELOG.md`), and on manual dispatch. It holds the shared license concurrency
+lock while the two platform jobs run. Release preparation calls the macOS suite
+directly, using the same shared lock. For a manual macOS GUI run against a tag,
+dispatch **Nuke xa11y Integration Tests - macOS** from either allowed branch and
+set its `ref` input to `refs/tags/<tag>`.
 
 ## Submitter Development Workflow
 
