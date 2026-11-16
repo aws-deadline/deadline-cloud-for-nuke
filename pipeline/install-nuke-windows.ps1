@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-# The user accepted the Foundry EULA and authorized this verified installer.
+# Install the verified CI archive with the Foundry EULA accepted for this setup.
 # This script is for ephemeral GitHub runners, not an existing DCC workstation.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'

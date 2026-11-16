@@ -170,16 +170,21 @@ def test_interruption_runs_test_cleanup_before_stopping_tunnel(tunnel, tmp_path)
 
     ready = tmp_path / "ready"
     cleaned = tmp_path / "cleaned"
+    child_script = "\n".join(
+        [
+            "import pathlib, sys, time",
+            "try:",
+            " pathlib.Path(sys.argv[1]).touch()",
+            " while True: time.sleep(1)",
+            "finally:",
+            " pathlib.Path(sys.argv[2]).touch()",
+        ]
+    )
     process = subprocess.Popen(
         [
             sys.executable,
             "-c",
-            "import pathlib, sys, time\n"
-            "try:\n"
-            " pathlib.Path(sys.argv[1]).touch()\n"
-            " while True: time.sleep(1)\n"
-            "finally:\n"
-            " pathlib.Path(sys.argv[2]).touch()\n",
+            child_script,
             str(ready),
             str(cleaned),
         ],
@@ -211,3 +216,53 @@ def test_unresponsive_test_cleanup_escalates(tunnel, monkeypatch):
     interrupt.assert_called_once_with(process, tunnel.signal.SIGINT)
     process.wait.assert_called_once_with(timeout=45)
     fallback.assert_called_once_with(process)
+
+
+@posix_only
+@pytest.mark.parametrize("first_signal", ["SIGTERM", "SIGINT"])
+def test_repeated_interrupts_complete_cleanup(configured, tmp_path, monkeypatch, first_signal):
+    import os
+
+    previous_handlers = {
+        signum: configured.signal.getsignal(signum)
+        for signum in (configured.signal.SIGTERM, configured.signal.SIGINT)
+    }
+    aws = Mock(side_effect=[b'["i-0123456789abcdef0"]', b""])
+    monkeypatch.setattr(configured, "aws", aws)
+    ssm = Mock(poll=lambda: None)
+    tests = Mock(poll=lambda: None)
+    processes = iter([ssm, tests])
+
+    def popen(*args, **kwargs):
+        if "stdout" in kwargs:
+            kwargs["stdout"].write("Starting session with SessionId: test-session\n")
+            kwargs["stdout"].flush()
+        return next(processes)
+
+    monkeypatch.setattr(configured.subprocess, "Popen", popen)
+    monkeypatch.setattr(configured, "wait_for_tunnel", Mock())
+    signum = getattr(configured.signal, first_signal)
+    monkeypatch.setattr(configured.time, "sleep", lambda _: os.kill(os.getpid(), signum))
+    events = []
+
+    def stop_tests(process):
+        assert process is tests
+        events.append("test cleanup started")
+        # Reproduce timeout's duplicate TERM, followed by a manual interrupt.
+        os.kill(os.getpid(), configured.signal.SIGTERM)
+        os.kill(os.getpid(), configured.signal.SIGINT)
+        events.append("test cleanup completed")
+
+    monkeypatch.setattr(configured, "stop_tests", stop_tests)
+    stop = Mock(side_effect=lambda process: events.append("tunnel stopped"))
+    monkeypatch.setattr(configured, "stop_process", stop)
+    with pytest.raises(SystemExit) as interrupted:
+        configured.main(["--", "unused-test-command"])
+    assert interrupted.value.code == 128 + signum
+    assert events == ["test cleanup started", "test cleanup completed", "tunnel stopped"]
+    stop.assert_called_once_with(ssm)
+    assert aws.call_args.args[0] == ["ssm", "terminate-session", "--session-id", "test-session"]
+    assert not (tmp_path / "nuke-license-config").exists()
+    assert not (tmp_path / "nuke-license-ssm.log").exists()
+    for signum, handler in previous_handlers.items():
+        assert configured.signal.getsignal(signum) == handler

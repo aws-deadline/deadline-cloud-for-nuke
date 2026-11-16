@@ -60,6 +60,7 @@ def signal_group(process, signum):
     try:
         os.killpg(process.pid, signum)
     except (ProcessLookupError, PermissionError):
+        # The group has already exited or is no longer ours to signal.
         pass
 
 
@@ -85,6 +86,7 @@ def stop_tests(process):
         try:
             process.wait(timeout=45)
         except subprocess.TimeoutExpired:
+            # Fall through to bounded TERM/KILL cleanup for unresponsive tests.
             pass
     stop_process(process)
 
@@ -117,6 +119,10 @@ def wait_for_tunnel(process, port, timeout=60):
 
 
 def interrupted(signum, frame):
+    # timeout can deliver the same signal twice (to the child and its group).
+    # Once cleanup starts, further interrupts must not cut the finally block short.
+    for interrupt in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(interrupt, signal.SIG_IGN)
     raise SystemExit(128 + signum)
 
 
@@ -150,6 +156,7 @@ def main(arguments=None):
         with socket.create_connection(("127.0.0.1", port), timeout=1):
             raise RuntimeError("License port is already occupied")
     except OSError:
+        # An unused local port is required before starting our own tunnel.
         pass
 
     config.write_text(

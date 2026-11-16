@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-"""Trial native Mesa OpenGL in a new Nuke copy on an ephemeral GitHub runner.
+"""Prepare native Mesa OpenGL in a new Nuke copy on an ephemeral GitHub runner.
 
 Never deploy to Program Files, register drivers, run upstream deployment scripts,
 or modify the original installation. The release archive and individual x64
@@ -10,7 +10,6 @@ libraries are pinned to the published mesa-dist-win 26.2.6 MinGW build.
 import argparse
 import ctypes
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,6 +17,8 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+
+from probe_windows_opengl import probe
 
 ARCHIVE_URL = (
     "https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/"
@@ -108,16 +109,10 @@ def prepare(root, executable, github_env):
         if sha256(copied_executable) != manifest["original_hashes"][executable.name]:
             raise RuntimeError("Copied Nuke executable differs from the original")
         os.environ["GALLIUM_DRIVER"] = "llvmpipe"
-        spec = importlib.util.spec_from_file_location(
-            "software_opengl_probe",
-            Path(__file__).with_name("prepare-software-opengl-windows.py"),
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
         # Python's DLL search restrictions otherwise hide the megadriver, even
         # though it is beside opengl32.dll in Nuke's copied application directory.
         with os.add_dll_directory(str(runtime)):
-            manifest["opengl"] = module.probe(runtime / "opengl32.dll")
+            manifest["opengl"] = probe(runtime / "opengl32.dll")
         manifest["original_unchanged"] = (
             original_hashes(source, executable) == manifest["original_hashes"]
         )
@@ -149,11 +144,11 @@ def main():
         or ctypes.sizeof(ctypes.c_void_p) != 8
         or os.environ.get("GITHUB_ACTIONS") != "true"
     ):
-        raise RuntimeError("This isolated trial requires a 64-bit Windows GitHub runner")
+        raise RuntimeError("This isolated setup requires a 64-bit Windows GitHub runner")
     root = args.directory.resolve()
     temporary = Path(os.environ["RUNNER_TEMP"]).resolve()
     if temporary not in root.parents:
-        raise RuntimeError("Trial directory must be a child of RUNNER_TEMP")
+        raise RuntimeError("Mesa directory must be a child of RUNNER_TEMP")
     if args.verify_original:
         manifest = json.loads((root / "probe.json").read_text(encoding="utf-8"))
         executable = Path(manifest["original_executable"])
@@ -161,7 +156,7 @@ def main():
         manifest["original_unchanged_after_tests"] = unchanged
         (root / "probe.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         if not unchanged:
-            raise RuntimeError("Original Nuke files differ after the trial")
+            raise RuntimeError("Original Nuke files differ after tests")
         print("Original Nuke executable, Python, and overlay-target files are unchanged.")
         return
     if not args.nuke_executable or not args.github_env:

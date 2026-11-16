@@ -166,7 +166,8 @@ existing Nuke licensing. A runner installed as a Windows service runs in Session
 0 and is unsuitable. Before enabling automation, verify the complete suite in
 that runner's session, coordinate desktop ownership, and serialize licensed runs
 with the existing workflow's `nuke-integration-tests` concurrency group.
-PR-trigger access, installer provisioning, IAM, and secrets remain deferred.
+PR-trigger access remains deferred; the GitHub workflow below uses the existing
+installer bucket and license credentials.
 Windows foreground recovery is not implemented; a dedicated desktop is required.
 
 ## Status
@@ -212,7 +213,8 @@ step. The old `invalid_conda_gui` types invalid names and then checks hardcoded
 default field values; it never asserts a validation message or package
 resolution. It is not evidence of invalid-Conda feedback coverage.
 
-The export/validation interaction cases assert no `CreateJob` calls.
+The export/validation interaction cases reject unmatched mock requests.
+Any `CreateJob` request would be unmatched because their mock has no submission route.
 Submission now has its own focused mock and cases below.
 
 ## Submission coverage
@@ -246,116 +248,90 @@ hatch run integ-xa11y:test test/nuke_submitter_ui/test_submission_transport.py
 Both transport variants passed locally on Linux with Python 3.11.18,
 `deadline` 0.60.11 and `deadline-cloud-test-fixtures` 0.18.25.
 
-### Required live verification for the new GUI cases
+### Live verification and remaining platform checks
 
 The [first licensed macOS CI run](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41544466504)
 on Nuke 16.0v7 passed both submission GUI cases and validation recovery
 (14 passed overall). The attachment case failed because Nuke exposed a Qt
-picker, rather than the assumed native macOS sheet. The helper now chooses
-the picker path from its exposed controls; attachment verification is pending
-a rerun. Collection and static checks cannot verify accessibility selectors.
-On a licensed Nuke 16.0v7 runner with the repository and declared dependencies
-installed into Nuke's Python, run:
+picker, rather than the assumed native macOS sheet. After the helper was
+updated to choose the picker path from its exposed controls, the
+[licensed macOS rerun](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/41545926800)
+at commit `32b1344` passed all 15 tests with no skips in 255.09 seconds.
+All four new GUI cases and both real-client transport variants passed.
+The runner used macOS 15, Nuke 16.0v7, Python 3.11, `deadline` 0.60.11,
+`deadline-cloud-test-fixtures` 0.18.25 and `xa11y` 0.15.4.
+
+This confirms the Qt attachment picker, attachment row selection/removal,
+validation feedback and recovery, submission completion and same-dialog
+retry on that runner. The native macOS Go to Folder fallback and other
+platforms still require live verification. Collection and static checks
+cannot verify accessibility selectors. On a licensed runner with the
+repository and declared dependencies installed into Nuke's Python, run:
 
 ```
 hatch run integ-xa11y:test test/nuke_submitter_ui -k 'manual_attachments or empty_frame_override or submission_success or submission_api_failure'
 hatch run integ-xa11y:test
 ```
 
-Verify that all four new GUI cases **pass**, rather than skip. Check the native
-macOS Go to Folder sheet or Qt File name/Directory/Folder controls, the
+Verify that all four new GUI cases **pass**, rather than skip. Check the runner's
+native macOS Go to Folder sheet or Qt File name/Directory/Folder controls, the
 attachment row selection/removal, and the host-owned error message/OK button.
 For submission, verify the progress window's completion label, job ID in
 the log, and OK/Close buttons, including same-dialog retry after failure.
-The new picker selectors are based on the dialogs' source and platform
-conventions, and still require live confirmation. No golden update is needed.
+The Qt picker selectors passed the macOS rerun. No golden update was needed.
 Record the runner OS, Nuke version, dependency versions and results before
 claiming GUI validation.
 
-## Windows GitHub runner trial
+## Windows GitHub CI
 
-`integ_windows.yml` accepts a `windows_runner` choice, defaulting to
-`windows-2025`, with `windows-2022` and C4D's
-`aws-deadline_windows-2025_gpu-t4-4-core` as alternatives. It checks for an
-unlocked interactive desktop before running tests. The GPU runner is billed and
-requires repository access; the Nuke repository currently lacks that access.
-Standard Windows images must still demonstrate Nuke's required OpenGL support.
-The full GUI job is enabled only by a manual dispatch on `feature/ci-tests`
-with `installer_s3_key` set to `nuke/17/Nuke17.1v2-win-x86_64.zip`.
-It downloads from the same `INSTALLER_BUCKET` as Linux and macOS, using the
-existing CI OIDC role and expected bucket owner. The installer script verifies
-SHA-256 and the MSI's Foundry signature before installation. It uses the EULA
-acceptance already authorized for this test setup.
-
-The GUI job shares the existing licensed-run concurrency group and CI license
-role. It installs submitter dependencies into temporary artifacts, runs the
-complete mock-backend suite, and preserves JUnit results and logs. It does not
-enable PR triggers or change IAM or repository secrets.
-
-A dispatch without an installer key runs only the desktop check. That result
-does not establish Nuke licensing or GUI test success. For a full trial:
+`integ_windows.yml` runs the mock-backend GUI suite on a standard `windows-2025`
+runner with Mesa software OpenGL. A manual dispatch on `mainline` or
+`feature/ci-tests` with `installer_s3_key` set to
+`nuke/17/Nuke17.1v2-win-x86_64.zip` enables the complete suite. Omitting the key
+runs only the unlocked-desktop preflight; that does not verify Nuke or licensing.
+PR-triggered licensed runs remain deferred.
 
 ```bash
-gh workflow run integ_windows.yml --ref feature/ci-tests \
-  -f windows_runner=windows-2025 \
+gh workflow run integ_windows.yml --ref mainline \
   -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip
 ```
 
-Before a full manual trial, check that no licensed workflow is already queued.
-GitHub concurrency groups allow one running and one pending member, and a new
-arrival can replace the pending member even with `cancel-in-progress: false`.
+The installer comes from the existing shared `INSTALLER_BUCKET`, using the CI
+OIDC role and expected bucket owner. The script verifies the archive SHA-256
+and the MSI's Foundry signature before installation. The licensed run shares
+`nuke-integration-tests` concurrency with macOS/Linux and uses the existing CI
+license connection. No IAM or repository-secret changes are required. Before
+starting a run, check for pending licensed workflows: a new arrival can replace
+the group's pending run even with `cancel-in-progress: false`.
 
+### Software OpenGL
 
-### Isolated software OpenGL trial
+Standard Windows runners expose an unlocked desktop but do not provide Nuke's
+required OpenGL support. Qt's older `opengl32sw.dll` did not resolve Nuke's native
+graphics startup. The working setup uses mesa-dist-win 26.2.6's x64 MinGW
+`opengl32.dll` and `libgallium_wgl.dll` with CPU rendering through llvmpipe.
+The archive and both DLLs have verified SHA-256 pins.
 
-Standard Windows 2022 and Windows 2025 runner trials both failed Nuke GUI startup
-with `You need OpenGL 2.1 or better`, despite successful desktop, installation,
-and licensing checks. An opt-in software trial extracts only `opengl32sw.dll`
-from the official PySide6-Essentials 6.5.3 Windows wheel, matching the verified
-Nuke 17.1v2 Qt runtime. Both the wheel and DLL SHA-256 values are pinned.
+The helper copies the installed Nuke runtime into a fresh directory under
+`RUNNER_TEMP`, adds those two libraries and a per-application `.local` redirection
+marker, and sets `GALLIUM_DRIVER=llvmpipe` and `QT_OPENGL=desktop`. It probes the
+selected OpenGL implementation and records its vendor, renderer and version.
+Only the temporary copy uses Mesa; installed Nuke files and system drivers remain
+untouched. Original executable, Python and overlay-target hashes are verified
+before and after testing. Mesa is a CI test dependency, not a released package
+component. Retain upstream license notices when managing the pinned distribution;
+Mesa's core MIT license does not describe every bundled component's license.
 
-The helper stores the library under the runner's temporary directory, probes its
-OpenGL version/vendor/renderer through a hidden native WGL context, and sets
-`QT_OPENGL=software` plus an absolute `QT_OPENGL_DLL` path for this job. It does
-not install PySide, replace installed Nuke DLLs, or change the workstation.
-The probe establishes the library's capability; only actual Nuke startup and
-test results establish whether Nuke uses it successfully.
+The [verified GitHub run](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/43892583632)
+on November 16, 2026 used Windows Server 2025 (build 26100), Nuke 17.1v2, and
+Mesa 26.2.6 / llvmpipe with OpenGL 4.6. It passed **25 tests: 13 actual GUI cases
+and 12 supporting checks**, with zero failures, errors or skips in 484.80 seconds.
+This includes the original nine export cases, manual attachments, validation
+recovery and both mock submission paths. Original Nuke file verification passed.
+This establishes submitter GUI compatibility on that runner; it does not test
+GPU rendering performance or establish long-term runner reliability.
 
-```bash
-gh workflow run integ_windows.yml --ref feature/ci-tests \
-  -f windows_runner=windows-2025 -f software_opengl=true \
-  -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip \
-  -f diagnose_startup=true
-```
-
-This startup trial stops on the first error. Run the full suite with
-`diagnose_startup=false` after demonstrating successful startup. The artifact
-includes `nuke-software-opengl/probe.json` and Nuke's graphics/startup logs.
-
-The Windows 2025 Qt-only trial on November 9, 2026 reported Mesa OpenGL 3.0 in
-the independent probe, but Nuke 17.1v2 crashed with `glewInit failed: Missing GL
-version` and an invalid `GlfGLContext`. Its first GUI case ended in a setup
-error. This configuration has not passed Nuke GUI startup.
-
-### Isolated native Mesa trial
-
-The alternative `native_mesa` trial copies the installed Nuke runtime into a
-new directory under `RUNNER_TEMP`, then adds the pinned x64 `opengl32.dll` and
-`libgallium_wgl.dll` from the published mesa-dist-win 26.2.6 MinGW release.
-The archive and both DLLs have verified SHA-256 pins. It selects llvmpipe and
-desktop OpenGL so native Nuke graphics code can use Mesa as well as Qt.
-Only the copy receives the per-application `.local` DLL redirection marker.
-Original Nuke executable, Python, and overlay-target hashes are checked before
-and after the trial. No system driver registration, registry changes, upstream
-deployment scripts, or workstation changes are involved.
-
-```bash
-gh workflow run integ_windows.yml --ref feature/ci-tests \
-  -f windows_runner=windows-2025 -f native_mesa=true \
-  -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip \
-  -f diagnose_startup=true
-```
-
-Select only one software trial. The artifact includes
-`nuke-native-mesa/probe.json`; an independent probe result does not establish
-Nuke compatibility. Run the full suite after successful Nuke GUI startup.
+The workflow preserves JUnit results, runner/dependency/pytest logs, per-case Nuke
+startup logs and screenshots, installer logs, license status and Mesa's
+`probe.json`. For startup diagnosis, pass `-f diagnose_startup=true` to stop after
+the first failure. Full runs continue through all cases by default.

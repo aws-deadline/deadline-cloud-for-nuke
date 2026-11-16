@@ -51,7 +51,6 @@ from pathlib import Path
 from typing import Callable
 
 import xa11y
-from _constants import WRITE_NODES_ALL  # noqa: F401 (public page-object constant)
 from _utils import log
 from deadline_test_fixtures.xa11y import SharedSubmitterDialog, dismiss_bundle_saved_popup
 from deadline_test_fixtures.xa11y.controls import (
@@ -627,13 +626,8 @@ class NukeSubmitterDialog(SharedSubmitterDialog):
             sim.press("Enter")
             # The navigation sheet closes before the picker can accept.
             sheets.wait_until(lambda _: sheets.count() == sheet_count, timeout=WIDGET_TIMEOUT)
-        accept_selector = "button[name='Open'], button[name='Choose'], button[name='Select Folder']"
-        # The Windows native picker also exposes an Open button inside the
-        # file-type combo. Invoke the dialog's action button, not that dropdown.
-        accept = (
-            picker.child(accept_selector)
-            if sys.platform == "win32"
-            else picker.descendant(accept_selector)
+        accept = picker.descendant(
+            "button[name='Open'], button[name='Choose'], button[name='Select Folder']"
         )
         accept.wait_enabled(timeout=WIDGET_TIMEOUT)
         accept.press()
