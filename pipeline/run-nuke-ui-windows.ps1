@@ -98,7 +98,7 @@ try {
         Write-Output "Nuke executable: $NukeExecutable"
         Write-Output "Nuke Python: $NukePython"
         Write-Output 'Licensing must already be configured for this desktop user; this runner does not change it.'
-        if ($PreflightOnly) { return }
+        if ($PreflightOnly) { exit 0 }
         $hatch = (Get-Command hatch -ErrorAction Stop).Source
         $env:NUKE_EXECUTABLE = $NukeExecutable
         $env:HATCH_DATA_DIR = Join-Path $runRoot 'hatch-data'

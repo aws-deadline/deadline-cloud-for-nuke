@@ -37,7 +37,7 @@ from deadline_test_fixtures.xa11y import find_accessibility_app
 
 from _process import capture_process_group, stop_process_tree
 
-if sys.platform == "win32" or TYPE_CHECKING:
+if TYPE_CHECKING:
     from _windows_process import WindowsProcessJob
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -285,6 +285,8 @@ def launch_nuke_with_submitter(
     windows_job: Optional[WindowsProcessJob] = None
     try:
         if sys.platform == "win32":
+            from _windows_process import WindowsProcessJob
+
             windows_job = WindowsProcessJob(process)
         app = find_accessibility_app(process.pid, timeout=NUKE_STARTUP_TIMEOUT)
         session = NukeSession(

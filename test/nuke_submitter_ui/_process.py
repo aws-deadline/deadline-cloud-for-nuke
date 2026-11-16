@@ -267,7 +267,7 @@ def stop_process_tree(
     The group is what catches children, which do not exit with their parent.
     """
     if sys.platform == "win32":
-        # No process groups: helpers Nuke spawned are unreachable.
+        # Stop the root here; the session owns descendants through its Job Object.
         _stop_process(process)
         return
     if group is None or group == os.getpgrp():

@@ -27,7 +27,7 @@ from deadline_test_fixtures.job_bundle import (
     find_complete_job_bundle,
 )
 
-from _launcher import build_nuke_environment, launch_nuke_with_submitter
+from _launcher import ENV_STATUS_FILE, build_nuke_environment, launch_nuke_with_submitter
 from _qt_launcher import export_with_qt
 from _utils import (
     assert_bundle_matches_golden,
@@ -173,7 +173,8 @@ def test_submitter_export_bundle(
     expected_bundle_dir = case_folder / "expected" / "job_bundle"
     # Stock OCIO files changed in Nuke 17. Cases can override individual golden
     # documents for that major version without duplicating the unchanged template.
-    version = re.search(r"^nuke_version=(\d+)\.", session.opener_status, re.MULTILINE)
+    opener_status = Path(env[ENV_STATUS_FILE]).read_text(encoding="utf-8")
+    version = re.search(r"^nuke_version=(\d+)\.", opener_status, re.MULTILINE)
     overrides = case_folder / "expected" / f"job_bundle_nuke{version.group(1)}" if version else None
     if overrides is not None and overrides.is_dir():
         if os.environ.get("NUKE_SUBMITTER_UI_UPDATE_GOLDENS") == "1":
