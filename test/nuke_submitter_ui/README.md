@@ -312,6 +312,13 @@ graphics startup. The working setup uses mesa-dist-win 26.2.6's x64 MinGW
 `opengl32.dll` and `libgallium_wgl.dll` with CPU rendering through llvmpipe.
 The archive and both DLLs have verified SHA-256 pins.
 
+Mesa is maintained through reviewed version and checksum updates, following the
+[Blender Windows GUI workflow](https://github.com/aws-deadline/deadline-cloud-for-blender/blob/mainline/.github/workflows/submitter_gui_tests.yml).
+Dependabot does not update these pins. To upgrade Mesa, update `ARCHIVE_URL`,
+`ARCHIVE_SHA256` and `DLL_HASHES` in `pipeline/prepare-native-mesa-windows.py`
+for the selected x64 MinGW release. Verify the release artifacts, run the full
+Windows GUI suite, and include its results in the upgrade PR before merging.
+
 The helper copies the installed Nuke runtime into a fresh directory under
 `RUNNER_TEMP`, adds those two libraries and a per-application `.local` redirection
 marker, and sets `GALLIUM_DRIVER=llvmpipe` and `QT_OPENGL=desktop`. It probes the
@@ -330,6 +337,11 @@ This includes the original nine export cases, manual attachments, validation
 recovery and both mock submission paths. Original Nuke file verification passed.
 This establishes submitter GUI compatibility on that runner; it does not test
 GPU rendering performance or establish long-term runner reliability.
+
+After narrowing the native Windows attachment picker's confirmation-button
+selector, the [full rerun](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/43909094072)
+passed all 25 tests with zero failures, errors or skips in 492.81 seconds.
+The runner reported exit code 0 and verified the original Nuke files unchanged.
 
 The workflow preserves JUnit results, runner/dependency/pytest logs, per-case Nuke
 startup logs and screenshots, installer logs, license status and Mesa's
