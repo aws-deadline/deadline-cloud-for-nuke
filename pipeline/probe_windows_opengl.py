@@ -3,7 +3,7 @@
 """Probe a selected Windows OpenGL DLL using a hidden WGL window."""
 
 import ctypes
-from ctypes import wintypes
+import ctypes.wintypes as wintypes
 import re
 
 

@@ -5,10 +5,10 @@
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes as wintypes
 import importlib.util
 import subprocess
 import sys
-from ctypes import wintypes
 from pathlib import Path
 
 import pytest
@@ -36,14 +36,17 @@ def test_job_close_stops_descendant_after_root_exit(tmp_path: Path) -> None:
 
     gate, child_pid_file = tmp_path / "start", tmp_path / "child.pid"
     # Hold the parent until assignment, then leave a long-lived child behind.
+    parent_script = (
+        "import subprocess,sys,time; from pathlib import Path\n"
+        "while not Path(sys.argv[1]).exists(): time.sleep(0.02)\n"
+        "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'])\n"
+        "Path(sys.argv[2]).write_text(str(child.pid))\n"
+    )
     parent = subprocess.Popen(
         [
             sys.executable,
             "-c",
-            "import subprocess,sys,time; from pathlib import Path\n"
-            "while not Path(sys.argv[1]).exists(): time.sleep(0.02)\n"
-            "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'])\n"
-            "Path(sys.argv[2]).write_text(str(child.pid))\n",
+            parent_script,
             str(gate),
             str(child_pid_file),
         ]

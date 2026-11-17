@@ -10,8 +10,8 @@ terminate its remaining workers. This module uses only the standard library.
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes as wintypes
 import subprocess
-from ctypes import wintypes
 
 
 def _last_windows_error() -> OSError:
