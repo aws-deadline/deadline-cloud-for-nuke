@@ -6,7 +6,7 @@ Extends the shared-dialog page object from ``deadline-cloud-test-fixtures``
 with accessors for the Nuke ``SceneSettingsWidget`` (Job-specific settings
 tab).
 
-Platform notes — verified on macOS 15 / Nuke 16.0v7 and Windows Server 2022 /
+Platform notes — verified on macOS 15 / Nuke 16.0v7 and Windows Server 2025 /
 Nuke 17.1v2 (Qt 6.5.3). This is
 the canonical write-up for the suite; other modules reference it:
 
