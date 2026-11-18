@@ -1,0 +1,83 @@
+name: "Release: Prepare"
+run-name: "Release: Prepare ${{ inputs.tag || github.event.head_commit.message }}"
+
+on:
+  push:
+    branches:
+      - mainline
+    paths:
+      - CHANGELOG.md
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+        description: Specify a tag to re-run a release.
+
+concurrency:
+  group: release
+
+permissions:
+  contents: read
+
+jobs:
+  TagRelease:
+    if: >-
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      github.ref == 'refs/heads/mainline'
+    uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
+    secrets: inherit
+    with:
+      tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+
+  UnitTests:
+    needs: [TagRelease]
+    name: Unit and Integration Tests
+    uses: ./.github/workflows/code_quality.yml
+    with:
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
+  Xa11yMacOS:
+    needs: [TagRelease, UnitTests]
+    name: xa11y Integration Tests (macOS)
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/integ_macos.yml
+    secrets:
+      AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+      INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+      NUKE_INSTALLER_S3_KEY: ${{ secrets.NUKE_INSTALLER_S3_KEY }}
+      NUKE_INSTALLER_SHA256: ${{ secrets.NUKE_INSTALLER_SHA256 }}
+      LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+      BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+    with:
+      # Dispatch re-runs must test the release tag, not the current mainline commit.
+      ref: refs/tags/${{ needs.TagRelease.outputs.tag }}
+
+  BuildInstaller:
+    needs: [TagRelease, UnitTests, Xa11yMacOS]
+    uses: aws-deadline/.github/.github/workflows/reusable_build_installers.yml@mainline
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      ref_type: tags
+      ref: ${{ needs.TagRelease.outputs.tag }}
+      oses: "['Linux', 'Windows', 'MacOS']"
+      environment: release
+      project_name: ${{ github.event.repository.name }}
+
+  # Publishing to CodeArtifact starts the Conda adaptor build. release_publish.yml
+  # completes the release once nuke-openjd reaches the public Conda channel.
+  PublishToCodeArtifact:
+    needs: [TagRelease, BuildInstaller]
+    uses: aws-deadline/.github/.github/workflows/reusable_publish_python.yml@mainline
+    permissions:
+      id-token: write
+    secrets: inherit
+    with:
+      tag: ${{ needs.TagRelease.outputs.tag }}

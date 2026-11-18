@@ -1,14 +1,17 @@
 name: "Release: Bump"
 
 on:
+  schedule:
+    # Every Monday at 14:00 UTC (~6/7am Pacific, ~9/10am Eastern).
+    - cron: "0 14 * * 1"
   workflow_dispatch:
     inputs:
       force_version_bump:
         required: false
-        default: ""
+        default: auto
         type: choice
         options:
-        - ""
+        - auto
         - patch
         - minor
         - major
@@ -16,8 +19,105 @@ on:
 concurrency:
   group: release
 
+permissions:
+  contents: read
+
 jobs:
+  CheckForBump:
+    if: >-
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      github.ref == 'refs/heads/mainline'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_bump: ${{ steps.check.outputs.should_bump }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Install release dependencies
+        run: pip install -r requirements-release.txt
+      - name: Check whether a version bump is needed
+        id: check
+        env:
+          FORCE_VERSION_BUMP: ${{ inputs.force_version_bump != 'auto' && inputs.force_version_bump || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$FORCE_VERSION_BUMP" ]]; then
+            echo "should_bump=true" >> "$GITHUB_OUTPUT"
+            echo "### Forced version bump requested" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          NEXT_TAG=$(semantic-release version --print-tag)
+          if [[ -z "$NEXT_TAG" ]]; then
+            echo "::error::semantic-release did not determine a next tag."
+            exit 1
+          fi
+
+          if git show-ref --verify --quiet "refs/tags/$NEXT_TAG"; then
+            if ! git merge-base --is-ancestor "refs/tags/$NEXT_TAG^{commit}" HEAD; then
+              echo "::error::Tag $NEXT_TAG already exists on another branch."
+              exit 1
+            fi
+            echo "should_bump=false" >> "$GITHUB_OUTPUT"
+            echo "### Nothing to release" >> "$GITHUB_STEP_SUMMARY"
+            echo "No commits since $NEXT_TAG require a version bump." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Publish checks only the newest tag. Hold scheduled bumps while the previous
+          # release is unpublished within its readiness window, so Conda lag does not
+          # cause weekly tags to overtake it. Manual dispatch bypasses this hold.
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            LATEST_TAG=""
+            for tag in $(git tag --merged HEAD --sort=-version:refname); do
+              if [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                LATEST_TAG="$tag"
+                break
+              fi
+            done
+
+            if [[ -n "$LATEST_TAG" ]]; then
+              STATUS=$(curl -sS --connect-timeout 10 --max-time 60 --retry 3 -o /dev/null -w '%{http_code}' \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$LATEST_TAG" || true)
+              if [[ "$STATUS" == "404" ]]; then
+                TAG_CREATED=$(git for-each-ref --format='%(creatordate:unix)' "refs/tags/$LATEST_TAG")
+                AGE_SECONDS=$(( $(date +%s) - TAG_CREATED ))
+                # Keep this window aligned with CheckConda in release_publish.yml.
+                if (( AGE_SECONDS >= 28 * 24 * 60 * 60 )); then
+                  echo "### Previous release exceeded the 28-day readiness window" >> "$GITHUB_STEP_SUMMARY"
+                  echo "Release $LATEST_TAG needs recovery; allowing the next scheduled bump." >> "$GITHUB_STEP_SUMMARY"
+                else
+                  echo "should_bump=false" >> "$GITHUB_OUTPUT"
+                  echo "### Release bump held: $NEXT_TAG" >> "$GITHUB_STEP_SUMMARY"
+                  echo "Release $LATEST_TAG isn't published yet. \"Release: Publish\" publishes it once its Conda package is available." >> "$GITHUB_STEP_SUMMARY"
+                  exit 0
+                fi
+              elif [[ "$STATUS" != "200" ]]; then
+                echo "::error::Could not check for a GitHub Release of $LATEST_TAG (HTTP $STATUS)."
+                exit 1
+              fi
+            fi
+          fi
+
+          echo "should_bump=true" >> "$GITHUB_OUTPUT"
+          echo "### Release bump needed: $NEXT_TAG" >> "$GITHUB_STEP_SUMMARY"
+
   Bump:
+    needs: CheckForBump
+    if: needs.CheckForBump.outputs.should_bump == 'true'
     name: Version Bump
     uses: aws-deadline/.github/.github/workflows/reusable_bump.yml@mainline
     permissions:
@@ -26,4 +126,4 @@ jobs:
       pull-requests: write
     secrets: inherit
     with:
-      force_version_bump: ${{ inputs.force_version_bump }}
+      force_version_bump: ${{ inputs.force_version_bump != 'auto' && inputs.force_version_bump || '' }}

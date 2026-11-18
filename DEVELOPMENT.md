@@ -57,6 +57,52 @@ hatch run fmt
 hatch run all:test
 ```
 
+## Release workflows
+
+**Release: Bump** runs every Monday at 14:00 UTC and opens a release PR when
+semantic-release determines that a version bump is needed. Release PRs still
+require human review and merge. Scheduled bumps wait while the latest tag has
+no GitHub Release and is less than 28 days old, preventing weekly tags from
+overtaking a release awaiting Conda. After that window, scheduled bumps resume;
+the older release needs recovery. Manual dispatch, including a forced version
+bump, bypasses this hold. Nuke's existing semantic-release commit rules apply.
+The `CHANGELOG.md` push to `mainline` starts **Release: Prepare**: tag the release,
+run unit tests and the macOS xa11y suite against that tag, stage the Linux,
+Windows, and macOS installers, then publish to CodeArtifact.
+
+**Release: Publish** checks every six hours for the tagged `nuke-openjd` version
+in the public Conda manifest on `linux-64`. Once it is available, the workflow
+runs PreRelease, releases the installers, creates the GitHub Release, and
+uploads to PyPI automatically. The unit and macOS GUI tests in Prepare replace
+the routine manual-testing approval. Conda recipe approvals remain separate.
+The initial Conda readiness timeout is 28 days. Release workflows run only from
+`mainline` in the upstream repository.
+
+For recovery:
+
+- Dispatch **Release: Bump** on `mainline` to request an out-of-cycle release.
+  Select a forced patch, minor, or major bump when needed.
+
+- Dispatch **Release: Prepare** on `mainline` with a tag to repeat preparation.
+  The GUI suite checks out `refs/tags/<tag>`, including on reruns.
+- Dispatch **Release: Publish** on `mainline` with a tag to check its readiness.
+  A tag that already has a GitHub Release is a no-op.
+- If publication must proceed before Conda is available, dispatch Publish with
+  the tag and `force_publish` enabled. This requires a successful Prepare run
+  for that tag and approval in `release-gate`. This approval is required only
+  for an emergency Conda override.
+- If PyPI fails after the GitHub Release was created, rerun the failed job in
+  that Publish run. Scheduled checks stop once the GitHub Release exists.
+  PyPI uses `skip-existing` so reruns tolerate files that were already uploaded.
+
+The **Nuke GUI Integration Tests** coordinator runs the macOS and Linux suites
+on pushes to `mainline` and `feature/ci-tests` (excluding changes limited to
+`CHANGELOG.md`), and on manual dispatch. It holds the shared license concurrency
+lock while the two platform jobs run. Release preparation calls the macOS suite
+directly, using the same shared lock. For a manual macOS GUI run against a tag,
+dispatch **Nuke xa11y Integration Tests - macOS** from either allowed branch and
+set its `ref` input to `refs/tags/<tag>`.
+
 ## Submitter Development Workflow
 
 Here are steps you can follow to run and edit the source code within your Nuke installation on Windows. The steps
