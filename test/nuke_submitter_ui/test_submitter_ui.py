@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 from pathlib import Path
-from shutil import rmtree
+from shutil import copy2, copytree, rmtree
 from typing import Callable, Optional
 
 import pytest
@@ -26,7 +27,7 @@ from deadline_test_fixtures.job_bundle import (
     find_complete_job_bundle,
 )
 
-from _launcher import build_nuke_environment, launch_nuke_with_submitter
+from _launcher import ENV_STATUS_FILE, build_nuke_environment, launch_nuke_with_submitter
 from _qt_launcher import export_with_qt
 from _utils import (
     assert_bundle_matches_golden,
@@ -170,6 +171,23 @@ def test_submitter_export_bundle(
     assert_valid_job_bundle(actual_dir / "template.yaml")
 
     expected_bundle_dir = case_folder / "expected" / "job_bundle"
+    # Stock OCIO files changed in Nuke 17. Cases can override individual golden
+    # documents for that major version without duplicating the unchanged template.
+    opener_status = Path(env[ENV_STATUS_FILE]).read_text(encoding="utf-8")
+    version = re.search(r"^nuke_version=(\d+)\.", opener_status, re.MULTILINE)
+    overrides = case_folder / "expected" / f"job_bundle_nuke{version.group(1)}" if version else None
+    if overrides is not None and overrides.is_dir():
+        if os.environ.get("NUKE_SUBMITTER_UI_UPDATE_GOLDENS") == "1":
+            pytest.fail(
+                "Version-specific goldens require explicit review; automatic updates disabled"
+            )
+        expected_bundle_dir = tmp_path / "expected_bundle"
+        copytree(case_folder / "expected" / "job_bundle", expected_bundle_dir)
+        for document in overrides.iterdir():
+            if document.name not in ("asset_references.yaml", "parameter_values.yaml"):
+                pytest.fail(f"Unexpected version-specific golden: {document}")
+            copy2(document, expected_bundle_dir / document.name)
+        log(f"case {case}: using {overrides.name} golden overrides")
     if os.environ.get("NUKE_SUBMITTER_UI_UPDATE_GOLDENS") == "1":
         log(f"case {case}: UPDATE_GOLDENS — regenerating {expected_bundle_dir}")
         write_goldens_from_actual(actual_dir, expected_bundle_dir)

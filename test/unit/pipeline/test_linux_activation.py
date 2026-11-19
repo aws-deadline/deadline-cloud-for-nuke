@@ -10,8 +10,8 @@ from unittest.mock import Mock
 import pytest
 
 
-@pytest.fixture
-def launcher(monkeypatch):
+@pytest.fixture(params=["linux", "win32"])
+def launcher(monkeypatch, request):
     def stub(name, **attributes):
         module = ModuleType(name)
         module.__dict__.update(attributes)
@@ -28,7 +28,10 @@ def launcher(monkeypatch):
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
-    spec.loader.exec_module(module)
+    # Unit loaders do not add the GUI suite to sys.path on either host OS.
+    with monkeypatch.context() as host:
+        host.setattr(sys, "platform", request.param)
+        spec.loader.exec_module(module)
     monkeypatch.setattr(module.sys, "platform", "linux")
     monkeypatch.setattr(module.time, "sleep", Mock())
     return module

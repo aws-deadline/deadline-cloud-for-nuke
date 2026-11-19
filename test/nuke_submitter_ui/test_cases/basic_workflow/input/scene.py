@@ -9,6 +9,7 @@ deterministic — the exported bundle is compared against committed goldens.
 """
 
 import os
+from pathlib import Path
 
 import nuke
 
@@ -24,6 +25,6 @@ write_node = nuke.nodes.Write(name="Write1")
 write_node.setInput(0, color_wheel)
 # Renders land inside the case's actual/ dir (scene_file lives there), so a
 # future render-comparison step can find them next to the bundle output.
-write_node["file"].setValue(os.path.join(scene_dir, "renders", "basic_workflow.####.exr"))
+write_node["file"].setValue(Path(scene_dir, "renders", "basic_workflow.####.exr").as_posix())
 
 nuke.scriptSaveAs(scene_file, overwrite=1)

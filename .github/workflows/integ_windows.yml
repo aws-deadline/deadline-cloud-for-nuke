@@ -1,0 +1,194 @@
+name: "Nuke GUI Integration Tests - Windows"
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      installer_s3_key:
+        description: Shared installer bucket key for the verified Nuke 17.1v2 Windows ZIP; omit for desktop preflight only
+        type: string
+        required: false
+      diagnose_startup:
+        description: Stop after the first failed case and preserve Nuke startup diagnostics
+        type: boolean
+        default: false
+  push:
+    branches:
+      - feature/ci-tests
+    paths:
+      - .github/workflows/integ_windows.yml
+      - pipeline/*windows*.ps1
+
+jobs:
+  Desktop:
+    name: Windows hosted runner desktop access
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify unlocked interactive desktop
+        shell: pwsh
+        run: ./pipeline/check-windows-gui-desktop.ps1
+      - name: Mark preflight-only result
+        if: inputs.installer_s3_key == '' || (github.ref != 'refs/heads/mainline' && github.ref != 'refs/heads/feature/ci-tests')
+        shell: pwsh
+        run: |
+          'Only Windows desktop preflight ran. No Nuke GUI test case ran; a full run requires an installer S3 key and mainline or feature/ci-tests.' |
+            Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+  GUI:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.installer_s3_key != '' &&
+      github.repository == 'aws-deadline/deadline-cloud-for-nuke' &&
+      (github.ref == 'refs/heads/mainline' || github.ref == 'refs/heads/feature/ci-tests')
+    needs: Desktop
+    name: xa11y GUI tests (Windows, Nuke 17.1v2)
+    # Verify the desktop in each job; hosted jobs run on separate machines.
+    runs-on: windows-2025
+    timeout-minutes: 45
+    # Share the existing license lock with macOS/Linux suites and release runs.
+    concurrency:
+      group: nuke-integration-tests
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      foundry_LICENSE: "6101@127.0.0.1"
+      FN_NUKE_DISABLE_GPU_ACCELERATION: "1"
+      NUKE_SUBMITTER_UI_CAPTURE_DIAGNOSTICS: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify this job's unlocked interactive desktop
+        shell: pwsh
+        run: ./pipeline/check-windows-gui-desktop.ps1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install Hatch
+        shell: pwsh
+        run: |
+          python -m pip install "hatch==1.18.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Configure existing AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Install verified Nuke archive from the shared CI bucket
+        shell: pwsh
+        env:
+          INSTALLER_BUCKET: ${{ secrets.INSTALLER_BUCKET }}
+          INSTALLER_BUCKET_EXPECTED_OWNER: ${{ secrets.INSTALLER_BUCKET_EXPECTED_OWNER }}
+          NUKE_INSTALLER_S3_KEY: ${{ inputs.installer_s3_key }}
+        run: ./pipeline/install-nuke-windows.ps1
+      - name: Prepare modern Mesa in an isolated Nuke runtime copy
+        shell: pwsh
+        run: |
+          # Release only this job's verified installation archive after install;
+          # preserve install.log and never remove any installed Nuke files.
+          Remove-Item -LiteralPath "$env:RUNNER_TEMP/nuke-installer/Nuke17.1v2-win-x86_64.msi"
+          $credentials = @{}
+          try {
+            foreach ($name in 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_CONFIG_FILE', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN') {
+              $credentials[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+              [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            }
+            python ./pipeline/prepare-native-mesa-windows.py --directory "$env:RUNNER_TEMP/nuke-native-mesa" --nuke-executable $env:NUKE_EXECUTABLE --github-env $env:GITHUB_ENV
+            if ($LASTEXITCODE -ne 0) { throw "Native Mesa preparation failed ($LASTEXITCODE)." }
+          } finally {
+            foreach ($name in $credentials.Keys) {
+              [Environment]::SetEnvironmentVariable($name, $credentials[$name], 'Process')
+            }
+          }
+      - name: Run complete mock-backend GUI suite through existing CI license connection
+        shell: pwsh
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          LICENSE_ROLE_ARN: ${{ secrets.LICENSE_ROLE_ARN }}
+          BASTION_INSTANCE_TAG: ${{ secrets.BASTION_INSTANCE_TAG }}
+          DIAGNOSE_STARTUP: ${{ inputs.diagnose_startup }}
+        run: |
+          $testExit = 1
+          $credentials = @{}
+          try {
+            ./pipeline/windows-license-tunnel.ps1
+            if ($LASTEXITCODE -ne 0) { throw 'License connection setup failed.' }
+            foreach ($name in 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN', 'AWS_CONFIG_FILE', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN') {
+              $credentials[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+              [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            }
+            $pytestArguments = @('-s')
+            if ($env:DIAGNOSE_STARTUP -eq 'true') { $pytestArguments += '--maxfail=1' }
+            ./pipeline/run-nuke-ui-windows.ps1 -RunDirectory "$env:RUNNER_TEMP\nuke-windows-gui" -PytestArguments $pytestArguments
+            $testExit = $LASTEXITCODE
+          } finally {
+            foreach ($name in $credentials.Keys) {
+              [Environment]::SetEnvironmentVariable($name, $credentials[$name], 'Process')
+            }
+            ./pipeline/windows-license-tunnel.ps1 -Cleanup
+          }
+          exit $testExit
+      - name: Tear down owned license session
+        if: always()
+        shell: pwsh
+        run: ./pipeline/windows-license-tunnel.ps1 -Cleanup
+      - name: Verify original Nuke files after tests
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:RUNNER_TEMP/nuke-native-mesa/probe.json") {
+            python ./pipeline/prepare-native-mesa-windows.py --directory "$env:RUNNER_TEMP/nuke-native-mesa" --verify-original
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Report actual GUI counts and logs
+        if: always()
+        shell: pwsh
+        run: |
+          $root = "$env:RUNNER_TEMP\nuke-windows-gui"
+          if (Test-Path "$root\results.xml") {
+            [xml]$results = Get-Content "$root\results.xml" -Raw
+            $suite = $results.testsuites.testsuite
+            "Windows Nuke 17.1v2: tests=$($suite.tests), failures=$($suite.failures), errors=$($suite.errors), skipped=$($suite.skipped)" |
+              Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            'No Windows GUI results.xml was produced; GUI tests have not been verified.' |
+              Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+          foreach ($file in 'runner.log', 'dependencies.log', 'pytest.log') {
+            if (Test-Path "$root\$file") {
+              Write-Output "=== $file ==="
+              Get-Content "$root\$file" -Tail 120
+            }
+          }
+      - name: Preserve Windows GUI evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nuke-windows-gui-evidence
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/nuke-windows-gui/runner.log
+            ${{ runner.temp }}/nuke-windows-gui/dependencies.log
+            ${{ runner.temp }}/nuke-windows-gui/pytest.log
+            ${{ runner.temp }}/nuke-windows-gui/results.xml
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/*.png
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/nuke_*.log
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/accessibility-tree.txt
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/diagnostics-error.txt
+            ${{ runner.temp }}/nuke-windows-gui/pytest/**/opener_status.txt
+            ${{ runner.temp }}/nuke-installer/install.log
+            ${{ runner.temp }}/nuke-windows-license-status.txt
+            ${{ runner.temp }}/nuke-native-mesa/probe.json

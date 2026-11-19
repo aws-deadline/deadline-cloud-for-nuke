@@ -74,8 +74,16 @@ test_cases/<case>/
   input/configure.py    # optional: configure(dialog) drives the dialog
                         #   (receives the NukeSubmitterDialog page object)
   expected/job_bundle/  # committed goldens (normalization: _utils.py)
+  expected/job_bundle_nuke17/  # optional OCIO asset/parameter overrides
   actual/               # runtime output; left behind on failure, gitignored
 ```
+
+The OCIO cases use Nuke 17 overrides for its shipped `nuke-default` config.
+Other versions retain the original `aces_1.2` expectations. The template stays
+shared. Automatic golden updates are disabled when an override applies; review
+and edit those two documents explicitly. Asset path collections are compared
+without ordering, since absolute installation paths sort differently across
+platforms; missing, duplicate, and changed assets still fail.
 
 ## Adding a test case
 
@@ -109,6 +117,59 @@ The accessibility-layer ground rules (Qt.Tool window visibility, anonymous
 widgets, combo popup and spin-box workarounds) are documented once,
 canonically, in the `pages.py` module docstring.
 
+### Windows desktop runner
+
+Verified on Windows Server 2022 / Nuke 17.1v2 / Qt 6.5.3 on 2026-11-04:
+all nine GUI cases and four bundle-comparison checks passed in active RDP Session 2,
+with no skips and native exit code 0. Teardown left no Nuke/frame-server workers.
+
+Use a clean, isolated checkout and a licensed Nuke installation with its bundled Python and existing Foundry
+licensing configuration. Foundry uses port 6101; C4D's ports 5054/7054 alone are
+insufficient. Verify the actual Foundry forwarding and license availability.
+The runner does not install Nuke or change licensing.
+
+From an unlocked RDP desktop, with no other DCC or agent using the desktop:
+
+```powershell
+$env:NUKE_EXECUTABLE = 'C:\Program Files\Nuke17.1v2\Nuke17.1.exe'
+$env:NUKE_PYTHON = 'C:\Program Files\Nuke17.1v2\python.exe'
+.\pipeline\run-nuke-ui-windows.ps1 -RunDirectory C:\Dev\nuke-ui-runs\unique-run
+```
+
+Use the paths for the actual installation. `-PreflightOnly` checks desktop
+access and installation paths without installing dependencies or launching Nuke;
+it does not prove that a license can be acquired. For a focused run, pass
+`-PytestArguments @('-k', 'basic_workflow')`.
+
+The runner rejects Session 0, unavailable input desktops, existing interactive
+DCC processes, and concurrent instances of this runner. It installs submitter
+dependencies into the new run directory using Nuke's Python, sets a dedicated
+`HATCH_DATA_DIR`, and records `runner.log`, `dependencies.log`, `pytest.log`,
+`results.xml`, and per-case Nuke logs under `pytest/`. Native stderr is captured
+with PowerShell's error preference set to `Continue`; pytest's native exit code
+is returned. Preserve failure artifacts before removing the run directory.
+Nuke inherits the isolated dependency directory through
+`NUKE_SUBMITTER_UI_PYTHONPATH`; do not put it in pytest's `PYTHONPATH`, which
+can bypass the test environment's pywin32 initialization. Windows processes
+are owned by a Job Object so teardown also stops frame-server workers that
+outlive the main GUI process.
+
+SSM can inspect the host and prepare source/dependencies, but GUI tests must run
+in the active desktop. Before using Task Scheduler, inspect `query user` and
+existing task definitions. A scoped temporary task must use the logged-in user's
+`InteractiveToken` (`LogonType Interactive` in PowerShell), and must be removed
+after its logs are preserved. Do not reuse another test's task or guess desktop
+credentials.
+
+A Windows CI runner must have an unlocked, dedicated interactive desktop and
+existing Nuke licensing. A runner installed as a Windows service runs in Session
+0 and is unsuitable. Before enabling automation, verify the complete suite in
+that runner's session, coordinate desktop ownership, and serialize licensed runs
+with the existing workflow's `nuke-integration-tests` concurrency group.
+PR-trigger access remains deferred; the GitHub workflow below uses the existing
+installer bucket and license credentials.
+Windows foreground recovery is not implemented; a dedicated desktop is required.
+
 ## Status
 
 Ported Squish cases:
@@ -125,7 +186,8 @@ Ported Squish cases:
 
 `write_node_gui` and `ocio_gui` each submitted twice from one scene; since a
 case here exports one bundle, each submission became its own case. The OCIO
-cases pin the `aces_1.2` stock config, as the Squish scene did.
+cases pin `aces_1.2` on older installations and `nuke-default` on Nuke 17,
+which no longer ships the legacy ACES files.
 
 Remaining: `manual_attachments_gui`, `invalid_conda_gui`. Squish stays until they are ported.
 
@@ -219,3 +281,69 @@ the log, and OK/Close buttons, including same-dialog retry after failure.
 The Qt picker selectors passed the macOS rerun. No golden update was needed.
 Record the runner OS, Nuke version, dependency versions and results before
 claiming GUI validation.
+
+## Windows GitHub CI
+
+`integ_windows.yml` runs the mock-backend GUI suite on a standard `windows-2025`
+runner with Mesa software OpenGL. A manual dispatch on `mainline` or
+`feature/ci-tests` with `installer_s3_key` set to
+`nuke/17/Nuke17.1v2-win-x86_64.zip` enables the complete suite. Omitting the key
+runs only the unlocked-desktop preflight; that does not verify Nuke or licensing.
+PR-triggered licensed runs remain deferred.
+
+```bash
+gh workflow run integ_windows.yml --ref mainline \
+  -f installer_s3_key=nuke/17/Nuke17.1v2-win-x86_64.zip
+```
+
+The installer comes from the existing shared `INSTALLER_BUCKET`, using the CI
+OIDC role and expected bucket owner. The script verifies the archive SHA-256
+and the MSI's Foundry signature before installation. The licensed run shares
+`nuke-integration-tests` concurrency with macOS/Linux and uses the existing CI
+license connection. No IAM or repository-secret changes are required. Before
+starting a run, check for pending licensed workflows: a new arrival can replace
+the group's pending run even with `cancel-in-progress: false`.
+
+### Software OpenGL
+
+Standard Windows runners expose an unlocked desktop but do not provide Nuke's
+required OpenGL support. Qt's older `opengl32sw.dll` did not resolve Nuke's native
+graphics startup. The working setup uses mesa-dist-win 26.2.6's x64 MinGW
+`opengl32.dll` and `libgallium_wgl.dll` with CPU rendering through llvmpipe.
+The archive and both DLLs have verified SHA-256 pins.
+
+Mesa is maintained through reviewed version and checksum updates, following the
+[Blender Windows GUI workflow](https://github.com/aws-deadline/deadline-cloud-for-blender/blob/mainline/.github/workflows/submitter_gui_tests.yml).
+Dependabot does not update these pins. To upgrade Mesa, update `ARCHIVE_URL`,
+`ARCHIVE_SHA256` and `DLL_HASHES` in `pipeline/prepare-native-mesa-windows.py`
+for the selected x64 MinGW release. Verify the release artifacts, run the full
+Windows GUI suite, and include its results in the upgrade PR before merging.
+
+The helper copies the installed Nuke runtime into a fresh directory under
+`RUNNER_TEMP`, adds those two libraries and a per-application `.local` redirection
+marker, and sets `GALLIUM_DRIVER=llvmpipe` and `QT_OPENGL=desktop`. It probes the
+selected OpenGL implementation and records its vendor, renderer and version.
+Only the temporary copy uses Mesa; installed Nuke files and system drivers remain
+untouched. Original executable, Python and overlay-target hashes are verified
+before and after testing. Mesa is a CI test dependency, not a released package
+component. Retain upstream license notices when managing the pinned distribution;
+Mesa's core MIT license does not describe every bundled component's license.
+
+The [verified GitHub run](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/43892583632)
+on November 16, 2026 used Windows Server 2025 (build 26100), Nuke 17.1v2, and
+Mesa 26.2.6 / llvmpipe with OpenGL 4.6. It passed **25 tests: 13 actual GUI cases
+and 12 supporting checks**, with zero failures, errors or skips in 484.80 seconds.
+This includes the original nine export cases, manual attachments, validation
+recovery and both mock submission paths. Original Nuke file verification passed.
+This establishes submitter GUI compatibility on that runner; it does not test
+GPU rendering performance or establish long-term runner reliability.
+
+After narrowing the native Windows attachment picker's confirmation-button
+selector, the [full rerun](https://github.com/aws-deadline/deadline-cloud-for-nuke/actions/runs/43909094072)
+passed all 25 tests with zero failures, errors or skips in 492.81 seconds.
+The runner reported exit code 0 and verified the original Nuke files unchanged.
+
+The workflow preserves JUnit results, runner/dependency/pytest logs, per-case Nuke
+startup logs and screenshots, installer logs, license status and Mesa's
+`probe.json`. For startup diagnosis, pass `-f diagnose_startup=true` to stop after
+the first failure. Full runs continue through all cases by default.
