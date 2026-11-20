@@ -29,7 +29,9 @@ classifiers = [
 ]
 
 dependencies = [
-    # 0.60.4 is the floor: AWS Console sign-in landed there, and 0.60.1-0.60.3 declare no
+    # 0.60.12 is the floor: it lists farms reached only through a queue or fleet
+    # membership (ListMemberships); older releases show those users an empty farm list.
+    # AWS Console sign-in landed in 0.60.4, and 0.60.1-0.60.3 declare no
     # `console` extra at all.
     #
     # The console extra is deliberately NOT requested here: these base dependencies resolve
@@ -38,7 +40,7 @@ dependencies = [
     # console path anyway -- it runs on a worker with host-provided credentials. The
     # dependency bundle (scripts/depsBundle.py) and this package's own `console` extra
     # (below) request it instead.
-    "deadline >= 0.60.4,< 0.61",
+    "deadline >= 0.60.12,< 0.61",
     "openjd-adaptor-runtime >= 0.7,< 0.10",
 ]
 
@@ -47,7 +49,7 @@ dependencies = [
 # scripts/depsBundle.py's dependency bundle. Kept out of dependencies for the same reason
 # noted above; test_console_signin_dependencies.py keeps this range in sync with it.
 console = [
-    "deadline[console] >= 0.60.4,< 0.61",
+    "deadline[console] >= 0.60.12,< 0.61",
 ]
 
 [project.urls]
