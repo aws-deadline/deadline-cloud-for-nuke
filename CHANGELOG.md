@@ -1,3 +1,7 @@
+## 0.18.21 (2026-11-23)
+
+### BREAKING CHANGES
+* Python 3.9 is no longer supported because it has reached end of life. To keep getting updates to deadline-cloud-for-nuke, use Python 3.10 or later. (#378)
 ## 0.18.20 (2026-09-25)
 
 ### Bug Fixes
