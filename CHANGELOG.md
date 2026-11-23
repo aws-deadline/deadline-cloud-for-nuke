@@ -1,3 +1,10 @@
+## 0.18.21 (2026-11-23)
+
+### BREAKING CHANGES
+* Python 3.9 is no longer supported because it has reached end of life. Use Python 3.10 or later. (#378)
+
+### Bug Fixes
+* Artists who can reach a farm only through a queue or fleet membership now see that farm in the submitter. Before, their farm list was empty. The minimum required `deadline` version is now 0.60.12. (#387)
 ## 0.18.20 (2026-09-25)
 
 ### Bug Fixes
